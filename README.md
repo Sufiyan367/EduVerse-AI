@@ -46,7 +46,7 @@ The table below reflects actual empirical test results across development milest
 | **Document-Grounded AI Tutor** | Verified (Done) | LLM orchestrator tested; contextual Q&A, out-of-scope refusal, and concept simplification verified |
 | **Automated Quiz Generation** | Verified (Done) | MCQ generator tested; 4-option validation, option index bounding, and rationale verified |
 | **Interactive Quiz Scoring** | Verified (Done) | Scoring engine tested; percentage calculation, passed flag, and breakdown verified |
-| **3D Avatar & Web Interface UX** | Pending (Phase 5) | Scheduled for verification |
+| **3D Avatar & Web Interface UX** | Verified (Done) | 3-column workspace with Three.js WebGL reactive avatar (Idle/Thinking/Explaining) verified |
 
 ---
 
