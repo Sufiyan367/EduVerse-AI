@@ -41,12 +41,12 @@ The table below reflects actual empirical test results across development milest
 |---|---|---|
 | **LaTeX Academic Report** | Verified (Done) | Compiled via bundled Tectonic compiler; verified strictly 25 pages via PyMuPDF |
 | **Project Workspace & Baseline** | Verified (Done) | Git initialized, `.gitignore`, `.env.example`, MIT License, `THIRD_PARTY_NOTICES.md` configured |
-| **Application Foundation (FastAPI)** | Pending (Phase 1) | Scheduled for implementation |
-| **PDF Upload & Validation (PyMuPDF)** | Pending (Phase 2) | Scheduled for implementation |
-| **Document-Grounded AI Tutor** | Pending (Phase 3) | Scheduled for implementation |
-| **Automated Quiz Generation** | Pending (Phase 4) | Scheduled for implementation |
-| **Interactive Quiz Scoring** | Pending (Phase 4) | Scheduled for implementation |
-| **3D Avatar & Web Interface UX** | Pending (Phase 5) | Scheduled for implementation |
+| **Application Foundation (FastAPI)** | Verified (Done) | Uvicorn server started; `/api/health` and `/` respond with HTTP 200 OK |
+| **PDF Upload & Validation (PyMuPDF)** | Pending (Phase 2) | Scheduled for verification |
+| **Document-Grounded AI Tutor** | Pending (Phase 3) | Scheduled for verification |
+| **Automated Quiz Generation** | Pending (Phase 4) | Scheduled for verification |
+| **Interactive Quiz Scoring** | Pending (Phase 4) | Scheduled for verification |
+| **3D Avatar & Web Interface UX** | Pending (Phase 5) | Scheduled for verification |
 
 ---
 
