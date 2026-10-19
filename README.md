@@ -43,7 +43,7 @@ The table below reflects actual empirical test results across development milest
 | **Project Workspace & Baseline** | Verified (Done) | Git initialized, `.gitignore`, `.env.example`, MIT License, `THIRD_PARTY_NOTICES.md` configured |
 | **Application Foundation (FastAPI)** | Verified (Done) | Uvicorn server started; `/api/health` and `/` respond with HTTP 200 OK |
 | **PDF Upload & Validation (PyMuPDF)** | Verified (Done) | PyMuPDF pipeline tested; size limits, magic bytes, empty/corrupt validation verified |
-| **Document-Grounded AI Tutor** | Pending (Phase 3) | Scheduled for verification |
+| **Document-Grounded AI Tutor** | Verified (Done) | LLM orchestrator tested; contextual Q&A, out-of-scope refusal, and concept simplification verified |
 | **Automated Quiz Generation** | Pending (Phase 4) | Scheduled for verification |
 | **Interactive Quiz Scoring** | Pending (Phase 4) | Scheduled for verification |
 | **3D Avatar & Web Interface UX** | Pending (Phase 5) | Scheduled for verification |
