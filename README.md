@@ -7,6 +7,7 @@
 [![Three.js: WebGL](https://img.shields.io/badge/Three.js-3D%20Avatar-0A192F.svg)](https://threejs.org)
 [![Report: 25 Pages](https://img.shields.io/badge/Report-25%20Pages%20Verified-success.svg)](EduVerse_AI_Project_Report/EduVerse_AI_Project_Report.pdf)
 [![Tests: 13 Passed](https://img.shields.io/badge/Tests-13%2F13%20Passed-brightgreen.svg)](tests/)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Sufiyan367/EduVerse-AI)
 
 > **Department:** Artificial Intelligence & Data Science  
 > **Institution:** Indira College of Engineering and Management (ICEM), Parandwadi, Pune  
