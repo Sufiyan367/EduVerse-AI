@@ -124,7 +124,29 @@ Once started:
 
 ---
 
-## 7. How to Use the Application
+## 7. Cloud Deployment on Render
+
+EduVerse AI is production-ready for deployment on [Render](https://render.com) using the included `render.yaml` Blueprint or as a standard Python Web Service:
+
+### Render Configuration Details:
+- **Environment:** Python 3.11+
+- **Build Command:** `pip install -r requirements.txt`
+- **Start Command:** `python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
+- **Environment Variables (Render Dashboard):**
+  - `LLM_PROVIDER`: `gemini` (or `openai`, `openrouter`)
+  - `GEMINI_API_KEY`: Server-side secret key (never committed to repository)
+  - `ENVIRONMENT`: `production`
+
+### Blueprint Deployment:
+1. Log in to [Render Dashboard](https://dashboard.render.com).
+2. Click **New +** $\to$ **Blueprint**.
+3. Connect your repository `Sufiyan367/EduVerse-AI`.
+4. Render will parse `render.yaml` automatically and prompt for your secret `GEMINI_API_KEY`.
+5. Click **Apply** to deploy the live web service.
+
+---
+
+## 8. How to Use the Application
 
 1. **Study Document Loading:**
    - Click the upload card in the left column or drag and drop an academic PDF file (up to 25 MB).
@@ -144,7 +166,7 @@ Once started:
 
 ---
 
-## 8. Automated Testing & Verification
+## 9. Automated Testing & Verification
 
 Run the complete automated test suite with pytest:
 
@@ -173,7 +195,7 @@ tests/test_pdf_service.py::test_size_limit_enforced PASSED               [100%]
 
 ---
 
-## 9. Compiling the 25-Page Project Report
+## 10. Compiling the 25-Page Project Report
 
 The project includes the complete academic LaTeX report conforming strictly to the 25-page format required by the Department of AI & DS at ICEM Pune.
 
@@ -190,7 +212,7 @@ python -c "import pymupdf; doc = pymupdf.open(r'EduVerse_AI_Project_Report\EduVe
 
 ---
 
-## 10. Known Limitations & Future Scope
+## 11. Known Limitations & Future Scope
 
 ### Known Limitations
 - Standard text parsing requires machine-readable PDFs; scanned handwritten notes require an external OCR pre-processor.
@@ -205,7 +227,7 @@ python -c "import pymupdf; doc = pymupdf.open(r'EduVerse_AI_Project_Report\EduVe
 
 ---
 
-## 11. Open-Source Licensing & Attribution
+## 12. Open-Source Licensing & Attribution
 
 - **Project License:** [MIT License](LICENSE) — Copyright (c) 2026 Aryan Shinde, Huzaifa Sheikh, Sufiyan Surve (ICEM Pune).
 - **Third-Party Component Notices:** Comprehensive attribution for FastAPI, PyMuPDF, Pydantic, Three.js, and institutional assets is detailed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
