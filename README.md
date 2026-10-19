@@ -44,8 +44,8 @@ The table below reflects actual empirical test results across development milest
 | **Application Foundation (FastAPI)** | Verified (Done) | Uvicorn server started; `/api/health` and `/` respond with HTTP 200 OK |
 | **PDF Upload & Validation (PyMuPDF)** | Verified (Done) | PyMuPDF pipeline tested; size limits, magic bytes, empty/corrupt validation verified |
 | **Document-Grounded AI Tutor** | Verified (Done) | LLM orchestrator tested; contextual Q&A, out-of-scope refusal, and concept simplification verified |
-| **Automated Quiz Generation** | Pending (Phase 4) | Scheduled for verification |
-| **Interactive Quiz Scoring** | Pending (Phase 4) | Scheduled for verification |
+| **Automated Quiz Generation** | Verified (Done) | MCQ generator tested; 4-option validation, option index bounding, and rationale verified |
+| **Interactive Quiz Scoring** | Verified (Done) | Scoring engine tested; percentage calculation, passed flag, and breakdown verified |
 | **3D Avatar & Web Interface UX** | Pending (Phase 5) | Scheduled for verification |
 
 ---
