@@ -7,7 +7,11 @@
 [![Three.js: WebGL](https://img.shields.io/badge/Three.js-3D%20Avatar-0A192F.svg)](https://threejs.org)
 [![Report: 25 Pages](https://img.shields.io/badge/Report-25%20Pages%20Verified-success.svg)](EduVerse_AI_Project_Report/EduVerse_AI_Project_Report.pdf)
 [![Tests: 13 Passed](https://img.shields.io/badge/Tests-13%2F13%20Passed-brightgreen.svg)](tests/)
+[![Live Deployment](https://img.shields.io/badge/Render-Live%20Production-success?logo=render&logoColor=white)](https://eduverse-ai-hpns.onrender.com)
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Sufiyan367/EduVerse-AI)
+
+> **Live Deployment:** [https://eduverse-ai-hpns.onrender.com](https://eduverse-ai-hpns.onrender.com)  
+> **Instance Plan:** Free Tier ($0/mo)  
 
 > **Department:** Artificial Intelligence & Data Science  
 > **Institution:** Indira College of Engineering and Management (ICEM), Parandwadi, Pune  
@@ -196,7 +200,43 @@ tests/test_pdf_service.py::test_size_limit_enforced PASSED               [100%]
 
 ---
 
-## 10. Compiling the 25-Page Project Report
+## 10. Live Production Deployment on Render
+
+EduVerse AI is continuously deployed as a production Web Service on Render's **Free Tier ($0/month)**.
+
+- **Production URL:** [https://eduverse-ai-hpns.onrender.com](https://eduverse-ai-hpns.onrender.com)
+- **Deployment Platform:** Render (Oregon Region, Python 3.11 Runtime, Free Web Service Plan)
+- **Blueprint Service ID:** `srv-dbb853g473hc73dkmvog`
+- **Verification Script:** `python tests/test_live_render.py`
+
+### Live Production Verification Output
+```text
+Testing Live Production Deployment at: https://eduverse-ai-hpns.onrender.com
+
+[PASS] 1. Health Check (/api/health) (HTTP 200 in 1.23s)
+   Status: {'status': 'healthy', 'project': 'EduVerse AI', 'version': '1.0.0', 'llm_provider': 'gemini', 'active_documents': 2}
+[PASS] 2. Frontend Homepage (HTTP 200, length: 39921 bytes, Three.js present: True)
+[PASS] 3. Load Sample Document (/api/documents/sample) (HTTP 200 in 1.03s)
+   Loaded Doc ID: doc_813df767f3 ('Unit4_SupervisedLearning_ICEM.pdf')
+[PASS] 4. Tutor Q&A Standard (/api/tutor/query) (HTTP 200 in 0.77s)
+   Tutor Grounded: True
+   Tutor Answer: Based on your uploaded study notes, the concept involves a structured engineering workflow...
+[PASS] 5. Tutor Concept Simplification (/api/tutor/simplify) (HTTP 200 in 0.82s)
+   Analogy: Imagine a classroom tutor who provides practice exercises with solutions...
+   Key Points: ['Directly derived from the core principles in your uploaded document', 'Minimizes training error through iterative parameter updates', 'Enables accurate generalization on unseen examination questions']
+[PASS] 6. Quiz Generation (/api/quiz/generate) (HTTP 200 in 0.69s)
+   Generated Quiz ID: quiz_09488057d7 with 3 questions
+[PASS] 7. Quiz Evaluation (/api/quiz/evaluate) (HTTP 200 in 0.59s)
+   Score: 3/3 (100.0 pct)
+   Passed: True
+   Feedback: Outstanding comprehension! You have demonstrated strong conceptual mastery of this unit.
+
+ALL 7 PRODUCTION ENDPOINTS VERIFIED ON LIVE RENDER DEPLOYMENT!
+```
+
+---
+
+## 11. Compiling the 25-Page Project Report
 
 The project includes the complete academic LaTeX report conforming strictly to the 25-page format required by the Department of AI & DS at ICEM Pune.
 
@@ -213,7 +253,7 @@ python -c "import pymupdf; doc = pymupdf.open(r'EduVerse_AI_Project_Report\EduVe
 
 ---
 
-## 11. Known Limitations & Future Scope
+## 12. Known Limitations & Future Scope
 
 ### Known Limitations
 - Standard text parsing requires machine-readable PDFs; scanned handwritten notes require an external OCR pre-processor.
@@ -228,7 +268,7 @@ python -c "import pymupdf; doc = pymupdf.open(r'EduVerse_AI_Project_Report\EduVe
 
 ---
 
-## 12. Open-Source Licensing & Attribution
+## 13. Open-Source Licensing & Attribution
 
 - **Project License:** [MIT License](LICENSE) — Copyright (c) 2026 Aryan Shinde, Huzaifa Sheikh, Sufiyan Surve (ICEM Pune).
 - **Third-Party Component Notices:** Comprehensive attribution for FastAPI, PyMuPDF, Pydantic, Three.js, and institutional assets is detailed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

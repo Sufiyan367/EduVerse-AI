@@ -586,29 +586,28 @@ The operational lifecycle of EduVerse AI follows a six-stage sequential pipeline
 \label{ch:frontend}
 
 \section{Interface Design Principles}
-The EduVerse AI interface is structured around cognitive clarity and seamless navigation. The screen is partitioned into three purposeful zones: global navigation, dialogue study space, and the tutor/assessment panel.
+The EduVerse AI interface is structured around cognitive clarity and seamless navigation. The screen is partitioned into three purposeful zones: study material ingestion, dialogue study space, and the tutor/assessment panel.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.72\textwidth]{images/prototype_ui.png}
-    \caption{Conceptual Prototype Workspace of EduVerse AI (Demonstrated at Review-2)}
+    \includegraphics[width=0.74\textwidth]{images/actual_interactive_workspace.png}
+    \caption{Implemented Interactive Learning Workspace of EduVerse AI}
     \label{fig:ui_mockup}
 \end{figure}
 
 \section{UI Component Breakdown}
-As illustrated in the Review-2 prototype design (Figure~\ref{fig:ui_mockup}):
+As illustrated in the implemented application interface (Figure~\ref{fig:ui_mockup}):
 \begin{itemize}[noitemsep, topsep=1pt]
-    \item \textbf{Navigation Sidebar (Left):} Dark navy drawer providing module navigation: \textit{Dashboard, My Material, Virtual Tutor, Practice Quizzes}, and \textit{Progress Analytics}.
+    \item \textbf{Study Documents Drawer (Left):} Ingestion panel displaying file upload status (Unit 4: Supervised Learning), page metrics, PyMuPDF extraction statistics, and text previews.
     \item \textbf{Central Dialogue Canvas (Center):}
     \begin{itemize}[noitemsep]
-        \item \textbf{Document Context Header:} Shows active PDF metadata, parsed syllabus topic, and page range.
-        \item \textbf{Dialogue Bubbles:} Contrasts student doubts (cyan card) with AI tutor responses (structured cards with definitions, analogies, and bullet points).
-        \item \textbf{Quick Actions:} Quick-response buttons for follow-up queries and quiz triggering.
+        \item \textbf{Grounded Conversation Stream:} Contrasts student doubts with AI tutor responses containing verbatim syllabus citations.
+        \item \textbf{Quick Suggestion Chips:} Interactive chips (\textit{Explain Supervised Learning, Logistic Regression Loss, Overfitting Analogy}).
     \end{itemize}
-    \item \textbf{Tutor Avatar and Live Quiz Panel (Right):} Displays the 3D animated tutor avatar window alongside an active concept-check quiz card with immediate answer evaluation.
+    \item \textbf{3D Tutor Avatar and Live Quiz Panel (Right):} Displays the Three.js WebGL 3D animated tutor avatar above an auto-generated active recall quiz card with immediate answer evaluation.
 \end{itemize}
 
-\textit{Academic Status Note:} Figure~\ref{fig:ui_mockup} represents the conceptual prototype design presented at Review-2, serving as the UI specification for frontend development.
+\textit{Academic Status Note:} Figure~\ref{fig:ui_mockup} illustrates the actual running implementation of the EduVerse AI workspace, demonstrating verified document ingestion, grounded Q\&A, Three.js 3D avatar, and interactive quiz assessment.
 \clearpage
 
 % ==============================================================================
