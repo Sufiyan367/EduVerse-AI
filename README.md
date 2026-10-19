@@ -42,7 +42,7 @@ The table below reflects actual empirical test results across development milest
 | **LaTeX Academic Report** | Verified (Done) | Compiled via bundled Tectonic compiler; verified strictly 25 pages via PyMuPDF |
 | **Project Workspace & Baseline** | Verified (Done) | Git initialized, `.gitignore`, `.env.example`, MIT License, `THIRD_PARTY_NOTICES.md` configured |
 | **Application Foundation (FastAPI)** | Verified (Done) | Uvicorn server started; `/api/health` and `/` respond with HTTP 200 OK |
-| **PDF Upload & Validation (PyMuPDF)** | Pending (Phase 2) | Scheduled for verification |
+| **PDF Upload & Validation (PyMuPDF)** | Verified (Done) | PyMuPDF pipeline tested; size limits, magic bytes, empty/corrupt validation verified |
 | **Document-Grounded AI Tutor** | Pending (Phase 3) | Scheduled for verification |
 | **Automated Quiz Generation** | Pending (Phase 4) | Scheduled for verification |
 | **Interactive Quiz Scoring** | Pending (Phase 4) | Scheduled for verification |
