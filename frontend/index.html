@@ -5,55 +5,59 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>EduVerse AI — Animated Virtual Tutor for Personalized Learning</title>
   <link rel="icon" type="image/png" href="/images/college_logo.png" />
-  <!-- Google Fonts: Inter & JetBrains Mono -->
+  
+  <!-- Modern Typography: Inter & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <!-- Three.js for 3D Virtual Tutor Avatar -->
+  
+  <!-- Three.js for 3D Neural Hologram -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
   <style>
     :root {
-      /* Dark Charcoal & Midnight Theme */
-      --bg-midnight: #0B0F19;
-      --bg-panel: #111827;
-      --bg-card: #182234;
-      --bg-surface: #1E293B;
-      --bg-input: #0F172A;
+      /* Obsidian & Deep Charcoal Palette */
+      --bg-base: #060911;
+      --bg-surface: #0B0F1A;
+      --bg-panel: #0F172A;
+      --bg-card: #141E33;
+      --bg-input: #090E1A;
       
-      /* Restrained Teal Accents */
+      /* Vibrant Electric Teal & Cyan Accents */
       --teal-primary: #0D9488;
       --teal-light: #14B8A6;
-      --teal-muted: rgba(13, 148, 136, 0.16);
-      --teal-border: rgba(20, 184, 166, 0.35);
-      --teal-glow: rgba(20, 184, 166, 0.25);
+      --teal-bright: #2DD4BF;
+      --teal-glow: rgba(45, 212, 191, 0.25);
+      --teal-subtle: rgba(20, 184, 166, 0.12);
+      --teal-border: rgba(45, 212, 191, 0.3);
       
-      /* Borders & Dividing Lines */
-      --border-subtle: #1E293B;
-      --border-medium: #334155;
-      --border-focus: #14B8A6;
+      /* Borders & Glassmorphism */
+      --border-subtle: rgba(255, 255, 255, 0.07);
+      --border-medium: rgba(255, 255, 255, 0.14);
+      --border-focus: #2DD4BF;
 
       /* High-contrast Text */
-      --text-white: #F8FAFC;
+      --text-main: #F8FAFC;
       --text-muted: #94A3B8;
       --text-dim: #64748B;
 
-      /* Feedback Colors */
+      /* Feedback States */
       --success: #10B981;
-      --success-bg: rgba(16, 185, 129, 0.15);
-      --success-border: #059669;
+      --success-bg: rgba(16, 185, 129, 0.14);
+      --success-border: rgba(16, 185, 129, 0.4);
       --warning: #F59E0B;
-      --warning-bg: rgba(245, 158, 11, 0.15);
+      --warning-bg: rgba(245, 158, 11, 0.14);
       --danger: #F43F5E;
-      --danger-bg: rgba(244, 63, 94, 0.15);
-      --danger-border: #E11D48;
+      --danger-bg: rgba(244, 63, 94, 0.14);
+      --danger-border: rgba(244, 63, 94, 0.4);
 
-      /* Radii & Shadows */
-      --radius: 12px;
-      --radius-sm: 8px;
-      --shadow-panel: 0 8px 32px rgba(0, 0, 0, 0.45);
-      --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.3);
-      --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      /* Geometry & Transitions */
+      --radius-lg: 14px;
+      --radius-md: 10px;
+      --radius-sm: 6px;
+      --shadow-panel: 0 10px 40px -10px rgba(0, 0, 0, 0.65);
+      --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.4);
+      --transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     * {
@@ -64,168 +68,209 @@
 
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background-color: var(--bg-midnight);
-      color: var(--text-white);
+      background-color: var(--bg-base);
+      color: var(--text-main);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       line-height: 1.5;
       -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* Custom Sleek Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-base);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1E293B;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--teal-primary);
     }
 
     *:focus-visible {
-      outline: 2px solid var(--teal-light);
+      outline: 2px solid var(--teal-bright);
       outline-offset: 2px;
     }
 
-    /* Top Architecture Banner */
-    .architecture-banner {
-      background: linear-gradient(90deg, #0F172A 0%, #115E59 50%, #0F172A 100%);
-      border-bottom: 1px solid var(--border-subtle);
-      padding: 0.35rem 1.5rem;
-      font-size: 0.74rem;
-      color: #CCFBF1;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      text-align: center;
-    }
-
-    .tech-pill {
-      background: var(--teal-primary);
-      color: #FFFFFF;
-      font-weight: 700;
-      font-size: 0.68rem;
-      padding: 0.15rem 0.5rem;
-      border-radius: 4px;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-
-    /* Main Navigation Header */
+    /* Top Glass Navbar */
     header {
-      background: #0E1526;
+      background: rgba(11, 15, 26, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--border-subtle);
-      padding: 0.75rem 2rem;
+      padding: 0.65rem 2rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
       position: sticky;
       top: 0;
       z-index: 50;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
     }
 
     .brand-section {
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: 0.85rem;
     }
 
-    .brand-logo-img {
-      height: 42px;
-      width: auto;
-      border-radius: 8px;
-      box-shadow: 0 0 12px rgba(13, 148, 136, 0.3);
-      border: 1px solid var(--border-medium);
+    .brand-logo-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #0D9488 0%, #0284C7 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #FFFFFF;
+      box-shadow: 0 0 16px rgba(45, 212, 191, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .brand-text {
+      display: flex;
+      flex-direction: column;
     }
 
     .brand-text h1 {
-      font-size: 1.25rem;
+      font-size: 1.15rem;
       font-weight: 800;
-      color: var(--text-white);
+      letter-spacing: -0.02em;
+      color: var(--text-main);
       display: flex;
       align-items: center;
-      gap: 0.65rem;
-      letter-spacing: -0.02em;
+      gap: 0.45rem;
     }
 
-    .badge-fullstack {
-      font-size: 0.7rem;
+    .brand-text h1 span.gradient-text {
+      background: linear-gradient(135deg, #2DD4BF 0%, #38BDF8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .badge-tutor {
+      font-size: 0.65rem;
       font-weight: 700;
-      padding: 0.2rem 0.65rem;
-      border-radius: 20px;
-      background: var(--teal-muted);
-      color: var(--teal-light);
+      padding: 0.15rem 0.55rem;
+      border-radius: 12px;
+      background: rgba(45, 212, 191, 0.12);
+      color: var(--teal-bright);
       border: 1px solid var(--teal-border);
-      letter-spacing: 0.03em;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
     }
 
     .brand-text p {
-      font-size: 0.78rem;
+      font-size: 0.72rem;
       color: var(--text-muted);
+      font-weight: 400;
     }
 
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 0.85rem;
+      gap: 0.75rem;
     }
 
+    /* Active Document Pill */
     .active-doc-capsule {
       display: flex;
       align-items: center;
-      gap: 0.55rem;
-      background: var(--bg-card);
+      gap: 0.5rem;
+      background: rgba(20, 30, 51, 0.65);
       border: 1px solid var(--border-medium);
       color: var(--text-muted);
-      padding: 0.4rem 0.9rem;
-      border-radius: 24px;
-      font-size: 0.82rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 20px;
+      font-size: 0.78rem;
       font-weight: 500;
       transition: var(--transition);
+      max-width: 280px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .active-doc-capsule.loaded {
       border-color: var(--teal-border);
-      color: #5EEAD4;
-      background: rgba(13, 148, 136, 0.12);
+      color: #CCFBF1;
+      background: rgba(13, 148, 136, 0.15);
+      box-shadow: 0 0 12px rgba(45, 212, 191, 0.15);
     }
 
     .status-dot {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
       background: var(--text-dim);
+      flex-shrink: 0;
       transition: var(--transition);
     }
 
     .status-dot.active {
-      background: var(--teal-light);
-      box-shadow: 0 0 10px rgba(20, 184, 166, 0.8);
-      animation: pulse-dot 2s infinite;
+      background: var(--teal-bright);
+      box-shadow: 0 0 10px rgba(45, 212, 191, 0.9);
+      animation: pulse-dot 2.2s infinite;
     }
 
     @keyframes pulse-dot {
       0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.5; transform: scale(1.2); }
+      50% { opacity: 0.45; transform: scale(1.25); }
+    }
+
+    .sys-pill {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      padding: 0.35rem 0.75rem;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .sys-pill span.green-pulse {
+      width: 6px;
+      height: 6px;
+      background: var(--success);
+      border-radius: 50%;
+      box-shadow: 0 0 6px var(--success);
     }
 
     .btn-header-action {
-      background: var(--bg-card);
+      background: rgba(255, 255, 255, 0.05);
       border: 1px solid var(--border-medium);
       border-radius: var(--radius-sm);
-      padding: 0.45rem 0.8rem;
-      font-size: 0.78rem;
+      padding: 0.38rem 0.75rem;
+      font-size: 0.76rem;
       font-weight: 500;
       color: var(--text-muted);
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 0.4rem;
+      gap: 0.35rem;
       transition: var(--transition);
     }
 
     .btn-header-action:hover {
-      background: var(--bg-surface);
-      color: var(--text-white);
-      border-color: var(--border-focus);
+      background: rgba(45, 212, 191, 0.12);
+      color: var(--teal-bright);
+      border-color: var(--teal-border);
+      transform: translateY(-1px);
     }
 
     /* Mobile Tabs */
     .mobile-nav-tabs {
       display: none;
-      background: #0E1526;
+      background: var(--bg-surface);
       border-bottom: 1px solid var(--border-subtle);
       padding: 0.4rem 1rem;
       gap: 0.5rem;
@@ -235,7 +280,7 @@
     .mobile-tab-btn {
       padding: 0.45rem 0.85rem;
       border-radius: 20px;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       font-weight: 600;
       border: 1px solid transparent;
       background: transparent;
@@ -245,26 +290,26 @@
     }
 
     .mobile-tab-btn.active {
-      background: var(--teal-muted);
-      color: var(--teal-light);
+      background: var(--teal-subtle);
+      color: var(--teal-bright);
       border-color: var(--teal-border);
     }
 
-    /* 3-Column Grid Layout */
+    /* Main 3-Column Layout */
     main {
       flex: 1;
       display: grid;
-      grid-template-columns: 330px 1fr 370px;
-      gap: 1.25rem;
-      padding: 1.25rem 2rem;
+      grid-template-columns: 320px 1fr 370px;
+      gap: 1.15rem;
+      padding: 1.15rem 1.75rem;
       max-width: 1720px;
       margin: 0 auto;
       width: 100%;
     }
 
-    @media (max-width: 1200px) {
+    @media (max-width: 1240px) {
       main {
-        grid-template-columns: 310px 1fr;
+        grid-template-columns: 300px 1fr;
       }
       .col-right {
         grid-column: span 2;
@@ -273,9 +318,9 @@
 
     @media (max-width: 860px) {
       header {
-        padding: 0.6rem 1rem;
+        padding: 0.55rem 1rem;
       }
-      .brand-text p {
+      .brand-text p, .sys-pill {
         display: none;
       }
       .mobile-nav-tabs {
@@ -283,62 +328,65 @@
       }
       main {
         display: block;
-        padding: 1rem;
+        padding: 0.85rem;
       }
       .panel {
         display: none;
         height: auto !important;
-        min-height: 520px;
+        min-height: 540px;
       }
       .panel.mobile-active {
         display: flex;
       }
     }
 
-    /* Panel Card Structure */
+    /* Sleek Panel Cards */
     .panel {
-      background: var(--bg-panel);
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       border: 1px solid var(--border-subtle);
-      border-radius: var(--radius);
+      border-radius: var(--radius-lg);
       box-shadow: var(--shadow-panel);
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      height: calc(100vh - 128px);
+      height: calc(100vh - 84px);
       transition: var(--transition);
     }
 
     .panel:hover {
-      border-color: rgba(20, 184, 166, 0.25);
+      border-color: rgba(45, 212, 191, 0.22);
     }
 
     .panel-header {
-      padding: 0.85rem 1.15rem;
+      padding: 0.8rem 1.15rem;
       border-bottom: 1px solid var(--border-subtle);
-      background: #0E1626;
+      background: rgba(11, 15, 26, 0.7);
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
 
     .panel-header h2 {
-      font-size: 0.95rem;
+      font-size: 0.92rem;
       font-weight: 700;
-      color: var(--text-white);
+      color: var(--text-main);
       display: flex;
       align-items: center;
-      gap: 0.55rem;
+      gap: 0.5rem;
       letter-spacing: -0.01em;
     }
 
     .panel-tag {
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       font-weight: 600;
-      color: var(--teal-light);
-      background: var(--teal-muted);
-      padding: 0.2rem 0.6rem;
-      border-radius: 12px;
+      color: var(--teal-bright);
+      background: var(--teal-subtle);
+      padding: 0.18rem 0.55rem;
+      border-radius: 10px;
       border: 1px solid var(--teal-border);
+      letter-spacing: 0.03em;
     }
 
     .panel-body {
@@ -351,43 +399,44 @@
 
     /* Column 1: Document Management */
     .upload-zone {
-      border: 2px dashed var(--border-medium);
-      border-radius: var(--radius);
-      background: var(--bg-card);
-      padding: 1.5rem 1rem;
+      border: 2px dashed rgba(255, 255, 255, 0.12);
+      border-radius: var(--radius-md);
+      background: rgba(20, 30, 51, 0.4);
+      padding: 1.6rem 1rem;
       text-align: center;
       cursor: pointer;
       transition: var(--transition);
     }
 
     .upload-zone:hover, .upload-zone.dragover {
-      border-color: var(--teal-light);
-      background: #1A283D;
+      border-color: var(--teal-bright);
+      background: rgba(20, 184, 166, 0.08);
       transform: translateY(-1px);
     }
 
     .upload-zone-icon {
-      width: 44px;
-      height: 44px;
-      margin: 0 auto 0.6rem;
-      background: var(--bg-surface);
-      border-radius: 50%;
+      width: 42px;
+      height: 42px;
+      margin: 0 auto 0.65rem;
+      background: rgba(45, 212, 191, 0.12);
+      border: 1px solid var(--teal-border);
+      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: var(--teal-light);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      color: var(--teal-bright);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
     }
 
     .upload-zone p {
-      font-size: 0.88rem;
+      font-size: 0.86rem;
       font-weight: 600;
-      color: var(--text-white);
+      color: var(--text-main);
       margin-bottom: 0.2rem;
     }
 
     .upload-zone span {
-      font-size: 0.74rem;
+      font-size: 0.72rem;
       color: var(--text-muted);
       display: block;
     }
@@ -395,68 +444,73 @@
     .btn-sample-load {
       width: 100%;
       margin-top: 0.85rem;
-      padding: 0.7rem 0.85rem;
-      background: rgba(13, 148, 136, 0.12);
-      border: 1.5px solid var(--teal-border);
+      padding: 0.68rem 0.85rem;
+      background: linear-gradient(135deg, rgba(13, 148, 136, 0.16) 0%, rgba(2, 132, 199, 0.16) 100%);
+      border: 1px solid var(--teal-border);
       color: #5EEAD4;
-      border-radius: var(--radius-sm);
-      font-size: 0.82rem;
+      border-radius: var(--radius-md);
+      font-size: 0.8rem;
       font-weight: 600;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 0.5rem;
+      gap: 0.45rem;
       transition: var(--transition);
     }
 
     .btn-sample-load:hover {
-      background: var(--teal-primary);
+      background: linear-gradient(135deg, var(--teal-primary) 0%, #0284C7 100%);
       color: #FFFFFF;
-      border-color: var(--teal-light);
+      border-color: var(--teal-bright);
+      box-shadow: 0 4px 16px rgba(45, 212, 191, 0.25);
       transform: translateY(-1px);
     }
 
     .doc-stats-card {
       margin-top: 1rem;
-      padding: 1rem;
-      background: var(--bg-card);
+      padding: 0.95rem;
+      background: rgba(20, 30, 51, 0.6);
       border: 1px solid var(--border-medium);
-      border-radius: var(--radius-sm);
+      border-radius: var(--radius-md);
     }
 
     .doc-stats-card h3 {
-      font-size: 0.86rem;
+      font-size: 0.84rem;
       font-weight: 700;
-      color: var(--text-white);
-      margin-bottom: 0.75rem;
+      color: var(--text-main);
+      margin-bottom: 0.65rem;
       word-break: break-all;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
     }
 
     .stat-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 0.5rem;
+      gap: 0.45rem;
     }
 
     .stat-box {
-      background: var(--bg-surface);
+      background: rgba(11, 15, 26, 0.6);
       border: 1px solid var(--border-subtle);
       padding: 0.5rem 0.65rem;
-      border-radius: 6px;
+      border-radius: var(--radius-sm);
     }
 
     .stat-box .lbl {
-      font-size: 0.68rem;
+      font-size: 0.66rem;
       color: var(--text-dim);
       text-transform: uppercase;
       font-weight: 600;
+      letter-spacing: 0.04em;
     }
 
     .stat-box .val {
-      font-size: 0.85rem;
+      font-size: 0.84rem;
       font-weight: 700;
-      color: var(--teal-light);
+      color: var(--teal-bright);
     }
 
     .preview-header {
@@ -469,13 +523,13 @@
 
     .doc-preview-box {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.74rem;
+      font-size: 0.72rem;
       color: #CBD5E1;
-      background: #090E17;
+      background: #070B14;
       border: 1px solid var(--border-subtle);
       padding: 0.75rem;
-      border-radius: 6px;
-      max-height: 200px;
+      border-radius: var(--radius-sm);
+      max-height: 190px;
       overflow-y: auto;
       white-space: pre-wrap;
       line-height: 1.45;
@@ -485,11 +539,11 @@
     .chat-messages {
       flex: 1;
       overflow-y: auto;
-      padding: 1rem;
+      padding: 1.15rem;
       display: flex;
       flex-direction: column;
-      gap: 1.15rem;
-      background: #0C1220;
+      gap: 1.1rem;
+      background: rgba(9, 14, 25, 0.5);
     }
 
     .msg {
@@ -514,27 +568,27 @@
     }
 
     .msg-avatar {
-      width: 34px;
-      height: 34px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.78rem;
+      font-size: 0.74rem;
       font-weight: 700;
       flex-shrink: 0;
     }
 
     .msg.user .msg-avatar {
-      background: linear-gradient(135deg, #334155 0%, #1E293B 100%);
-      color: var(--text-white);
+      background: #334155;
+      color: #FFFFFF;
       border: 1px solid var(--border-medium);
     }
 
     .msg.tutor .msg-avatar {
-      background: linear-gradient(135deg, #0D9488 0%, #115E59 100%);
+      background: linear-gradient(135deg, #0D9488 0%, #0284C7 100%);
       color: #FFFFFF;
-      box-shadow: 0 0 10px rgba(13, 148, 136, 0.4);
+      box-shadow: 0 0 12px rgba(45, 212, 191, 0.4);
     }
 
     .msg-content-wrapper {
@@ -547,7 +601,7 @@
       display: flex;
       align-items: center;
       gap: 0.45rem;
-      font-size: 0.72rem;
+      font-size: 0.7rem;
       color: var(--text-dim);
     }
 
@@ -556,53 +610,54 @@
     }
 
     .msg-bubble {
-      padding: 0.95rem 1.15rem;
-      border-radius: 14px;
-      font-size: 0.88rem;
+      padding: 0.85rem 1.1rem;
+      border-radius: var(--radius-md);
+      font-size: 0.86rem;
       line-height: 1.55;
     }
 
     .msg.user .msg-bubble {
       background: #1E293B;
-      color: var(--text-white);
-      border-bottom-right-radius: 3px;
-      border: 1px solid #334155;
+      color: var(--text-main);
+      border-bottom-right-radius: 2px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
     }
 
     .msg.tutor .msg-bubble {
-      background: #162032;
-      border: 1px solid var(--border-subtle);
-      color: var(--text-white);
-      border-bottom-left-radius: 3px;
+      background: #111A2E;
+      border: 1px solid rgba(45, 212, 191, 0.18);
+      color: var(--text-main);
+      border-bottom-left-radius: 2px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
     }
 
     .tutor-analogy-box {
-      background: rgba(13, 148, 136, 0.12);
+      background: rgba(45, 212, 191, 0.08);
       border: 1px solid var(--teal-border);
-      border-radius: 8px;
-      padding: 0.8rem 0.95rem;
-      margin-top: 0.75rem;
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 0.9rem;
+      margin-top: 0.65rem;
     }
 
     .tutor-analogy-box .title {
       font-weight: 700;
       color: #5EEAD4;
-      font-size: 0.82rem;
-      margin-bottom: 0.3rem;
+      font-size: 0.8rem;
+      margin-bottom: 0.25rem;
       display: flex;
       align-items: center;
-      gap: 0.4rem;
+      gap: 0.35rem;
     }
 
     .tutor-analogy-box p {
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       color: #CCFBF1;
     }
 
     .key-points-list {
-      margin-top: 0.5rem;
-      padding-left: 1.25rem;
-      font-size: 0.82rem;
+      margin-top: 0.45rem;
+      padding-left: 1.15rem;
+      font-size: 0.8rem;
       color: #CBD5E1;
     }
 
@@ -613,52 +668,52 @@
     .suggested-prompts {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.45rem;
-      padding: 0.65rem 1rem;
+      gap: 0.4rem;
+      padding: 0.6rem 1rem;
       border-top: 1px solid var(--border-subtle);
-      background: #0E1526;
+      background: rgba(11, 15, 26, 0.7);
     }
 
     .prompt-chip {
-      background: var(--bg-card);
+      background: rgba(255, 255, 255, 0.04);
       border: 1px solid var(--border-subtle);
       border-radius: 16px;
-      padding: 0.3rem 0.75rem;
-      font-size: 0.76rem;
+      padding: 0.28rem 0.7rem;
+      font-size: 0.74rem;
       font-weight: 500;
-      color: var(--teal-light);
+      color: var(--teal-bright);
       cursor: pointer;
       transition: var(--transition);
       display: flex;
       align-items: center;
-      gap: 0.35rem;
+      gap: 0.3rem;
     }
 
     .prompt-chip:hover {
-      background: var(--teal-muted);
+      background: var(--teal-subtle);
       border-color: var(--teal-border);
       transform: translateY(-1px);
     }
 
     .chat-input-area {
-      padding: 0.85rem 1rem;
+      padding: 0.75rem 1rem;
       border-top: 1px solid var(--border-subtle);
-      background: #0E1526;
+      background: rgba(11, 15, 26, 0.8);
       display: flex;
-      gap: 0.55rem;
+      gap: 0.5rem;
       align-items: center;
     }
 
     .chat-input-area input {
       flex: 1;
-      padding: 0.7rem 1rem;
+      padding: 0.65rem 0.95rem;
       border: 1.5px solid var(--border-medium);
-      border-radius: 10px;
-      font-size: 0.88rem;
+      border-radius: var(--radius-md);
+      font-size: 0.86rem;
       outline: none;
       transition: var(--transition);
       background: var(--bg-input);
-      color: var(--text-white);
+      color: var(--text-main);
     }
 
     .chat-input-area input:focus {
@@ -667,15 +722,15 @@
     }
 
     .btn {
-      padding: 0.7rem 1.15rem;
-      border-radius: 10px;
-      font-size: 0.85rem;
+      padding: 0.65rem 1.05rem;
+      border-radius: var(--radius-md);
+      font-size: 0.82rem;
       font-weight: 600;
       cursor: pointer;
       border: none;
       display: flex;
       align-items: center;
-      gap: 0.45rem;
+      gap: 0.4rem;
       transition: var(--transition);
     }
 
@@ -689,40 +744,41 @@
     }
 
     .btn-teal {
-      background: var(--teal-primary);
+      background: linear-gradient(135deg, var(--teal-primary) 0%, #0284C7 100%);
       color: #FFFFFF;
-      box-shadow: 0 2px 8px rgba(13, 148, 136, 0.4);
+      box-shadow: 0 2px 10px rgba(45, 212, 191, 0.35);
     }
 
     .btn-teal:hover:not(:disabled) {
-      background: var(--teal-light);
+      box-shadow: 0 4px 16px rgba(45, 212, 191, 0.5);
     }
 
     .btn-dark {
-      background: var(--bg-card);
+      background: rgba(255, 255, 255, 0.05);
       border: 1px solid var(--border-medium);
-      color: var(--text-white);
+      color: var(--text-main);
     }
 
     .btn-dark:hover:not(:disabled) {
-      background: var(--bg-surface);
-      border-color: var(--border-focus);
+      background: rgba(45, 212, 191, 0.12);
+      border-color: var(--teal-border);
+      color: var(--teal-bright);
     }
 
-    /* Column 3: Avatar & Quiz */
+    /* Column 3: 3D Quantum Neural Core Viewport */
     .avatar-card {
-      background: #070B14;
-      border-radius: var(--radius);
+      background: radial-gradient(circle at center, #0B132B 0%, #060913 85%);
+      border-radius: var(--radius-md);
       overflow: hidden;
-      margin-bottom: 1.1rem;
+      margin-bottom: 1rem;
       position: relative;
-      border: 1px solid var(--border-subtle);
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(45, 212, 191, 0.2);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.65);
     }
 
     #avatar-canvas {
       width: 100%;
-      height: 190px;
+      height: 200px;
       display: block;
       cursor: grab;
     }
@@ -743,26 +799,29 @@
     }
 
     .avatar-pill {
-      background: rgba(11, 15, 25, 0.85);
-      backdrop-filter: blur(6px);
-      border: 1px solid var(--border-medium);
-      color: var(--teal-light);
-      font-size: 0.72rem;
-      padding: 0.25rem 0.65rem;
-      border-radius: 14px;
+      background: rgba(6, 9, 19, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: var(--teal-bright);
+      font-size: 0.7rem;
       font-weight: 600;
+      padding: 0.2rem 0.55rem;
+      border-radius: 12px;
       display: flex;
       align-items: center;
       gap: 0.35rem;
+      letter-spacing: 0.02em;
     }
 
     .avatar-indicator-dot {
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: var(--teal-light);
+      background: var(--teal-bright);
+      box-shadow: 0 0 6px var(--teal-bright);
     }
 
+    /* Quiz Section */
     .quiz-section {
       display: flex;
       flex-direction: column;
@@ -777,28 +836,27 @@
     }
 
     .quiz-controls select {
-      padding: 0.65rem;
+      padding: 0.6rem 0.75rem;
+      border-radius: var(--radius-md);
+      background: rgba(20, 30, 51, 0.6);
       border: 1.5px solid var(--border-medium);
-      border-radius: var(--radius-sm);
-      font-size: 0.82rem;
-      background: var(--bg-card);
+      color: var(--text-main);
+      font-size: 0.8rem;
       outline: none;
-      font-weight: 500;
-      color: var(--text-white);
       cursor: pointer;
     }
 
     .question-card {
-      background: var(--bg-card);
-      border: 1.5px solid var(--border-subtle);
-      border-radius: var(--radius-sm);
+      background: rgba(20, 30, 51, 0.5);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
       padding: 0.95rem;
-      margin-bottom: 0.85rem;
+      margin-bottom: 0.75rem;
       transition: var(--transition);
     }
 
     .question-card:hover {
-      border-color: var(--border-medium);
+      border-color: rgba(45, 212, 191, 0.25);
     }
 
     .question-meta {
@@ -809,18 +867,18 @@
     }
 
     .question-badge {
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       font-weight: 700;
-      color: var(--teal-light);
-      background: var(--teal-muted);
+      color: var(--teal-bright);
+      background: var(--teal-subtle);
       padding: 0.15rem 0.5rem;
       border-radius: 10px;
     }
 
     .question-title {
-      font-size: 0.86rem;
+      font-size: 0.85rem;
       font-weight: 600;
-      color: var(--text-white);
+      color: var(--text-main);
       margin-bottom: 0.65rem;
       line-height: 1.4;
     }
@@ -828,31 +886,31 @@
     .options-group {
       display: flex;
       flex-direction: column;
-      gap: 0.45rem;
+      gap: 0.4rem;
     }
 
     .option-label {
       display: flex;
       align-items: center;
-      gap: 0.6rem;
-      padding: 0.55rem 0.75rem;
-      background: var(--bg-surface);
-      border: 1.5px solid var(--border-subtle);
-      border-radius: 8px;
-      font-size: 0.82rem;
+      gap: 0.55rem;
+      padding: 0.5rem 0.7rem;
+      background: rgba(11, 15, 26, 0.6);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
       color: #E2E8F0;
       cursor: pointer;
       transition: var(--transition);
     }
 
     .option-label:hover {
-      background: #253348;
-      border-color: var(--border-medium);
+      background: rgba(45, 212, 191, 0.08);
+      border-color: var(--teal-border);
     }
 
     .option-label.selected {
-      background: rgba(13, 148, 136, 0.16);
-      border-color: var(--teal-light);
+      background: rgba(45, 212, 191, 0.15);
+      border-color: var(--teal-bright);
       color: #CCFBF1;
       font-weight: 600;
     }
@@ -873,33 +931,34 @@
 
     .rationale-box {
       margin-top: 0.6rem;
-      padding: 0.65rem 0.85rem;
-      border-radius: 6px;
-      font-size: 0.78rem;
+      padding: 0.6rem 0.8rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.76rem;
       line-height: 1.4;
-      background: #0E1526;
-      border-left: 3px solid var(--teal-light);
+      background: #090E1A;
+      border-left: 3px solid var(--teal-bright);
       color: #CBD5E1;
     }
 
     .quiz-score-banner {
-      background: rgba(13, 148, 136, 0.15);
+      background: linear-gradient(135deg, rgba(13, 148, 136, 0.2) 0%, rgba(2, 132, 199, 0.2) 100%);
       border: 1.5px solid var(--teal-border);
-      border-radius: var(--radius-sm);
-      padding: 1rem;
+      border-radius: var(--radius-md);
+      padding: 0.95rem;
       text-align: center;
       margin-bottom: 0.85rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     }
 
     .quiz-score-banner h3 {
       font-size: 1.25rem;
       color: #5EEAD4;
       font-weight: 800;
-      margin-bottom: 0.25rem;
+      margin-bottom: 0.2rem;
     }
 
     .quiz-score-banner p {
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       color: #CCFBF1;
     }
 
@@ -908,14 +967,14 @@
       display: flex;
       align-items: center;
       gap: 4px;
-      padding: 0.4rem 0.2rem;
+      padding: 0.35rem 0.2rem;
     }
 
     .typing-dot {
-      width: 6px;
-      height: 6px;
+      width: 5px;
+      height: 5px;
       border-radius: 50%;
-      background: var(--teal-light);
+      background: var(--teal-bright);
       animation: typingBounce 1.2s infinite ease-in-out;
     }
 
@@ -923,22 +982,22 @@
     .typing-dot:nth-child(3) { animation-delay: 0.4s; }
 
     @keyframes typingBounce {
-      0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
-      40% { transform: translateY(-5px); opacity: 1; }
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.35; }
+      40% { transform: translateY(-4px); opacity: 1; }
     }
 
-    /* Toast Notification */
+    /* Toast */
     .toast {
       position: fixed;
       bottom: 24px;
       right: 24px;
-      padding: 0.85rem 1.35rem;
+      padding: 0.75rem 1.25rem;
       background: #1E293B;
-      color: var(--text-white);
+      color: var(--text-main);
       border-radius: 10px;
-      font-size: 0.86rem;
+      font-size: 0.82rem;
       font-weight: 500;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
       z-index: 999;
       display: none;
       border: 1px solid var(--border-medium);
@@ -947,45 +1006,42 @@
 </head>
 <body>
 
-  <!-- Top Architecture Notice Banner -->
-  <div class="architecture-banner">
-    <div style="display: flex; align-items: center; gap: 0.5rem;">
-      <span class="tech-pill">Full-Stack Active</span>
-      <span>FastAPI Backend + SQLite3 Database (ACID Compliant) + Three.js WebGL Tutor</span>
-    </div>
-    <div style="display: flex; align-items: center; gap: 0.75rem;">
-      <span>Indira College of Engineering & Management (ICEM Pune)</span>
-      <span style="opacity: 0.6;">|</span>
-      <span>Dept. of AI & DS</span>
-    </div>
-  </div>
-
-  <!-- Top Navigation Header -->
+  <!-- Sleek Top Glass Navbar -->
   <header>
     <div class="brand-section">
-      <img src="/images/college_logo.png" alt="ICEM Logo" class="brand-logo-img" />
+      <div class="brand-logo-icon">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+      </div>
       <div class="brand-text">
-        <h1>EduVerse AI <span class="badge-fullstack">Full-Stack v1.0</span></h1>
-        <p>Animated Virtual Tutor for Personalized Learning • Dept. of AI & DS, ICEM Pune</p>
+        <h1>EduVerse <span class="gradient-text">AI</span> <span class="badge-tutor">Tutor v1.0</span></h1>
+        <p>ICEM Pune • Dept. of AI & DS • Personalized Intelligent Learning</p>
       </div>
     </div>
+
     <div class="header-actions">
+      <!-- Active Document Status Capsule -->
       <div class="active-doc-capsule" id="active-doc-capsule">
         <div class="status-dot" id="header-status-dot"></div>
         <span id="active-doc-name">No study document loaded</span>
       </div>
-      <button class="btn-header-action" onclick="resetWorkspace()" title="Reset session and clear active context">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-        Reset Session
+
+      <div class="sys-pill">
+        <span class="green-pulse"></span>
+        <span>FastAPI + SQLite3</span>
+      </div>
+
+      <button class="btn-header-action" onclick="resetWorkspace()" title="Reset workspace and clear document session">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+        Reset
       </button>
     </div>
   </header>
 
   <!-- Mobile Tab Navigation -->
   <div class="mobile-nav-tabs">
-    <button class="mobile-tab-btn active" onclick="switchMobileTab('col-left')">1. Study Materials</button>
-    <button class="mobile-tab-btn" onclick="switchMobileTab('col-center')">2. Contextual Tutor</button>
-    <button class="mobile-tab-btn" onclick="switchMobileTab('col-right')">3. 3D Avatar & Quiz</button>
+    <button class="mobile-tab-btn active" onclick="switchMobileTab('col-left')">1. Notes & PDF</button>
+    <button class="mobile-tab-btn" onclick="switchMobileTab('col-center')">2. AI Tutor</button>
+    <button class="mobile-tab-btn" onclick="switchMobileTab('col-right')">3. 3D Core & Quiz</button>
   </div>
 
   <!-- 3-Column Main Workspace -->
@@ -994,7 +1050,7 @@
     <div class="panel col-left mobile-active" id="col-left">
       <div class="panel-header">
         <h2>
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
           Study Materials
         </h2>
         <span class="panel-tag">PyMuPDF + SQLite</span>
@@ -1003,7 +1059,7 @@
         <!-- PDF Dropzone -->
         <div class="upload-zone" id="upload-zone" onclick="document.getElementById('pdf-file-input').click()">
           <div class="upload-zone-icon">
-            <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
           </div>
           <p>Drop or Click to Upload PDF</p>
           <span>Extracts text via PyMuPDF into SQLite (Max 25 MB)</span>
@@ -1011,7 +1067,7 @@
         </div>
 
         <button class="btn-sample-load" onclick="loadSampleDocument()">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
           Load Verified ML Syllabus Notes (SQLite)
         </button>
 
@@ -1029,20 +1085,20 @@
                 <div class="val" id="stat-chars">0</div>
               </div>
               <div class="stat-box">
-                <div class="lbl">Database</div>
+                <div class="lbl">Storage</div>
                 <div class="val" style="color: #6EE7B7;">SQLite3 Persisted</div>
               </div>
               <div class="stat-box">
-                <div class="lbl">Parser</div>
+                <div class="lbl">Engine</div>
                 <div class="val">PyMuPDF 1.28</div>
               </div>
             </div>
           </div>
 
-          <div style="margin-top: 1rem;">
+          <div style="margin-top: 0.85rem;">
             <div class="preview-header">
-              <span style="font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); font-weight: 700;">Extracted Syllabus Preview</span>
-              <button style="background: none; border: none; color: var(--teal-light); font-size: 0.72rem; cursor: pointer;" onclick="togglePreview()" id="toggle-preview-btn">Hide</button>
+              <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); font-weight: 700;">Extracted Preview</span>
+              <button style="background: none; border: none; color: var(--teal-bright); font-size: 0.72rem; cursor: pointer;" onclick="togglePreview()" id="toggle-preview-btn">Hide</button>
             </div>
             <div class="doc-preview-box" id="doc-preview-text">...</div>
           </div>
@@ -1054,7 +1110,7 @@
     <div class="panel col-center" id="col-center">
       <div class="panel-header">
         <h2>
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
           Contextual AI Tutor
         </h2>
         <div style="display: flex; align-items: center; gap: 0.5rem;">
@@ -1071,60 +1127,64 @@
               <strong>EduVerse AI Tutor</strong> • <span>Full-Stack Active</span>
             </div>
             <div class="msg-bubble">
-              <p>Welcome to <strong>EduVerse AI</strong>. Upload your engineering lecture notes on the left or click <em>Load Verified ML Syllabus Notes</em> to begin. All doubts and practice quizzes are processed through the FastAPI backend and recorded in SQLite.</p>
+              <p>Welcome to <strong>EduVerse AI</strong>. Load the syllabus notes or upload your engineering PDF on the left. All answers and practice tests are synthesized directly from your study materials with SQLite persistence.</p>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Quick Suggestion Chips -->
+      <!-- Quick Suggestion Chips with Vector Icons -->
       <div class="suggested-prompts">
         <div class="prompt-chip" onclick="usePrompt('Explain supervised learning according to the notes.')">
-          <span>🧠</span> Supervised Learning
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+          Supervised Learning
         </div>
         <div class="prompt-chip" onclick="usePrompt('What is the loss function in logistic regression and why is it convex?')">
-          <span>📉</span> Logistic Regression Loss
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+          Logistic Loss Function
         </div>
         <div class="prompt-chip" onclick="usePrompt('Simplify overfitting with an analogy.')">
-          <span>🎯</span> Overfitting Analogy
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+          Overfitting Analogy
         </div>
         <div class="prompt-chip" onclick="usePrompt('Explain gradient descent optimization step by step.')">
-          <span>🔄</span> Gradient Descent
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+          Gradient Descent
         </div>
       </div>
 
       <!-- Chat Input Controls -->
       <div class="chat-input-area">
-        <input type="text" id="user-input" placeholder="Ask a doubt or request concept simplification (Enter to Ask)..." onkeydown="handleKeyDown(event)" />
-        <button class="btn btn-dark" id="simplify-btn" onclick="askSimplify()" title="Explain concept using real-world analogies (Ctrl+Enter)">
-          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+        <input type="text" id="user-input" placeholder="Ask a question or request concept simplification (Enter to Ask)..." onkeydown="handleKeyDown(event)" />
+        <button class="btn btn-dark" id="simplify-btn" onclick="askSimplify()" title="Explain concept using intuitive analogies (Ctrl+Enter)">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
           Simplify
         </button>
         <button class="btn btn-teal" id="send-btn" onclick="askQuestion()" title="Ask question grounded in uploaded notes (Enter)">
-          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
           Ask
         </button>
       </div>
     </div>
 
-    <!-- Column 3: 3D Avatar & Quiz -->
+    <!-- Column 3: 3D Holographic Core & Quiz -->
     <div class="panel col-right" id="col-right">
       <div class="panel-header">
         <h2>
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>
-          3D Tutor & Practice Quiz
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>
+          Neural Core & Practice Quiz
         </h2>
         <span class="panel-tag">Active Recall</span>
       </div>
       <div class="panel-body">
-        <!-- 3D WebGL Avatar Viewport -->
-        <div class="avatar-card" title="Interactive 3D Virtual Tutor (Three.js WebGL)">
+        <!-- 3D Neural Holographic Core (Three.js WebGL) -->
+        <div class="avatar-card" title="Interactive 3D Quantum Neural Hologram (Three.js WebGL)">
           <canvas id="avatar-canvas"></canvas>
           <div class="avatar-status-overlay">
             <span class="avatar-pill" id="avatar-state-text">
               <span class="avatar-indicator-dot"></span> State: Idle
             </span>
-            <span class="avatar-pill" style="border-color: rgba(13, 148, 136, 0.4);">Three.js WebGL</span>
+            <span class="avatar-pill" style="border-color: rgba(45, 212, 191, 0.4);">Neural Hologram</span>
           </div>
         </div>
 
@@ -1137,22 +1197,22 @@
               <option value="5">5 Questions</option>
             </select>
             <button class="btn btn-teal" style="flex: 1;" id="gen-quiz-btn" onclick="generateQuiz()">
-              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83"></path></svg>
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83"></path></svg>
               Generate Quiz
             </button>
           </div>
 
           <div id="quiz-score-container" style="display: none;"></div>
           <div id="quiz-questions-list">
-            <div style="text-align: center; padding: 2rem 1rem; color: var(--text-dim);">
-              <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin: 0 auto 0.5rem; opacity: 0.5;"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-              <p style="font-size: 0.82rem; font-weight: 500;">No active quiz session</p>
-              <span style="font-size: 0.74rem; display: block; margin-top: 0.25rem;">Load notes and click <strong>Generate Quiz</strong> to test active recall.</span>
+            <div style="text-align: center; padding: 1.8rem 1rem; color: var(--text-dim);">
+              <svg width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin: 0 auto 0.5rem; opacity: 0.5;"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+              <p style="font-size: 0.8rem; font-weight: 500;">No active quiz session</p>
+              <span style="font-size: 0.72rem; display: block; margin-top: 0.25rem;">Load notes and click <strong>Generate Quiz</strong> to test active recall.</span>
             </div>
           </div>
 
           <div id="quiz-submit-bar" style="display: none; margin-top: 0.5rem;">
-            <button class="btn btn-teal" id="submit-quiz-btn" style="width: 100%;" onclick="submitQuizEvaluation()">
+            <button class="btn btn-teal" id="submit-quiz-btn" style="width: 100%; justify-content: center;" onclick="submitQuizEvaluation()">
               Submit & Check Answers
             </button>
           </div>
@@ -1164,7 +1224,7 @@
   <!-- Toast Notification -->
   <div class="toast" id="toast-notification" role="status" aria-live="polite"></div>
 
-  <!-- Application Logic & Three.js 3D Cybernetic Avatar Engine -->
+  <!-- Application Logic & Three.js 3D Quantum Neural Core Engine -->
   <script>
     let currentDocId = null;
     let activeQuizId = null;
@@ -1193,89 +1253,130 @@
     }
 
     // -------------------------------------------------------------
-    // 3D Cybernetic Hologram Avatar (Three.js WebGL)
+    // 3D Quantum Neural Hologram Core (Three.js WebGL)
     // -------------------------------------------------------------
-    let scene, camera, renderer, headGroup, eyeLeft, eyeRight, haloRing, particleNodes;
+    let scene, camera, renderer, coreGroup;
+    let innerCore, wireframeCage, gimbalRing1, gimbalRing2, equatorRing, particleSystem;
     let avatarState = "IDLE"; // IDLE, THINKING, EXPLAINING
+    let targetRotX = 0;
+    let targetRotY = 0;
 
     function init3DAvatar() {
       const canvas = document.getElementById("avatar-canvas");
       if (!canvas) return;
       const width = canvas.clientWidth || 330;
-      const height = canvas.clientHeight || 190;
+      const height = canvas.clientHeight || 200;
 
       scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x070B14);
+      scene.background = new THREE.Color(0x060913);
 
       camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-      camera.position.set(0, 0, 4.4);
+      camera.position.set(0, 0, 4.3);
 
       renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
       renderer.setSize(width, height);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-      // Lighting
-      const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.7);
+      // Sophisticated Cinematic Lighting
+      const ambientLight = new THREE.AmbientLight(0x0A2540, 1.2);
       scene.add(ambientLight);
 
-      const dirLight = new THREE.DirectionalLight(0x0D9488, 1.5);
-      dirLight.position.set(3, 4, 4);
-      scene.add(dirLight);
+      const keyLight = new THREE.PointLight(0x2DD4BF, 2.5, 20);
+      keyLight.position.set(3, 3, 4);
+      scene.add(keyLight);
 
-      const rimLight = new THREE.PointLight(0x14B8A6, 1.8, 12);
-      rimLight.position.set(-2.5, -2, 2.5);
+      const fillLight = new THREE.PointLight(0x38BDF8, 2.0, 20);
+      fillLight.position.set(-3, -2, 3);
+      scene.add(fillLight);
+
+      const rimLight = new THREE.PointLight(0x6366F1, 1.8, 15);
+      rimLight.position.set(0, 4, -2);
       scene.add(rimLight);
 
-      headGroup = new THREE.Group();
+      coreGroup = new THREE.Group();
 
-      // Cybernetic Polyhedral Core
-      const headGeo = new THREE.IcosahedronGeometry(1.15, 2);
-      const headMat = new THREE.MeshStandardMaterial({
-        color: 0x0F3D3E,
-        roughness: 0.25,
-        metalness: 0.8,
-        flatShading: true
+      // 1. Central Luminous Quantum Nucleus
+      const coreGeo = new THREE.IcosahedronGeometry(0.72, 3);
+      const coreMat = new THREE.MeshStandardMaterial({
+        color: 0x071D27,
+        emissive: 0x0D9488,
+        emissiveIntensity: 0.65,
+        roughness: 0.2,
+        metalness: 0.85
       });
-      const head = new THREE.Mesh(headGeo, headMat);
-      headGroup.add(head);
+      innerCore = new THREE.Mesh(coreGeo, coreMat);
+      coreGroup.add(innerCore);
 
-      // Glowing Eyes
-      const eyeGeo = new THREE.SphereGeometry(0.12, 16, 16);
-      const eyeMat = new THREE.MeshBasicMaterial({ color: 0x2DD4BF });
-      eyeLeft = new THREE.Mesh(eyeGeo, eyeMat);
-      eyeLeft.position.set(-0.35, 0.15, 1.05);
-      headGroup.add(eyeLeft);
+      // 2. High-Tech Geometric Lattice (Outer Wireframe Cage)
+      const cageGeo = new THREE.IcosahedronGeometry(1.08, 1);
+      const cageMat = new THREE.MeshStandardMaterial({
+        color: 0x14B8A6,
+        emissive: 0x2DD4BF,
+        emissiveIntensity: 0.35,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.75
+      });
+      wireframeCage = new THREE.Mesh(cageGeo, cageMat);
+      coreGroup.add(wireframeCage);
 
-      eyeRight = new THREE.Mesh(eyeGeo, eyeMat);
-      eyeRight.position.set(0.35, 0.15, 1.05);
-      headGroup.add(eyeRight);
+      // 3. Gyroscopic Gimbal Rings (Astrolabe Astrodynamics)
+      // Ring 1 (Inner orbital ring)
+      const ring1Geo = new THREE.TorusGeometry(1.44, 0.022, 16, 90);
+      const ring1Mat = new THREE.MeshBasicMaterial({ color: 0x14B8A6, transparent: true, opacity: 0.85 });
+      gimbalRing1 = new THREE.Mesh(ring1Geo, ring1Mat);
+      gimbalRing1.rotation.x = Math.PI / 3;
+      coreGroup.add(gimbalRing1);
 
-      // Orbital Halo Ring
-      const ringGeo = new THREE.TorusGeometry(1.68, 0.038, 16, 80);
-      const ringMat = new THREE.MeshBasicMaterial({ color: 0x0D9488, transparent: true, opacity: 0.85 });
-      haloRing = new THREE.Mesh(ringGeo, ringMat);
-      haloRing.rotation.x = Math.PI / 2.25;
-      headGroup.add(haloRing);
+      // Ring 2 (Counter-rotating outer ring)
+      const ring2Geo = new THREE.TorusGeometry(1.72, 0.02, 16, 90);
+      const ring2Mat = new THREE.MeshBasicMaterial({ color: 0x38BDF8, transparent: true, opacity: 0.7 });
+      gimbalRing2 = new THREE.Mesh(ring2Geo, ring2Mat);
+      gimbalRing2.rotation.y = Math.PI / 4;
+      coreGroup.add(gimbalRing2);
 
-      // Orbiting Quantum Particle Nodes
-      const particleGeo = new THREE.SphereGeometry(0.045, 8, 8);
-      const particleMat = new THREE.MeshBasicMaterial({ color: 0x5EEAD4 });
-      particleNodes = [];
-      for (let i = 0; i < 4; i++) {
-        const node = new THREE.Mesh(particleGeo, particleMat);
-        headGroup.add(node);
-        particleNodes.push(node);
+      // Ring 3 (Equatorial thin pulse halo)
+      const ring3Geo = new THREE.TorusGeometry(1.98, 0.015, 16, 100);
+      const ring3Mat = new THREE.MeshBasicMaterial({ color: 0x818CF8, transparent: true, opacity: 0.5 });
+      equatorRing = new THREE.Mesh(ring3Geo, ring3Mat);
+      equatorRing.rotation.x = Math.PI / 2;
+      coreGroup.add(equatorRing);
+
+      // 4. Stardust / Constellation Particle Cloud
+      const particleCount = 85;
+      const particlePositions = new Float32Array(particleCount * 3);
+      for (let i = 0; i < particleCount; i++) {
+        const radius = 1.3 + Math.random() * 1.1;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos((Math.random() * 2) - 1);
+        particlePositions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+        particlePositions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+        particlePositions[i * 3 + 2] = radius * Math.cos(phi);
       }
+      const particleGeo = new THREE.BufferGeometry();
+      particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+      const particleMat = new THREE.PointsMaterial({
+        color: 0x5EEAD4,
+        size: 0.045,
+        transparent: true,
+        opacity: 0.85
+      });
+      particleSystem = new THREE.Points(particleGeo, particleMat);
+      coreGroup.add(particleSystem);
 
-      scene.add(headGroup);
+      scene.add(coreGroup);
 
       // Mouse interactive tilt
       canvas.addEventListener("mousemove", (e) => {
         const rect = canvas.getBoundingClientRect();
         const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         const y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
-        headGroup.rotation.y = x * 0.45;
-        headGroup.rotation.x = -y * 0.35;
+        targetRotY = x * 0.5;
+        targetRotX = -y * 0.35;
+      });
+      canvas.addEventListener("mouseleave", () => {
+        targetRotX = 0;
+        targetRotY = 0;
       });
 
       animateAvatar();
@@ -1284,40 +1385,61 @@
     let clock = new THREE.Clock();
     function animateAvatar() {
       requestAnimationFrame(animateAvatar);
-      const elapsedTime = clock.getElapsedTime();
+      const t = clock.getElapsedTime();
 
-      if (headGroup) {
+      if (coreGroup) {
+        // Smooth mouse tilt interpolation
+        coreGroup.rotation.x += (targetRotX - coreGroup.rotation.x) * 0.05;
+        coreGroup.rotation.y += (targetRotY - coreGroup.rotation.y) * 0.05;
+
+        // Smooth levitation wave
+        const bob = Math.sin(t * 1.8) * 0.07;
+        coreGroup.position.y = bob;
+
         if (avatarState === "IDLE") {
-          headGroup.position.y = Math.sin(elapsedTime * 1.6) * 0.08;
-          haloRing.rotation.z += 0.012;
-          haloRing.material.color.setHex(0x0D9488);
-          eyeLeft.material.color.setHex(0x2DD4BF);
-          eyeRight.material.color.setHex(0x2DD4BF);
-        } else if (avatarState === "THINKING") {
-          headGroup.rotation.y += Math.sin(elapsedTime * 3) * 0.04;
-          headGroup.position.y = Math.sin(elapsedTime * 4.2) * 0.12;
-          haloRing.rotation.z += 0.06;
-          haloRing.material.color.setHex(0xF59E0B);
-          eyeLeft.material.color.setHex(0xFBBF24);
-          eyeRight.material.color.setHex(0xFBBF24);
-        } else if (avatarState === "EXPLAINING") {
-          headGroup.rotation.y += Math.sin(elapsedTime * 2) * 0.03;
-          headGroup.position.y = Math.sin(elapsedTime * 2.8) * 0.1;
-          haloRing.rotation.z += 0.035;
-          haloRing.material.color.setHex(0x10B981);
-          eyeLeft.material.color.setHex(0x34D399);
-          eyeRight.material.color.setHex(0x34D399);
-        }
+          innerCore.rotation.y = t * 0.3;
+          wireframeCage.rotation.y = -t * 0.25;
+          wireframeCage.rotation.x = Math.sin(t * 0.5) * 0.2;
+          gimbalRing1.rotation.z = t * 0.5;
+          gimbalRing2.rotation.x = -t * 0.45;
+          equatorRing.rotation.z = t * 0.2;
+          particleSystem.rotation.y = t * 0.15;
 
-        // Orbiting particle nodes
-        if (particleNodes && particleNodes.length === 4) {
-          const r = 1.68;
-          particleNodes.forEach((node, idx) => {
-            const angle = elapsedTime * 1.6 + (idx * Math.PI / 2);
-            node.position.x = Math.cos(angle) * r;
-            node.position.z = Math.sin(angle) * r * Math.sin(Math.PI / 2.25);
-            node.position.y = Math.sin(angle) * r * Math.cos(Math.PI / 2.25);
-          });
+          innerCore.material.emissive.setHex(0x0D9488);
+          innerCore.material.emissiveIntensity = 0.65 + Math.sin(t * 2) * 0.15;
+          wireframeCage.material.color.setHex(0x14B8A6);
+          gimbalRing1.material.color.setHex(0x14B8A6);
+          gimbalRing2.material.color.setHex(0x38BDF8);
+        } else if (avatarState === "THINKING") {
+          // Accelerated calculation mode
+          innerCore.rotation.y = t * 1.2;
+          wireframeCage.rotation.y = -t * 1.0;
+          gimbalRing1.rotation.z = t * 1.8;
+          gimbalRing2.rotation.x = -t * 1.5;
+          equatorRing.rotation.z = t * 0.9;
+          particleSystem.rotation.y = -t * 0.8;
+
+          const pulse = 0.5 + Math.sin(t * 8) * 0.35;
+          innerCore.material.emissiveIntensity = pulse;
+          innerCore.material.emissive.setHex(0xF59E0B);
+          wireframeCage.material.color.setHex(0xFBBF24);
+          gimbalRing1.material.color.setHex(0xF59E0B);
+          gimbalRing2.material.color.setHex(0xFCD34D);
+        } else if (avatarState === "EXPLAINING") {
+          // Harmonic wave mode
+          innerCore.rotation.y = t * 0.6;
+          wireframeCage.rotation.y = -t * 0.5;
+          gimbalRing1.rotation.z = t * 0.8;
+          gimbalRing2.rotation.x = -t * 0.7;
+          equatorRing.rotation.z = t * 0.4;
+          particleSystem.rotation.y = t * 0.35;
+
+          const pulse = 0.6 + Math.sin(t * 4) * 0.25;
+          innerCore.material.emissiveIntensity = pulse;
+          innerCore.material.emissive.setHex(0x10B981);
+          wireframeCage.material.color.setHex(0x34D399);
+          gimbalRing1.material.color.setHex(0x10B981);
+          gimbalRing2.material.color.setHex(0x6EE7B7);
         }
       }
 
@@ -1536,7 +1658,7 @@
 
         let bubbleHtml = `<p>${formatMarkdown(data.answer)}</p>`;
         if (data.context_excerpt) {
-          bubbleHtml += `<div class="rationale-box" style="margin-top: 0.6rem;"><strong style="color: var(--teal-light);">Syllabus Excerpt:</strong> <em>"${escapeHtml(data.context_excerpt)}"</em></div>`;
+          bubbleHtml += `<div class="rationale-box" style="margin-top: 0.6rem;"><strong style="color: var(--teal-bright);">Syllabus Excerpt:</strong> <em>"${escapeHtml(data.context_excerpt)}"</em></div>`;
         }
         bubbleHtml += `<div style="font-size: 0.72rem; color: var(--text-dim); margin-top: 0.5rem; font-style: italic;">${escapeHtml(data.disclaimer)}</div>`;
 
@@ -1597,13 +1719,13 @@
           
           <div class="tutor-analogy-box">
             <div class="title">
-              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
               Intuitive Real-World Analogy
             </div>
             <p>${escapeHtml(data.analogy)}</p>
           </div>
 
-          <div style="margin-top: 0.65rem; font-size: 0.8rem; font-weight: 700; color: #5EEAD4;">Key Educational Takeaways:</div>
+          <div style="margin-top: 0.65rem; font-size: 0.78rem; font-weight: 700; color: #5EEAD4;">Key Educational Takeaways:</div>
           <ul class="key-points-list">${pointsHtml}</ul>
         `;
 
@@ -1663,9 +1785,9 @@
         <div class="msg-avatar">AI</div>
         <div class="msg-content-wrapper">
           <div class="msg-header-line">
-            <strong>EduVerse AI Tutor</strong> • <span>Querying SQLite & reasoning...</span>
+            <strong>EduVerse AI Tutor</strong> • <span>Thinking</span>
           </div>
-          <div class="msg-bubble" style="padding: 0.65rem 1rem;">
+          <div class="msg-bubble">
             <div class="typing-indicator">
               <div class="typing-dot"></div>
               <div class="typing-dot"></div>
@@ -1684,44 +1806,48 @@
       if (el) el.remove();
     }
 
-    function formatMarkdown(text) {
-      if (!text) return "";
-      let safe = escapeHtml(text);
-      safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-      safe = safe.replace(/\*(.*?)\*/g, '<em>$1</em>');
-      safe = safe.replace(/`([^`]+)`/g, '<code style="background: #090E17; color: #5EEAD4; padding: 0.1rem 0.35rem; border-radius: 4px; font-family: monospace;">$1</code>');
-      safe = safe.replace(/\n/g, '<br>');
-      return safe;
-    }
-
-    function escapeHtml(str) {
-      if (!str) return "";
-      return String(str).replace(/[&<>"']/g, m => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-      }[m]));
-    }
-
     // -------------------------------------------------------------
-    // Real Backend Quiz Generation & Evaluation
+    // Active Recall Quiz Generation & Scoring
     // -------------------------------------------------------------
     async function generateQuiz() {
       if (!currentDocId) {
-        showToast("Please load a document first before generating a quiz!");
+        showToast("Please load or upload a study document first!");
         return;
       }
 
-      const count = parseInt(document.getElementById("quiz-count-select").value) || 3;
-      const btn = document.getElementById("gen-quiz-btn");
-      btn.innerHTML = `<span class="typing-dot" style="display:inline-block;width:6px;height:6px;background:#fff;border-radius:50%;margin-right:4px;"></span> Synthesizing...`;
-      btn.disabled = true;
+      const countSelect = document.getElementById("quiz-count-select");
+      const questionCount = parseInt(countSelect.value, 10) || 3;
+
       setAvatarState("THINKING");
+      showToast(`Generating ${questionCount} active recall questions from syllabus...`);
+
+      const genBtn = document.getElementById("gen-quiz-btn");
+      genBtn.disabled = true;
+
+      const listContainer = document.getElementById("quiz-questions-list");
+      listContainer.innerHTML = `
+        <div style="text-align: center; padding: 2rem 1rem;">
+          <div class="typing-indicator" style="justify-content: center; margin-bottom: 0.6rem;">
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-dim);">Synthesizing conceptual questions from notes...</p>
+        </div>
+      `;
 
       try {
         const resp = await fetch("/api/quiz/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ doc_id: currentDocId, count: count })
+          body: JSON.stringify({
+            doc_id: currentDocId,
+            num_questions: questionCount,
+            difficulty: "medium"
+          })
         });
+
+        genBtn.disabled = false;
 
         if (!resp.ok) {
           const errData = await resp.json();
@@ -1737,16 +1863,18 @@
         document.getElementById("quiz-score-container").style.display = "none";
         document.getElementById("quiz-submit-bar").style.display = "block";
         updateSubmitButtonState();
-        showToast(`Synthesized ${data.total_questions} questions into SQLite database!`);
-      } catch (err) {
-        showToast(err.message);
-      } finally {
-        btn.innerHTML = `
-          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83"></path></svg>
-          Generate Quiz
-        `;
-        btn.disabled = false;
+
+        showToast(`Quiz generated! ${data.questions.length} questions ready.`);
         setAvatarState("IDLE");
+      } catch (err) {
+        genBtn.disabled = false;
+        setAvatarState("IDLE");
+        listContainer.innerHTML = `
+          <div style="text-align: center; padding: 1.5rem; color: var(--danger);">
+            <p>Error generating quiz: ${escapeHtml(err.message)}</p>
+          </div>
+        `;
+        showToast(err.message);
       }
     }
 
@@ -1761,7 +1889,7 @@
 
         let optionsHtml = q.options.map((opt, optIdx) => `
           <label class="option-label" id="opt-label-${q.question_id}-${optIdx}">
-            <input type="radio" name="q-${q.question_id}" value="${optIdx}" onchange="selectAnswer(${q.question_id}, ${optIdx})" style="accent-color: #0D9488;" />
+            <input type="radio" name="q-${q.question_id}" value="${optIdx}" onchange="selectAnswer(${q.question_id}, ${optIdx})" style="accent-color: #2DD4BF;" />
             <span>${escapeHtml(opt)}</span>
           </label>
         `).join("");
@@ -1839,7 +1967,7 @@
         scoreBox.style.display = "block";
         scoreBox.innerHTML = `
           <div class="quiz-score-banner">
-            <div style="font-size: 0.72rem; color: #5EEAD4; font-weight: 700; text-transform: uppercase; margin-bottom: 0.25rem;">SQLite Verified Assessment</div>
+            <div style="font-size: 0.7rem; color: #5EEAD4; font-weight: 700; text-transform: uppercase; margin-bottom: 0.2rem; letter-spacing: 0.05em;">SQLite Verified Assessment</div>
             <h3>Score: ${result.correct_count} / ${result.total_questions} (${result.score_percentage}%)</h3>
             <p>${escapeHtml(result.feedback_message)}</p>
           </div>
@@ -1848,33 +1976,27 @@
         // Colorize Options and Display Rationales
         result.breakdown.forEach(item => {
           const correctLabel = document.getElementById(`opt-label-${item.question_id}-${item.correct_option_index}`);
-          if (correctLabel) {
-            correctLabel.classList.add("correct");
-            correctLabel.classList.remove("selected");
-          }
+          if (correctLabel) correctLabel.classList.add("correct");
 
           if (!item.is_correct && item.selected_option_index >= 0) {
             const incorrectLabel = document.getElementById(`opt-label-${item.question_id}-${item.selected_option_index}`);
-            if (incorrectLabel) {
-              incorrectLabel.classList.add("incorrect");
-              incorrectLabel.classList.remove("selected");
-            }
+            if (incorrectLabel) incorrectLabel.classList.add("incorrect");
           }
 
-          const rationaleDiv = document.getElementById(`rationale-${item.question_id}`);
-          if (rationaleDiv) {
-            rationaleDiv.style.display = "block";
-            rationaleDiv.innerHTML = `<strong style="color: var(--teal-light);">Educational Rationale:</strong> ${escapeHtml(item.rationale)}`;
+          const ratBox = document.getElementById(`rationale-${item.question_id}`);
+          if (ratBox) {
+            ratBox.style.display = "block";
+            ratBox.innerHTML = `<strong>Educational Rationale:</strong> ${escapeHtml(item.rationale)}`;
           }
         });
 
-        document.getElementById("quiz-submit-bar").style.display = "none";
-        showToast(`Quiz evaluation saved to SQLite: ${result.score_percentage}% Score`);
-        setTimeout(() => setAvatarState("IDLE"), 2500);
+        submitBtn.style.display = "none";
+        showToast(`Evaluation recorded in SQLite! Score: ${result.score_percentage}%`);
+        setTimeout(() => setAvatarState("IDLE"), 3000);
       } catch (err) {
-        showToast(err.message);
         submitBtn.disabled = false;
         setAvatarState("IDLE");
+        showToast(err.message);
       }
     }
 
@@ -1885,26 +2007,86 @@
       document.getElementById("quiz-score-container").style.display = "none";
       document.getElementById("quiz-submit-bar").style.display = "none";
       document.getElementById("quiz-questions-list").innerHTML = `
-        <div style="text-align: center; padding: 2rem 1rem; color: var(--text-dim);">
-          <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin: 0 auto 0.5rem; opacity: 0.5;"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-          <p style="font-size: 0.82rem; font-weight: 500;">No active quiz session</p>
-          <span style="font-size: 0.74rem; display: block; margin-top: 0.25rem;">Load notes and click <strong>Generate Quiz</strong> to test active recall.</span>
+        <div style="text-align: center; padding: 1.8rem 1rem; color: var(--text-dim);">
+          <svg width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin: 0 auto 0.5rem; opacity: 0.5;"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          <p style="font-size: 0.8rem; font-weight: 500;">No active quiz session</p>
+          <span style="font-size: 0.72rem; display: block; margin-top: 0.25rem;">Load notes and click <strong>Generate Quiz</strong> to test active recall.</span>
         </div>
       `;
     }
 
+    // -------------------------------------------------------------
+    // Utility Helpers
+    // -------------------------------------------------------------
+    function escapeHtml(str) {
+      if (!str) return "";
+      return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function formatMarkdown(text) {
+      if (!text) return "";
+      let html = escapeHtml(text);
+      // bold
+      html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      // italic
+      html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+      // code
+      html = html.replace(/`(.*?)`/g, '<code style="background: rgba(0,0,0,0.4); padding: 0.15rem 0.35rem; border-radius: 4px; font-family: monospace; color: #5EEAD4;">$1</code>');
+      // line breaks
+      html = html.replace(/\n\n/g, '</p><p style="margin-top: 0.55rem;">');
+      html = html.replace(/\n/g, '<br/>');
+      return html;
+    }
+
+    let toastTimer = null;
     function showToast(msg) {
       const toast = document.getElementById("toast-notification");
       toast.innerText = msg;
       toast.style.display = "block";
-      setTimeout(() => { toast.style.display = "none"; }, 3200);
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.style.display = "none";
+      }, 3500);
     }
 
-    // Initialize on Load
+    // -------------------------------------------------------------
+    // Initializer
+    // -------------------------------------------------------------
     window.addEventListener("DOMContentLoaded", () => {
       init3DAvatar();
-      // Auto-load sample document from backend SQLite on startup
-      loadSampleDocument();
+
+      // Drag and drop setup for upload zone
+      const dropZone = document.getElementById("upload-zone");
+      if (dropZone) {
+        ['dragenter', 'dragover'].forEach(eventName => {
+          dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.add("dragover");
+          }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+          dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove("dragover");
+          }, false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+          const dt = e.dataTransfer;
+          const files = dt.files;
+          if (files && files.length > 0) {
+            uploadFile(files[0]);
+          }
+        }, false);
+      }
     });
   </script>
 </body>
