@@ -3,16 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EduVerse AI — Animated Virtual Tutor for Personalized Learning</title>
+  <title>EduVerse AI — Virtual Tutor for Personalized Learning</title>
   <link rel="icon" type="image/png" href="/images/college_logo.png" />
   
   <!-- Modern Typography: Inter & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  
-  <!-- Three.js for 3D Neural Hologram -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
   <style>
     :root {
@@ -179,7 +176,7 @@
       gap: 0.75rem;
     }
 
-    /* Active Document Pill */
+    /* Active Document Status Capsule */
     .active-doc-capsule {
       display: flex;
       align-items: center;
@@ -223,26 +220,6 @@
     @keyframes pulse-dot {
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.45; transform: scale(1.25); }
-    }
-
-    .sys-pill {
-      font-size: 0.7rem;
-      color: var(--text-muted);
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--border-subtle);
-      padding: 0.35rem 0.75rem;
-      border-radius: 20px;
-      display: flex;
-      align-items: center;
-      gap: 0.35rem;
-    }
-
-    .sys-pill span.green-pulse {
-      width: 6px;
-      height: 6px;
-      background: var(--success);
-      border-radius: 50%;
-      box-shadow: 0 0 6px var(--success);
     }
 
     .btn-header-action {
@@ -320,7 +297,7 @@
       header {
         padding: 0.55rem 1rem;
       }
-      .brand-text p, .sys-pill {
+      .brand-text p {
         display: none;
       }
       .mobile-nav-tabs {
@@ -665,38 +642,8 @@
       margin-bottom: 0.25rem;
     }
 
-    .suggested-prompts {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.4rem;
-      padding: 0.6rem 1rem;
-      border-top: 1px solid var(--border-subtle);
-      background: rgba(11, 15, 26, 0.7);
-    }
-
-    .prompt-chip {
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--border-subtle);
-      border-radius: 16px;
-      padding: 0.28rem 0.7rem;
-      font-size: 0.74rem;
-      font-weight: 500;
-      color: var(--teal-bright);
-      cursor: pointer;
-      transition: var(--transition);
-      display: flex;
-      align-items: center;
-      gap: 0.3rem;
-    }
-
-    .prompt-chip:hover {
-      background: var(--teal-subtle);
-      border-color: var(--teal-border);
-      transform: translateY(-1px);
-    }
-
     .chat-input-area {
-      padding: 0.75rem 1rem;
+      padding: 0.85rem 1rem;
       border-top: 1px solid var(--border-subtle);
       background: rgba(11, 15, 26, 0.8);
       display: flex;
@@ -706,7 +653,7 @@
 
     .chat-input-area input {
       flex: 1;
-      padding: 0.65rem 0.95rem;
+      padding: 0.7rem 0.95rem;
       border: 1.5px solid var(--border-medium);
       border-radius: var(--radius-md);
       font-size: 0.86rem;
@@ -765,63 +712,7 @@
       color: var(--teal-bright);
     }
 
-    /* Column 3: 3D Quantum Neural Core Viewport */
-    .avatar-card {
-      background: radial-gradient(circle at center, #0B132B 0%, #060913 85%);
-      border-radius: var(--radius-md);
-      overflow: hidden;
-      margin-bottom: 1rem;
-      position: relative;
-      border: 1px solid rgba(45, 212, 191, 0.2);
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.65);
-    }
-
-    #avatar-canvas {
-      width: 100%;
-      height: 200px;
-      display: block;
-      cursor: grab;
-    }
-
-    #avatar-canvas:active {
-      cursor: grabbing;
-    }
-
-    .avatar-status-overlay {
-      position: absolute;
-      bottom: 8px;
-      left: 10px;
-      right: 10px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      pointer-events: none;
-    }
-
-    .avatar-pill {
-      background: rgba(6, 9, 19, 0.85);
-      backdrop-filter: blur(8px);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      color: var(--teal-bright);
-      font-size: 0.7rem;
-      font-weight: 600;
-      padding: 0.2rem 0.55rem;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      gap: 0.35rem;
-      letter-spacing: 0.02em;
-    }
-
-    .avatar-indicator-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--teal-bright);
-      box-shadow: 0 0 6px var(--teal-bright);
-    }
-
-    /* Quiz Section */
+    /* Column 3: Quiz Panel */
     .quiz-section {
       display: flex;
       flex-direction: column;
@@ -1025,11 +916,6 @@
         <span id="active-doc-name">No study document loaded</span>
       </div>
 
-      <div class="sys-pill">
-        <span class="green-pulse"></span>
-        <span>FastAPI + SQLite3</span>
-      </div>
-
       <button class="btn-header-action" onclick="resetWorkspace()" title="Reset workspace and clear document session">
         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
         Reset
@@ -1041,7 +927,7 @@
   <div class="mobile-nav-tabs">
     <button class="mobile-tab-btn active" onclick="switchMobileTab('col-left')">1. Notes & PDF</button>
     <button class="mobile-tab-btn" onclick="switchMobileTab('col-center')">2. AI Tutor</button>
-    <button class="mobile-tab-btn" onclick="switchMobileTab('col-right')">3. 3D Core & Quiz</button>
+    <button class="mobile-tab-btn" onclick="switchMobileTab('col-right')">3. Practice Quiz</button>
   </div>
 
   <!-- 3-Column Main Workspace -->
@@ -1053,7 +939,7 @@
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
           Study Materials
         </h2>
-        <span class="panel-tag">PyMuPDF + SQLite</span>
+        <span class="panel-tag">PyMuPDF Extractor</span>
       </div>
       <div class="panel-body">
         <!-- PDF Dropzone -->
@@ -1068,7 +954,7 @@
 
         <button class="btn-sample-load" onclick="loadSampleDocument()">
           <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-          Load Verified ML Syllabus Notes (SQLite)
+          Load Verified ML Syllabus Notes
         </button>
 
         <!-- Ingested Document Metadata -->
@@ -1086,7 +972,7 @@
               </div>
               <div class="stat-box">
                 <div class="lbl">Storage</div>
-                <div class="val" style="color: #6EE7B7;">SQLite3 Persisted</div>
+                <div class="val" style="color: #6EE7B7;">SQLite Persisted</div>
               </div>
               <div class="stat-box">
                 <div class="lbl">Engine</div>
@@ -1124,32 +1010,12 @@
           <div class="msg-avatar">AI</div>
           <div class="msg-content-wrapper">
             <div class="msg-header-line">
-              <strong>EduVerse AI Tutor</strong> • <span>Full-Stack Active</span>
+              <strong>EduVerse AI Tutor</strong> • <span>Ready</span>
             </div>
             <div class="msg-bubble">
-              <p>Welcome to <strong>EduVerse AI</strong>. Load the syllabus notes or upload your engineering PDF on the left. All answers and practice tests are synthesized directly from your study materials with SQLite persistence.</p>
+              <p>Welcome to <strong>EduVerse AI</strong>. Load the syllabus notes or upload your study material on the left. All explanations and practice questions are grounded in your loaded document.</p>
             </div>
           </div>
-        </div>
-      </div>
-
-      <!-- Quick Suggestion Chips with Vector Icons -->
-      <div class="suggested-prompts">
-        <div class="prompt-chip" onclick="usePrompt('Explain supervised learning according to the notes.')">
-          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
-          Supervised Learning
-        </div>
-        <div class="prompt-chip" onclick="usePrompt('What is the loss function in logistic regression and why is it convex?')">
-          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-          Logistic Loss Function
-        </div>
-        <div class="prompt-chip" onclick="usePrompt('Simplify overfitting with an analogy.')">
-          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
-          Overfitting Analogy
-        </div>
-        <div class="prompt-chip" onclick="usePrompt('Explain gradient descent optimization step by step.')">
-          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
-          Gradient Descent
         </div>
       </div>
 
@@ -1167,27 +1033,16 @@
       </div>
     </div>
 
-    <!-- Column 3: 3D Holographic Core & Quiz -->
+    <!-- Column 3: Practice Quiz -->
     <div class="panel col-right" id="col-right">
       <div class="panel-header">
         <h2>
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>
-          Neural Core & Practice Quiz
+          Practice Quiz
         </h2>
         <span class="panel-tag">Active Recall</span>
       </div>
       <div class="panel-body">
-        <!-- 3D Neural Holographic Core (Three.js WebGL) -->
-        <div class="avatar-card" title="Interactive 3D Quantum Neural Hologram (Three.js WebGL)">
-          <canvas id="avatar-canvas"></canvas>
-          <div class="avatar-status-overlay">
-            <span class="avatar-pill" id="avatar-state-text">
-              <span class="avatar-indicator-dot"></span> State: Idle
-            </span>
-            <span class="avatar-pill" style="border-color: rgba(45, 212, 191, 0.4);">Neural Hologram</span>
-          </div>
-        </div>
-
         <!-- Quiz Section -->
         <div class="quiz-section">
           <div class="quiz-controls">
@@ -1204,7 +1059,7 @@
 
           <div id="quiz-score-container" style="display: none;"></div>
           <div id="quiz-questions-list">
-            <div style="text-align: center; padding: 1.8rem 1rem; color: var(--text-dim);">
+            <div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-dim);">
               <svg width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin: 0 auto 0.5rem; opacity: 0.5;"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
               <p style="font-size: 0.8rem; font-weight: 500;">No active quiz session</p>
               <span style="font-size: 0.72rem; display: block; margin-top: 0.25rem;">Load notes and click <strong>Generate Quiz</strong> to test active recall.</span>
@@ -1224,13 +1079,18 @@
   <!-- Toast Notification -->
   <div class="toast" id="toast-notification" role="status" aria-live="polite"></div>
 
-  <!-- Application Logic & Three.js 3D Quantum Neural Core Engine -->
+  <!-- Application Logic -->
   <script>
     let currentDocId = null;
     let activeQuizId = null;
     let currentQuizData = null;
     let userAnswers = {};
     let isPreviewVisible = true;
+
+    // Safe avatar state stub (hologram removed per design requirement)
+    function setAvatarState(state) {
+      // Hologram removed; keep safe no-op for caller compatibility
+    }
 
     // -------------------------------------------------------------
     // Mobile Tab Navigation
@@ -1246,234 +1106,13 @@
       if (panelId === 'col-left') buttons[0].classList.add("active");
       if (panelId === 'col-center') buttons[1].classList.add("active");
       if (panelId === 'col-right') buttons[2].classList.add("active");
-
-      if (panelId === 'col-right' && renderer && camera) {
-        setTimeout(onWindowResize, 60);
-      }
     }
-
-    // -------------------------------------------------------------
-    // 3D Quantum Neural Hologram Core (Three.js WebGL)
-    // -------------------------------------------------------------
-    let scene, camera, renderer, coreGroup;
-    let innerCore, wireframeCage, gimbalRing1, gimbalRing2, equatorRing, particleSystem;
-    let avatarState = "IDLE"; // IDLE, THINKING, EXPLAINING
-    let targetRotX = 0;
-    let targetRotY = 0;
-
-    function init3DAvatar() {
-      const canvas = document.getElementById("avatar-canvas");
-      if (!canvas) return;
-      const width = canvas.clientWidth || 330;
-      const height = canvas.clientHeight || 200;
-
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x060913);
-
-      camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-      camera.position.set(0, 0, 4.3);
-
-      renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
-      renderer.setSize(width, height);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-      // Sophisticated Cinematic Lighting
-      const ambientLight = new THREE.AmbientLight(0x0A2540, 1.2);
-      scene.add(ambientLight);
-
-      const keyLight = new THREE.PointLight(0x2DD4BF, 2.5, 20);
-      keyLight.position.set(3, 3, 4);
-      scene.add(keyLight);
-
-      const fillLight = new THREE.PointLight(0x38BDF8, 2.0, 20);
-      fillLight.position.set(-3, -2, 3);
-      scene.add(fillLight);
-
-      const rimLight = new THREE.PointLight(0x6366F1, 1.8, 15);
-      rimLight.position.set(0, 4, -2);
-      scene.add(rimLight);
-
-      coreGroup = new THREE.Group();
-
-      // 1. Central Luminous Quantum Nucleus
-      const coreGeo = new THREE.IcosahedronGeometry(0.72, 3);
-      const coreMat = new THREE.MeshStandardMaterial({
-        color: 0x071D27,
-        emissive: 0x0D9488,
-        emissiveIntensity: 0.65,
-        roughness: 0.2,
-        metalness: 0.85
-      });
-      innerCore = new THREE.Mesh(coreGeo, coreMat);
-      coreGroup.add(innerCore);
-
-      // 2. High-Tech Geometric Lattice (Outer Wireframe Cage)
-      const cageGeo = new THREE.IcosahedronGeometry(1.08, 1);
-      const cageMat = new THREE.MeshStandardMaterial({
-        color: 0x14B8A6,
-        emissive: 0x2DD4BF,
-        emissiveIntensity: 0.35,
-        wireframe: true,
-        transparent: true,
-        opacity: 0.75
-      });
-      wireframeCage = new THREE.Mesh(cageGeo, cageMat);
-      coreGroup.add(wireframeCage);
-
-      // 3. Gyroscopic Gimbal Rings (Astrolabe Astrodynamics)
-      // Ring 1 (Inner orbital ring)
-      const ring1Geo = new THREE.TorusGeometry(1.44, 0.022, 16, 90);
-      const ring1Mat = new THREE.MeshBasicMaterial({ color: 0x14B8A6, transparent: true, opacity: 0.85 });
-      gimbalRing1 = new THREE.Mesh(ring1Geo, ring1Mat);
-      gimbalRing1.rotation.x = Math.PI / 3;
-      coreGroup.add(gimbalRing1);
-
-      // Ring 2 (Counter-rotating outer ring)
-      const ring2Geo = new THREE.TorusGeometry(1.72, 0.02, 16, 90);
-      const ring2Mat = new THREE.MeshBasicMaterial({ color: 0x38BDF8, transparent: true, opacity: 0.7 });
-      gimbalRing2 = new THREE.Mesh(ring2Geo, ring2Mat);
-      gimbalRing2.rotation.y = Math.PI / 4;
-      coreGroup.add(gimbalRing2);
-
-      // Ring 3 (Equatorial thin pulse halo)
-      const ring3Geo = new THREE.TorusGeometry(1.98, 0.015, 16, 100);
-      const ring3Mat = new THREE.MeshBasicMaterial({ color: 0x818CF8, transparent: true, opacity: 0.5 });
-      equatorRing = new THREE.Mesh(ring3Geo, ring3Mat);
-      equatorRing.rotation.x = Math.PI / 2;
-      coreGroup.add(equatorRing);
-
-      // 4. Stardust / Constellation Particle Cloud
-      const particleCount = 85;
-      const particlePositions = new Float32Array(particleCount * 3);
-      for (let i = 0; i < particleCount; i++) {
-        const radius = 1.3 + Math.random() * 1.1;
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos((Math.random() * 2) - 1);
-        particlePositions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
-        particlePositions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-        particlePositions[i * 3 + 2] = radius * Math.cos(phi);
-      }
-      const particleGeo = new THREE.BufferGeometry();
-      particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
-      const particleMat = new THREE.PointsMaterial({
-        color: 0x5EEAD4,
-        size: 0.045,
-        transparent: true,
-        opacity: 0.85
-      });
-      particleSystem = new THREE.Points(particleGeo, particleMat);
-      coreGroup.add(particleSystem);
-
-      scene.add(coreGroup);
-
-      // Mouse interactive tilt
-      canvas.addEventListener("mousemove", (e) => {
-        const rect = canvas.getBoundingClientRect();
-        const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-        const y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
-        targetRotY = x * 0.5;
-        targetRotX = -y * 0.35;
-      });
-      canvas.addEventListener("mouseleave", () => {
-        targetRotX = 0;
-        targetRotY = 0;
-      });
-
-      animateAvatar();
-    }
-
-    let clock = new THREE.Clock();
-    function animateAvatar() {
-      requestAnimationFrame(animateAvatar);
-      const t = clock.getElapsedTime();
-
-      if (coreGroup) {
-        // Smooth mouse tilt interpolation
-        coreGroup.rotation.x += (targetRotX - coreGroup.rotation.x) * 0.05;
-        coreGroup.rotation.y += (targetRotY - coreGroup.rotation.y) * 0.05;
-
-        // Smooth levitation wave
-        const bob = Math.sin(t * 1.8) * 0.07;
-        coreGroup.position.y = bob;
-
-        if (avatarState === "IDLE") {
-          innerCore.rotation.y = t * 0.3;
-          wireframeCage.rotation.y = -t * 0.25;
-          wireframeCage.rotation.x = Math.sin(t * 0.5) * 0.2;
-          gimbalRing1.rotation.z = t * 0.5;
-          gimbalRing2.rotation.x = -t * 0.45;
-          equatorRing.rotation.z = t * 0.2;
-          particleSystem.rotation.y = t * 0.15;
-
-          innerCore.material.emissive.setHex(0x0D9488);
-          innerCore.material.emissiveIntensity = 0.65 + Math.sin(t * 2) * 0.15;
-          wireframeCage.material.color.setHex(0x14B8A6);
-          gimbalRing1.material.color.setHex(0x14B8A6);
-          gimbalRing2.material.color.setHex(0x38BDF8);
-        } else if (avatarState === "THINKING") {
-          // Accelerated calculation mode
-          innerCore.rotation.y = t * 1.2;
-          wireframeCage.rotation.y = -t * 1.0;
-          gimbalRing1.rotation.z = t * 1.8;
-          gimbalRing2.rotation.x = -t * 1.5;
-          equatorRing.rotation.z = t * 0.9;
-          particleSystem.rotation.y = -t * 0.8;
-
-          const pulse = 0.5 + Math.sin(t * 8) * 0.35;
-          innerCore.material.emissiveIntensity = pulse;
-          innerCore.material.emissive.setHex(0xF59E0B);
-          wireframeCage.material.color.setHex(0xFBBF24);
-          gimbalRing1.material.color.setHex(0xF59E0B);
-          gimbalRing2.material.color.setHex(0xFCD34D);
-        } else if (avatarState === "EXPLAINING") {
-          // Harmonic wave mode
-          innerCore.rotation.y = t * 0.6;
-          wireframeCage.rotation.y = -t * 0.5;
-          gimbalRing1.rotation.z = t * 0.8;
-          gimbalRing2.rotation.x = -t * 0.7;
-          equatorRing.rotation.z = t * 0.4;
-          particleSystem.rotation.y = t * 0.35;
-
-          const pulse = 0.6 + Math.sin(t * 4) * 0.25;
-          innerCore.material.emissiveIntensity = pulse;
-          innerCore.material.emissive.setHex(0x10B981);
-          wireframeCage.material.color.setHex(0x34D399);
-          gimbalRing1.material.color.setHex(0x10B981);
-          gimbalRing2.material.color.setHex(0x6EE7B7);
-        }
-      }
-
-      if (renderer && scene && camera) {
-        renderer.render(scene, camera);
-      }
-    }
-
-    function setAvatarState(state) {
-      avatarState = state;
-      const el = document.getElementById("avatar-state-text");
-      if (el) {
-        const dotColor = state === "IDLE" ? "#2DD4BF" : (state === "THINKING" ? "#F59E0B" : "#10B981");
-        el.innerHTML = `<span class="avatar-indicator-dot" style="background: ${dotColor};"></span> State: ${state.charAt(0) + state.slice(1).toLowerCase()}`;
-      }
-    }
-
-    function onWindowResize() {
-      const canvas = document.getElementById("avatar-canvas");
-      if (!canvas || !renderer || !camera) return;
-      const width = canvas.clientWidth;
-      const height = canvas.clientHeight;
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-      renderer.setSize(width, height);
-    }
-    window.addEventListener("resize", onWindowResize);
 
     // -------------------------------------------------------------
     // Full-Stack Real Backend Integration (FastAPI + SQLite3)
     // -------------------------------------------------------------
     async function loadSampleDocument() {
-      setAvatarState("THINKING");
-      showToast("Ingesting Machine Learning Syllabus into SQLite...");
+      showToast("Loading Machine Learning syllabus notes...");
 
       try {
         const resp = await fetch("/api/documents/sample", { method: "POST" });
@@ -1482,11 +1121,9 @@
         }
         const data = await resp.json();
         onDocumentLoaded(data);
-        showToast("Machine Learning notes loaded and persisted to SQLite!");
+        showToast("Machine Learning notes loaded successfully!");
       } catch (err) {
         showToast(`Error: ${err.message}`);
-      } finally {
-        setAvatarState("IDLE");
       }
     }
 
@@ -1501,8 +1138,7 @@
         return;
       }
 
-      setAvatarState("THINKING");
-      showToast("Parsing PDF via PyMuPDF into SQLite database...");
+      showToast("Extracting text from PDF...");
 
       const formData = new FormData();
       formData.append("file", file);
@@ -1520,11 +1156,9 @@
 
         const data = await resp.json();
         onDocumentLoaded(data);
-        showToast("PDF document parsed and saved to SQLite!");
+        showToast("PDF document parsed and ready!");
       } catch (err) {
         showToast(err.message);
-      } finally {
-        setAvatarState("IDLE");
       }
     }
 
@@ -1548,7 +1182,7 @@
       resetQuizUI();
 
       appendTutorMessage(
-        `I have ingested <strong>${escapeHtml(data.filename)}</strong> (${data.pages} pages, ${data.char_count.toLocaleString()} characters) into the SQLite database. Ask doubts or generate active recall quizzes grounded in this material!`
+        `Loaded <strong>${escapeHtml(data.filename)}</strong> (${data.pages} pages, ${data.char_count.toLocaleString()} characters). You can now ask questions or generate practice quizzes based on this material.`
       );
     }
 
@@ -1581,18 +1215,12 @@
 
       clearChat();
       resetQuizUI();
-      showToast("Workspace session reset.");
-      setAvatarState("IDLE");
+      showToast("Workspace reset.");
     }
 
     // -------------------------------------------------------------
     // Contextual Tutor Q&A and Concept Simplification
     // -------------------------------------------------------------
-    function usePrompt(text) {
-      document.getElementById("user-input").value = text;
-      askQuestion();
-    }
-
     function handleKeyDown(e) {
       if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
         askSimplify();
@@ -1609,10 +1237,10 @@
           <div class="msg-avatar">AI</div>
           <div class="msg-content-wrapper">
             <div class="msg-header-line">
-              <strong>EduVerse AI Tutor</strong> • <span>Full-Stack Active</span>
+              <strong>EduVerse AI Tutor</strong> • <span>Ready</span>
             </div>
             <div class="msg-bubble">
-              Conversation history cleared. Ask any doubt grounded in your uploaded study notes!
+              Conversation history cleared. Ask any doubt grounded in your study notes.
             </div>
           </div>
         </div>
@@ -1626,13 +1254,12 @@
       if (!query) return;
 
       if (!currentDocId) {
-        showToast("Please load or upload a study document first!");
+        showToast("Please load or upload a study document first.");
         return;
       }
 
       appendUserMessage(query);
       input.value = "";
-      setAvatarState("THINKING");
 
       const thinkingId = appendThinkingIndicator();
       const sendBtn = document.getElementById("send-btn");
@@ -1654,21 +1281,20 @@
         }
 
         const data = await resp.json();
-        setAvatarState("EXPLAINING");
 
         let bubbleHtml = `<p>${formatMarkdown(data.answer)}</p>`;
         if (data.context_excerpt) {
-          bubbleHtml += `<div class="rationale-box" style="margin-top: 0.6rem;"><strong style="color: var(--teal-bright);">Syllabus Excerpt:</strong> <em>"${escapeHtml(data.context_excerpt)}"</em></div>`;
+          bubbleHtml += `<div class="rationale-box" style="margin-top: 0.6rem;"><strong style="color: var(--teal-bright);">Context Excerpt:</strong> <em>"${escapeHtml(data.context_excerpt)}"</em></div>`;
         }
-        bubbleHtml += `<div style="font-size: 0.72rem; color: var(--text-dim); margin-top: 0.5rem; font-style: italic;">${escapeHtml(data.disclaimer)}</div>`;
+        if (data.disclaimer) {
+          bubbleHtml += `<div style="font-size: 0.72rem; color: var(--text-dim); margin-top: 0.5rem; font-style: italic;">${escapeHtml(data.disclaimer)}</div>`;
+        }
 
         appendTutorMessage(bubbleHtml);
-        setTimeout(() => setAvatarState("IDLE"), 2500);
       } catch (err) {
         removeThinkingIndicator(thinkingId);
         sendBtn.disabled = false;
         appendTutorMessage(`<span style="color: var(--danger);">Error: ${escapeHtml(err.message)}</span>`);
-        setAvatarState("IDLE");
       }
     }
 
@@ -1682,13 +1308,12 @@
       concept = concept.replace(/^simplify:\s*/i, "");
 
       if (!currentDocId) {
-        showToast("Please load or upload a study document first!");
+        showToast("Please load or upload a study document first.");
         return;
       }
 
       appendUserMessage(`Simplify: ${concept}`);
       input.value = "";
-      setAvatarState("THINKING");
 
       const thinkingId = appendThinkingIndicator();
       const simplifyBtn = document.getElementById("simplify-btn");
@@ -1710,7 +1335,6 @@
         }
 
         const data = await resp.json();
-        setAvatarState("EXPLAINING");
 
         let pointsHtml = data.key_points.map(pt => `<li>${escapeHtml(pt)}</li>`).join("");
         let bubbleHtml = `
@@ -1725,17 +1349,15 @@
             <p>${escapeHtml(data.analogy)}</p>
           </div>
 
-          <div style="margin-top: 0.65rem; font-size: 0.78rem; font-weight: 700; color: #5EEAD4;">Key Educational Takeaways:</div>
+          <div style="margin-top: 0.65rem; font-size: 0.78rem; font-weight: 700; color: #5EEAD4;">Key Takeaways:</div>
           <ul class="key-points-list">${pointsHtml}</ul>
         `;
 
         appendTutorMessage(bubbleHtml);
-        setTimeout(() => setAvatarState("IDLE"), 2500);
       } catch (err) {
         removeThinkingIndicator(thinkingId);
         simplifyBtn.disabled = false;
         appendTutorMessage(`<span style="color: var(--danger);">Error: ${escapeHtml(err.message)}</span>`);
-        setAvatarState("IDLE");
       }
     }
 
@@ -1811,15 +1433,14 @@
     // -------------------------------------------------------------
     async function generateQuiz() {
       if (!currentDocId) {
-        showToast("Please load or upload a study document first!");
+        showToast("Please load or upload a study document first.");
         return;
       }
 
       const countSelect = document.getElementById("quiz-count-select");
       const questionCount = parseInt(countSelect.value, 10) || 3;
 
-      setAvatarState("THINKING");
-      showToast(`Generating ${questionCount} active recall questions from syllabus...`);
+      showToast(`Generating ${questionCount} active recall questions...`);
 
       const genBtn = document.getElementById("gen-quiz-btn");
       genBtn.disabled = true;
@@ -1865,10 +1486,8 @@
         updateSubmitButtonState();
 
         showToast(`Quiz generated! ${data.questions.length} questions ready.`);
-        setAvatarState("IDLE");
       } catch (err) {
         genBtn.disabled = false;
-        setAvatarState("IDLE");
         listContainer.innerHTML = `
           <div style="text-align: center; padding: 1.5rem; color: var(--danger);">
             <p>Error generating quiz: ${escapeHtml(err.message)}</p>
@@ -1940,7 +1559,6 @@
         return;
       }
 
-      setAvatarState("THINKING");
       const submitBtn = document.getElementById("submit-quiz-btn");
       submitBtn.disabled = true;
 
@@ -1960,14 +1578,13 @@
         }
 
         const result = await resp.json();
-        setAvatarState("EXPLAINING");
 
         // Display Score Banner
         const scoreBox = document.getElementById("quiz-score-container");
         scoreBox.style.display = "block";
         scoreBox.innerHTML = `
           <div class="quiz-score-banner">
-            <div style="font-size: 0.7rem; color: #5EEAD4; font-weight: 700; text-transform: uppercase; margin-bottom: 0.2rem; letter-spacing: 0.05em;">SQLite Verified Assessment</div>
+            <div style="font-size: 0.7rem; color: #5EEAD4; font-weight: 700; text-transform: uppercase; margin-bottom: 0.2rem; letter-spacing: 0.05em;">Assessment Results</div>
             <h3>Score: ${result.correct_count} / ${result.total_questions} (${result.score_percentage}%)</h3>
             <p>${escapeHtml(result.feedback_message)}</p>
           </div>
@@ -1991,11 +1608,9 @@
         });
 
         submitBtn.style.display = "none";
-        showToast(`Evaluation recorded in SQLite! Score: ${result.score_percentage}%`);
-        setTimeout(() => setAvatarState("IDLE"), 3000);
+        showToast(`Evaluation complete! Score: ${result.score_percentage}%`);
       } catch (err) {
         submitBtn.disabled = false;
-        setAvatarState("IDLE");
         showToast(err.message);
       }
     }
@@ -2007,7 +1622,7 @@
       document.getElementById("quiz-score-container").style.display = "none";
       document.getElementById("quiz-submit-bar").style.display = "none";
       document.getElementById("quiz-questions-list").innerHTML = `
-        <div style="text-align: center; padding: 1.8rem 1rem; color: var(--text-dim);">
+        <div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-dim);">
           <svg width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin: 0 auto 0.5rem; opacity: 0.5;"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
           <p style="font-size: 0.8rem; font-weight: 500;">No active quiz session</p>
           <span style="font-size: 0.72rem; display: block; margin-top: 0.25rem;">Load notes and click <strong>Generate Quiz</strong> to test active recall.</span>
@@ -2031,13 +1646,9 @@
     function formatMarkdown(text) {
       if (!text) return "";
       let html = escapeHtml(text);
-      // bold
       html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-      // italic
       html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
-      // code
       html = html.replace(/`(.*?)`/g, '<code style="background: rgba(0,0,0,0.4); padding: 0.15rem 0.35rem; border-radius: 4px; font-family: monospace; color: #5EEAD4;">$1</code>');
-      // line breaks
       html = html.replace(/\n\n/g, '</p><p style="margin-top: 0.55rem;">');
       html = html.replace(/\n/g, '<br/>');
       return html;
@@ -2058,8 +1669,6 @@
     // Initializer
     // -------------------------------------------------------------
     window.addEventListener("DOMContentLoaded", () => {
-      init3DAvatar();
-
       // Drag and drop setup for upload zone
       const dropZone = document.getElementById("upload-zone");
       if (dropZone) {

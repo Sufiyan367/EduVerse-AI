@@ -10,16 +10,19 @@ async def run_e2e_test():
         page = await context.new_page()
 
         print("[E2E] Navigating to http://127.0.0.1:8000/ ...")
-        await page.goto("http://127.0.0.1:8000/", wait_until="networkidle")
+        await page.goto("http://127.0.0.1:8000/", wait_until="domcontentloaded")
 
         # 1. Verify Page Loaded & Title
         title = await page.title()
         print(f"[E2E] Page title: {title}")
         assert "EduVerse AI" in title
 
-        # Verify 3D avatar canvas
-        await page.wait_for_selector("#avatar-canvas", state="visible")
-        print("[E2E] 3D Avatar canvas visible.")
+        # Verify clean right panel (hologram removed per targeted cleanup)
+        assert await page.locator("#avatar-canvas").count() == 0, "Avatar canvas must be removed!"
+        assert await page.locator("#avatar-state-text").count() == 0, "Avatar state text must be removed!"
+        assert await page.locator(".suggested-prompts").count() == 0, "Suggestion prompt chips must be removed!"
+        await page.wait_for_selector("#quiz-count-select", state="visible")
+        print("[E2E] Clean right panel verified (hologram & topic chips cleanly removed).")
 
         # 2. Check Active Document Capsule
         doc_capsule = page.locator("#active-doc-name")
@@ -60,7 +63,8 @@ async def run_e2e_test():
         await chat_input.fill("Gradient Descent")
         simplify_btn = page.locator("#simplify-btn")
         await simplify_btn.click()
-        await page.wait_for_timeout(3000)
+        await page.wait_for_selector("#simplify-btn:not([disabled])", timeout=45000)
+        await page.wait_for_timeout(1000)
         print("[E2E] Simplify response rendered.")
 
         # 5. Generate Active Recall Quiz
@@ -69,7 +73,7 @@ async def run_e2e_test():
         await gen_quiz_btn.click()
 
         # Wait for questions to appear
-        await page.wait_for_selector(".question-card", state="visible", timeout=30000)
+        await page.wait_for_selector(".question-card", state="visible", timeout=60000)
         q_cards = await page.locator(".question-card").all()
         print(f"[E2E] Rendered {len(q_cards)} quiz questions.")
 
