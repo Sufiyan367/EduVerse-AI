@@ -98,6 +98,15 @@ async def evaluate_quiz(req: QuizEvaluateRequest):
     score_percentage = round((correct_count / total_questions) * 100, 1)
     passed = score_percentage >= 50.0
 
+    # Persist evaluation record to SQLite
+    storage.store_evaluation(
+        quiz_id=req.quiz_id,
+        score_percentage=score_percentage,
+        correct_count=correct_count,
+        total_questions=total_questions,
+        passed=passed
+    )
+
     if score_percentage >= 80:
         feedback = "Outstanding comprehension! You have demonstrated strong conceptual mastery of this unit."
     elif score_percentage >= 50:

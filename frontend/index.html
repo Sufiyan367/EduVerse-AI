@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EduVerse AI — Interactive Learning Prototype (Phase 1)</title>
+  <title>EduVerse AI — Animated Virtual Tutor for Personalized Learning</title>
   <link rel="icon" type="image/png" href="/images/college_logo.png" />
   <!-- Google Fonts: Inter & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -78,9 +78,9 @@
       outline-offset: 2px;
     }
 
-    /* Top Prototype Notice Banner */
-    .prototype-banner {
-      background: linear-gradient(90deg, #0F172A 0%, #134E4A 50%, #0F172A 100%);
+    /* Top Architecture Banner */
+    .architecture-banner {
+      background: linear-gradient(90deg, #0F172A 0%, #115E59 50%, #0F172A 100%);
       border-bottom: 1px solid var(--border-subtle);
       padding: 0.35rem 1.5rem;
       font-size: 0.74rem;
@@ -91,7 +91,7 @@
       text-align: center;
     }
 
-    .prototype-tag {
+    .tech-pill {
       background: var(--teal-primary);
       color: #FFFFFF;
       font-weight: 700;
@@ -140,7 +140,7 @@
       letter-spacing: -0.02em;
     }
 
-    .badge-phase {
+    .badge-fullstack {
       font-size: 0.7rem;
       font-weight: 700;
       padding: 0.2rem 0.65rem;
@@ -392,56 +392,29 @@
       display: block;
     }
 
-    .sample-docs-section {
-      margin-top: 1.1rem;
-    }
-
-    .section-label {
-      font-size: 0.74rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-dim);
-      font-weight: 700;
-      margin-bottom: 0.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .sample-doc-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-subtle);
+    .btn-sample-load {
+      width: 100%;
+      margin-top: 0.85rem;
+      padding: 0.7rem 0.85rem;
+      background: rgba(13, 148, 136, 0.12);
+      border: 1.5px solid var(--teal-border);
+      color: #5EEAD4;
       border-radius: var(--radius-sm);
-      padding: 0.65rem 0.85rem;
-      margin-bottom: 0.5rem;
-      cursor: pointer;
-      transition: var(--transition);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .sample-doc-card:hover {
-      border-color: var(--teal-border);
-      background: var(--bg-surface);
-      transform: translateX(2px);
-    }
-
-    .sample-doc-card.active {
-      border-color: var(--teal-light);
-      background: rgba(13, 148, 136, 0.14);
-    }
-
-    .sample-doc-info h4 {
       font-size: 0.82rem;
       font-weight: 600;
-      color: var(--text-white);
-      margin-bottom: 0.15rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: var(--transition);
     }
 
-    .sample-doc-info p {
-      font-size: 0.72rem;
-      color: var(--text-muted);
+    .btn-sample-load:hover {
+      background: var(--teal-primary);
+      color: #FFFFFF;
+      border-color: var(--teal-light);
+      transform: translateY(-1px);
     }
 
     .doc-stats-card {
@@ -603,20 +576,6 @@
       border-bottom-left-radius: 3px;
     }
 
-    .simulated-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-      font-size: 0.68rem;
-      font-weight: 600;
-      background: rgba(245, 158, 11, 0.15);
-      color: #FBBF24;
-      border: 1px solid rgba(245, 158, 11, 0.3);
-      padding: 0.1rem 0.45rem;
-      border-radius: 10px;
-      margin-bottom: 0.45rem;
-    }
-
     .tutor-analogy-box {
       background: rgba(13, 148, 136, 0.12);
       border: 1px solid var(--teal-border);
@@ -750,7 +709,7 @@
       border-color: var(--border-focus);
     }
 
-    /* Column 3: 3D Avatar & Quiz */
+    /* Column 3: Avatar & Quiz */
     .avatar-card {
       background: #070B14;
       border-radius: var(--radius);
@@ -988,16 +947,16 @@
 </head>
 <body>
 
-  <!-- Top Prototype Notice Banner -->
-  <div class="prototype-banner">
+  <!-- Top Architecture Notice Banner -->
+  <div class="architecture-banner">
     <div style="display: flex; align-items: center; gap: 0.5rem;">
-      <span class="prototype-tag">Phase 1 Prototype</span>
-      <span>Interactive Frontend Workspace • Local Demo Mode</span>
+      <span class="tech-pill">Full-Stack Active</span>
+      <span>FastAPI Backend + SQLite3 Database (ACID Compliant) + Three.js WebGL Tutor</span>
     </div>
     <div style="display: flex; align-items: center; gap: 0.75rem;">
-      <span>Simulated AI Tutor & Active Recall Interactions</span>
+      <span>Indira College of Engineering & Management (ICEM Pune)</span>
       <span style="opacity: 0.6;">|</span>
-      <span>Indira College of Eng. & Management</span>
+      <span>Dept. of AI & DS</span>
     </div>
   </div>
 
@@ -1006,25 +965,25 @@
     <div class="brand-section">
       <img src="/images/college_logo.png" alt="ICEM Logo" class="brand-logo-img" />
       <div class="brand-text">
-        <h1>EduVerse AI <span class="badge-phase">Prototype v1.0</span></h1>
+        <h1>EduVerse AI <span class="badge-fullstack">Full-Stack v1.0</span></h1>
         <p>Animated Virtual Tutor for Personalized Learning • Dept. of AI & DS, ICEM Pune</p>
       </div>
     </div>
     <div class="header-actions">
       <div class="active-doc-capsule" id="active-doc-capsule">
         <div class="status-dot" id="header-status-dot"></div>
-        <span id="active-doc-name">No study document selected</span>
+        <span id="active-doc-name">No study document loaded</span>
       </div>
-      <button class="btn-header-action" onclick="resetPrototype()" title="Reset workspace to initial demo state">
+      <button class="btn-header-action" onclick="resetWorkspace()" title="Reset session and clear active context">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-        Reset Demo
+        Reset Session
       </button>
     </div>
   </header>
 
   <!-- Mobile Tab Navigation -->
   <div class="mobile-nav-tabs">
-    <button class="mobile-tab-btn active" onclick="switchMobileTab('col-left')">1. Study Material</button>
+    <button class="mobile-tab-btn active" onclick="switchMobileTab('col-left')">1. Study Materials</button>
     <button class="mobile-tab-btn" onclick="switchMobileTab('col-center')">2. Contextual Tutor</button>
     <button class="mobile-tab-btn" onclick="switchMobileTab('col-right')">3. 3D Avatar & Quiz</button>
   </div>
@@ -1038,7 +997,7 @@
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
           Study Materials
         </h2>
-        <span class="panel-tag">PyMuPDF Ingestion</span>
+        <span class="panel-tag">PyMuPDF + SQLite</span>
       </div>
       <div class="panel-body">
         <!-- PDF Dropzone -->
@@ -1047,69 +1006,42 @@
             <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
           </div>
           <p>Drop or Click to Upload PDF</p>
-          <span>Extracts text locally via PyMuPDF (Max 25 MB)</span>
+          <span>Extracts text via PyMuPDF into SQLite (Max 25 MB)</span>
           <input type="file" id="pdf-file-input" accept=".pdf" style="display: none;" onchange="handleFileSelect(event)" />
         </div>
 
-        <!-- Preloaded Sample Curriculum Documents -->
-        <div class="sample-docs-section">
-          <div class="section-label">
-            <span>Sample Engineering Curricula</span>
-            <span style="font-size: 0.68rem; color: var(--teal-light);">One-Click Demo</span>
-          </div>
-
-          <div class="sample-doc-card active" id="card-doc-1" onclick="selectSampleDoc(1)">
-            <div class="sample-doc-info">
-              <h4>Unit 4: Supervised Learning</h4>
-              <p>Linear models, logistic regression, gradient descent</p>
-            </div>
-            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color: var(--teal-light);"><polyline points="9 18 15 12 9 6"></polyline></svg>
-          </div>
-
-          <div class="sample-doc-card" id="card-doc-2" onclick="selectSampleDoc(2)">
-            <div class="sample-doc-info">
-              <h4>Unit 2: Convolutional Networks</h4>
-              <p>Feature maps, pooling, backprop, filters</p>
-            </div>
-            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color: var(--text-dim);"><polyline points="9 18 15 12 9 6"></polyline></svg>
-          </div>
-
-          <div class="sample-doc-card" id="card-doc-3" onclick="selectSampleDoc(3)">
-            <div class="sample-doc-info">
-              <h4>Unit 1: Foundations of AI</h4>
-              <p>Intelligent agents, state space search, heuristic A*</p>
-            </div>
-            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color: var(--text-dim);"><polyline points="9 18 15 12 9 6"></polyline></svg>
-          </div>
-        </div>
+        <button class="btn-sample-load" onclick="loadSampleDocument()">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+          Load Verified ML Syllabus Notes (SQLite)
+        </button>
 
         <!-- Ingested Document Metadata -->
-        <div id="doc-details-container">
+        <div id="doc-details-container" style="display: none;">
           <div class="doc-stats-card">
             <h3 id="stat-filename">Unit4_SupervisedLearning_ICEM.pdf</h3>
             <div class="stat-grid">
               <div class="stat-box">
                 <div class="lbl">Pages</div>
-                <div class="val" id="stat-pages">2</div>
+                <div class="val" id="stat-pages">0</div>
               </div>
               <div class="stat-box">
                 <div class="lbl">Characters</div>
-                <div class="val" id="stat-chars">2,988</div>
+                <div class="val" id="stat-chars">0</div>
               </div>
               <div class="stat-box">
-                <div class="lbl">Status</div>
-                <div class="val" style="color: #6EE7B7;">Parsed & Ready</div>
+                <div class="lbl">Database</div>
+                <div class="val" style="color: #6EE7B7;">SQLite3 Persisted</div>
               </div>
               <div class="stat-box">
-                <div class="lbl">Mode</div>
-                <div class="val">Interactive Demo</div>
+                <div class="lbl">Parser</div>
+                <div class="val">PyMuPDF 1.28</div>
               </div>
             </div>
           </div>
 
           <div style="margin-top: 1rem;">
             <div class="preview-header">
-              <span class="section-label" style="margin: 0;">Extracted Text Preview</span>
+              <span style="font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); font-weight: 700;">Extracted Syllabus Preview</span>
               <button style="background: none; border: none; color: var(--teal-light); font-size: 0.72rem; cursor: pointer;" onclick="togglePreview()" id="toggle-preview-btn">Hide</button>
             </div>
             <div class="doc-preview-box" id="doc-preview-text">...</div>
@@ -1136,14 +1068,10 @@
           <div class="msg-avatar">AI</div>
           <div class="msg-content-wrapper">
             <div class="msg-header-line">
-              <strong>EduVerse AI Tutor</strong> • <span>Interactive Prototype</span>
+              <strong>EduVerse AI Tutor</strong> • <span>Full-Stack Active</span>
             </div>
             <div class="msg-bubble">
-              <div class="simulated-pill">
-                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                Demo Response
-              </div>
-              <p>Welcome to <strong>EduVerse AI</strong>. Select a sample engineering module on the left or type any question below. Responses demonstrate structured pedagogical explanations and real-world analogies grounded in the active study notes.</p>
+              <p>Welcome to <strong>EduVerse AI</strong>. Upload your engineering lecture notes on the left or click <em>Load Verified ML Syllabus Notes</em> to begin. All doubts and practice quizzes are processed through the FastAPI backend and recorded in SQLite.</p>
             </div>
           </div>
         </div>
@@ -1179,7 +1107,7 @@
       </div>
     </div>
 
-    <!-- Column 3: 3D Avatar & Practice Quiz -->
+    <!-- Column 3: 3D Avatar & Quiz -->
     <div class="panel col-right" id="col-right">
       <div class="panel-header">
         <h2>
@@ -1210,12 +1138,18 @@
             </select>
             <button class="btn btn-teal" style="flex: 1;" id="gen-quiz-btn" onclick="generateQuiz()">
               <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83"></path></svg>
-              Generate Demo Quiz
+              Generate Quiz
             </button>
           </div>
 
           <div id="quiz-score-container" style="display: none;"></div>
-          <div id="quiz-questions-list"></div>
+          <div id="quiz-questions-list">
+            <div style="text-align: center; padding: 2rem 1rem; color: var(--text-dim);">
+              <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin: 0 auto 0.5rem; opacity: 0.5;"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+              <p style="font-size: 0.82rem; font-weight: 500;">No active quiz session</p>
+              <span style="font-size: 0.74rem; display: block; margin-top: 0.25rem;">Load notes and click <strong>Generate Quiz</strong> to test active recall.</span>
+            </div>
+          </div>
 
           <div id="quiz-submit-bar" style="display: none; margin-top: 0.5rem;">
             <button class="btn btn-teal" id="submit-quiz-btn" style="width: 100%;" onclick="submitQuizEvaluation()">
@@ -1232,148 +1166,8 @@
 
   <!-- Application Logic & Three.js 3D Cybernetic Avatar Engine -->
   <script>
-    // -------------------------------------------------------------
-    // Sample Curricula Data (Prototype Demo Data)
-    // -------------------------------------------------------------
-    const SAMPLE_CURRICULA = {
-      1: {
-        doc_id: "demo_doc_supervised_learning",
-        filename: "Unit4_SupervisedLearning_ICEM.pdf",
-        pages: 2,
-        char_count: 2988,
-        preview: "COURSE SYLLABUS: ARTIFICIAL INTELLIGENCE & MACHINE LEARNING\nDEPARTMENT OF ARTIFICIAL INTELLIGENCE & DATA SCIENCE, ICEM PUNE\nUNIT IV: SUPERVISED LEARNING & LINEAR MODELS\n\n1. INTRODUCTION TO SUPERVISED LEARNING\nSupervised learning is a fundamental machine learning paradigm where an algorithm learns a mapping function f(X) -> Y from input features X to labeled target outputs Y. The training dataset consists of N input-output pairs D = {(x_1, y_1), (x_2, y_2), ..., (x_N, y_N)}. The objective is to minimize an empirical loss function over training instances while maintaining low generalization error on unseen test distributions.\n\n2. CLASSIFICATION VERSUS REGRESSION\nSupervised learning tasks are broadly divided based on the nature of the target variable Y:\n- Regression: Target Y is continuous (MSE / MAE metrics).\n- Classification: Target Y is discrete categorical classes (Precision, Recall, F1).\n\n3. LOGISTIC REGRESSION AND CROSS-ENTROPY LOSS\nDespite its name, logistic regression is a linear classification model. It estimates conditional probability P(Y=1|X) using the sigmoid function: sigma(z) = 1 / (1 + exp(-z)). Trained by minimizing Binary Cross-Entropy loss.",
-        questions: [
-          {
-            question_id: 1,
-            question_text: "What is the primary optimization objective in supervised learning as defined in Unit IV?",
-            options: [
-              "Minimizing an empirical loss function over training instances while maintaining low generalization error",
-              "Maximizing the number of features without regularization penalties",
-              "Eliminating all negative weights in the neural hidden layers",
-              "Training strictly on unlabeled data distributions"
-            ],
-            correct_option_index: 0,
-            rationale: "Unit IV explicitly defines supervised learning as minimizing an empirical loss function over training instances while maintaining low generalization error on unseen test distributions."
-          },
-          {
-            question_id: 2,
-            question_text: "Why is Binary Cross-Entropy loss preferred over Mean Squared Error for training Logistic Regression?",
-            options: [
-              "It produces a smooth, convex optimization surface ensuring gradient descent converges to the global optimum",
-              "It is computationally cheaper by avoiding exponential functions",
-              "It guarantees 100% test set accuracy on high-dimensional vectors",
-              "It converts continuous variables into discrete cluster centroids"
-            ],
-            correct_option_index: 0,
-            rationale: "Unlike MSE which yields a non-convex surface with local minima in logistic regression, cross-entropy creates a smooth convex optimization surface for gradient descent."
-          },
-          {
-            question_id: 3,
-            question_text: "Which regularization technique encourages parameter sparsity by adding the L1 norm to the loss function?",
-            options: [
-              "Lasso Regularization (L1 norm ||w||_1)",
-              "Ridge Regularization (L2 norm ||w||_2^2)",
-              "ElasticNet without penalties",
-              "Batch Normalization only"
-            ],
-            correct_option_index: 0,
-            rationale: "Lasso adds the absolute norm ||w||_1, driving non-essential coefficients to zero and effectively performing feature selection."
-          }
-        ]
-      },
-      2: {
-        doc_id: "demo_doc_cnn_vision",
-        filename: "Unit2_Convolutional_Neural_Networks.pdf",
-        pages: 3,
-        char_count: 4210,
-        preview: "COURSE SYLLABUS: COMPUTER VISION & DEEP LEARNING\nUNIT II: CONVOLUTIONAL ARCHITECTURES\n\n1. CONVOLUTION OPERATION & FEATURE MAPS\nConvolution layers slide learnable kernel filters across input tensors, computing localized dot products to extract spatial hierarchies (edges, textures, object parts). Parameter sharing reduces parameter count compared to fully connected layers.\n\n2. POOLING LAYERS\nMax pooling and average pooling downsample spatial dimensions, providing translation invariance and reducing compute footprint.",
-        questions: [
-          {
-            question_id: 1,
-            question_text: "What architectural property allows Convolutional Neural Networks to maintain parameter efficiency?",
-            options: [
-              "Weight sharing and localized receptive fields across spatial dimensions",
-              "Connecting every pixel directly to every hidden output neuron",
-              "Removing activation functions in deeper layers",
-              "Relying solely on non-differentiable step activations"
-            ],
-            correct_option_index: 0,
-            rationale: "Convolutional layers share weights across the spatial feature map, vastly reducing the parameter count compared to dense networks."
-          },
-          {
-            question_id: 2,
-            question_text: "What is the primary role of Max Pooling layers in CNN architectures?",
-            options: [
-              "Downsampling spatial resolution to introduce spatial translation invariance",
-              "Increasing the color depth of feature maps",
-              "Reversing gradient backpropagation flow",
-              "Normalizing learning rates dynamically"
-            ],
-            correct_option_index: 0,
-            rationale: "Max pooling reduces the spatial dimensions of feature representations while preserving prominent activations and translational invariance."
-          },
-          {
-            question_id: 3,
-            question_text: "Which layer typically converts multi-dimensional feature maps into final class logit distributions?",
-            options: [
-              "Fully connected dense layer with Softmax activation",
-              "First 1x1 depthwise separable convolution",
-              "Dropout layer without backpropagation",
-              "Input scaling normalizer"
-            ],
-            correct_option_index: 0,
-            rationale: "Flattened feature maps are routed through dense linear layers followed by Softmax for final multi-class probability estimation."
-          }
-        ]
-      },
-      3: {
-        doc_id: "demo_doc_foundations_ai",
-        filename: "Unit1_Foundations_of_Artificial_Intelligence.pdf",
-        pages: 2,
-        char_count: 3120,
-        preview: "COURSE SYLLABUS: ARTIFICIAL INTELLIGENCE\nUNIT I: INTELLIGENT AGENTS & STATE SPACE SEARCH\n\n1. INTELLIGENT AGENT ARCHITECTURE\nAn agent perceives its environment via sensors and acts through actuators using a PAGE specification (Performance, Agent, Environment, Actuators, Sensors).\n\n2. INFORMED HEURISTIC SEARCH\nA* search computes evaluation function f(n) = g(n) + h(n), where g(n) is path cost from start to node n, and h(n) is an admissible heuristic estimating cost to goal.",
-        questions: [
-          {
-            question_id: 1,
-            question_text: "Under what condition is the A* graph search algorithm guaranteed to find an optimal solution path?",
-            options: [
-              "When the heuristic function h(n) is consistent (monotonic) and admissible",
-              "When all path costs g(n) are negative numbers",
-              "When heuristic values strictly exceed the true cost to the goal",
-              "When search operates depth-first without heuristic evaluation"
-            ],
-            correct_option_index: 0,
-            rationale: "An admissible and consistent heuristic ensures that A* graph search never overestimates cost and guarantees path optimality."
-          },
-          {
-            question_id: 2,
-            question_text: "What does the PEAS acronym stand for in intelligent agent design?",
-            options: [
-              "Performance measure, Environment, Actuators, Sensors",
-              "Parameters, Epochs, Accuracy, Stochastics",
-              "Protocol, Entities, Analytics, Security",
-              "Perception, Execution, Architecture, Scalability"
-            ],
-            correct_option_index: 0,
-            rationale: "Russell & Norvig formalize agent task environments via PEAS: Performance measure, Environment, Actuators, and Sensors."
-          },
-          {
-            question_id: 3,
-            question_text: "How does greedy best-first search differ from A* search?",
-            options: [
-              "Greedy best-first search minimizes h(n) only, ignoring accumulated path cost g(n)",
-              "Greedy best-first search guarantees shortest path optimality",
-              "Greedy best-first evaluates only leaf nodes in random order",
-              "Greedy best-first search never gets trapped in infinite loops"
-            ],
-            correct_option_index: 0,
-            rationale: "Greedy search solely expands the node estimated closest to the goal via h(n), making it fast but non-optimal."
-          }
-        ]
-      }
-    };
-
-    let activeDocId = 1;
+    let currentDocId = null;
+    let activeQuizId = null;
     let currentQuizData = null;
     let userAnswers = {};
     let isPreviewVisible = true;
@@ -1553,38 +1347,87 @@
     window.addEventListener("resize", onWindowResize);
 
     // -------------------------------------------------------------
-    // Sample Document Selection & Ingestion
+    // Full-Stack Real Backend Integration (FastAPI + SQLite3)
     // -------------------------------------------------------------
-    function selectSampleDoc(docIndex) {
-      activeDocId = docIndex;
-      const doc = SAMPLE_CURRICULA[docIndex];
-      if (!doc) return;
+    async function loadSampleDocument() {
+      setAvatarState("THINKING");
+      showToast("Ingesting Machine Learning Syllabus into SQLite...");
 
-      document.querySelectorAll(".sample-doc-card").forEach(c => c.classList.remove("active"));
-      const activeCard = document.getElementById(`card-doc-${docIndex}`);
-      if (activeCard) activeCard.classList.add("active");
+      try {
+        const resp = await fetch("/api/documents/sample", { method: "POST" });
+        if (!resp.ok) {
+          throw new Error("Failed to load sample syllabus document");
+        }
+        const data = await resp.json();
+        onDocumentLoaded(data);
+        showToast("Machine Learning notes loaded and persisted to SQLite!");
+      } catch (err) {
+        showToast(`Error: ${err.message}`);
+      } finally {
+        setAvatarState("IDLE");
+      }
+    }
+
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (file) uploadFile(file);
+    }
+
+    async function uploadFile(file) {
+      if (!file.name.toLowerCase().endsWith(".pdf")) {
+        showToast("Error: Please select a valid PDF file.");
+        return;
+      }
+
+      setAvatarState("THINKING");
+      showToast("Parsing PDF via PyMuPDF into SQLite database...");
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const resp = await fetch("/api/documents/upload", {
+          method: "POST",
+          body: formData
+        });
+
+        if (!resp.ok) {
+          const errData = await resp.json();
+          throw new Error(errData.detail || "Upload failed");
+        }
+
+        const data = await resp.json();
+        onDocumentLoaded(data);
+        showToast("PDF document parsed and saved to SQLite!");
+      } catch (err) {
+        showToast(err.message);
+      } finally {
+        setAvatarState("IDLE");
+      }
+    }
+
+    function onDocumentLoaded(data) {
+      currentDocId = data.doc_id;
 
       // Update Header Capsule
       const capsule = document.getElementById("active-doc-capsule");
       capsule.classList.add("loaded");
       document.getElementById("header-status-dot").classList.add("active");
-      document.getElementById("active-doc-name").innerText = doc.filename;
+      document.getElementById("active-doc-name").innerText = data.filename;
 
-      // Update Stats Panel
-      document.getElementById("stat-filename").innerText = doc.filename;
-      document.getElementById("stat-pages").innerText = doc.pages;
-      document.getElementById("stat-chars").innerText = doc.char_count.toLocaleString();
-      document.getElementById("doc-preview-text").innerText = doc.preview;
+      // Update Column 1 Stats
+      document.getElementById("stat-filename").innerText = data.filename;
+      document.getElementById("stat-pages").innerText = data.pages;
+      document.getElementById("stat-chars").innerText = data.char_count.toLocaleString();
+      document.getElementById("doc-preview-text").innerText = data.preview;
+      document.getElementById("doc-details-container").style.display = "block";
 
-      // Reset quiz for new document
+      // Reset Active Quiz on new document
       resetQuizUI();
 
       appendTutorMessage(
-        `<div class="simulated-pill">Syllabus Ingested</div>
-        Loaded <strong>${escapeHtml(doc.filename)}</strong> (${doc.pages} pages, ${doc.char_count.toLocaleString()} chars). You can query concepts or generate active recall practice questions for this module!`
+        `I have ingested <strong>${escapeHtml(data.filename)}</strong> (${data.pages} pages, ${data.char_count.toLocaleString()} characters) into the SQLite database. Ask doubts or generate active recall quizzes grounded in this material!`
       );
-
-      showToast(`Ingested ${doc.filename}`);
     }
 
     function togglePreview() {
@@ -1601,48 +1444,27 @@
       }
     }
 
-    function handleFileSelect(e) {
-      const file = e.target.files[0];
-      if (!file) return;
+    function resetWorkspace() {
+      currentDocId = null;
+      activeQuizId = null;
+      currentQuizData = null;
+      userAnswers = {};
 
-      if (!file.name.toLowerCase().endsWith(".pdf")) {
-        showToast("Notice: Please upload a standard PDF syllabus file.");
-        return;
-      }
+      const capsule = document.getElementById("active-doc-capsule");
+      capsule.classList.remove("loaded");
+      document.getElementById("header-status-dot").classList.remove("active");
+      document.getElementById("active-doc-name").innerText = "No study document loaded";
+      document.getElementById("doc-details-container").style.display = "none";
+      document.getElementById("pdf-file-input").value = "";
 
-      setAvatarState("THINKING");
-      showToast("Parsing PDF document via PyMuPDF...");
-
-      // Simulate local extraction for prototype
-      setTimeout(() => {
-        document.getElementById("stat-filename").innerText = file.name;
-        document.getElementById("stat-pages").innerText = Math.max(1, Math.round(file.size / 60000));
-        document.getElementById("stat-chars").innerText = (file.size * 0.4).toLocaleString();
-        document.getElementById("doc-preview-text").innerText = `[Local PyMuPDF Stream extracted: ${file.name}]\nFile size: ${(file.size / 1024).toFixed(1)} KB\nExtracted text stream verified ready for grounded synthesis.`;
-        
-        document.getElementById("active-doc-name").innerText = file.name;
-        document.getElementById("active-doc-capsule").classList.add("loaded");
-        document.getElementById("header-status-dot").classList.add("active");
-
-        appendTutorMessage(
-          `<div class="simulated-pill">Custom PDF Ingested</div>
-          Processed local file <strong>${escapeHtml(file.name)}</strong>. You can now test doubts and concept simplification questions against this course document.`
-        );
-
-        setAvatarState("IDLE");
-        showToast("Custom PDF indexed successfully.");
-      }, 1000);
-    }
-
-    function resetPrototype() {
-      selectSampleDoc(1);
       clearChat();
       resetQuizUI();
-      showToast("Prototype restored to initial baseline.");
+      showToast("Workspace session reset.");
+      setAvatarState("IDLE");
     }
 
     // -------------------------------------------------------------
-    // Tutor Q&A and Concept Simplification
+    // Contextual Tutor Q&A and Concept Simplification
     // -------------------------------------------------------------
     function usePrompt(text) {
       document.getElementById("user-input").value = text;
@@ -1665,11 +1487,10 @@
           <div class="msg-avatar">AI</div>
           <div class="msg-content-wrapper">
             <div class="msg-header-line">
-              <strong>EduVerse AI Tutor</strong> • <span>Interactive Prototype</span>
+              <strong>EduVerse AI Tutor</strong> • <span>Full-Stack Active</span>
             </div>
             <div class="msg-bubble">
-              <div class="simulated-pill">Demo Ready</div>
-              <p>Conversation history reset. Ask any question grounded in the selected syllabus module!</p>
+              Conversation history cleared. Ask any doubt grounded in your uploaded study notes!
             </div>
           </div>
         </div>
@@ -1677,10 +1498,15 @@
       showToast("Conversation cleared.");
     }
 
-    function askQuestion() {
+    async function askQuestion() {
       const input = document.getElementById("user-input");
       const query = input.value.trim();
       if (!query) return;
+
+      if (!currentDocId) {
+        showToast("Please load or upload a study document first!");
+        return;
+      }
 
       appendUserMessage(query);
       input.value = "";
@@ -1690,46 +1516,41 @@
       const sendBtn = document.getElementById("send-btn");
       sendBtn.disabled = true;
 
-      setTimeout(() => {
+      try {
+        const resp = await fetch("/api/tutor/query", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ doc_id: currentDocId, query: query, mode: "standard" })
+        });
+
         removeThinkingIndicator(thinkingId);
         sendBtn.disabled = false;
-        setAvatarState("EXPLAINING");
 
-        const doc = SAMPLE_CURRICULA[activeDocId];
-        let answerText = "";
-        let excerpt = "";
-
-        if (query.toLowerCase().includes("supervised")) {
-          answerText = "Supervised learning is a core engineering paradigm where an algorithm estimates a target mapping f(X) -> Y from paired feature inputs and known labels. The optimization goal is minimizing empirical loss on training examples while ensuring low generalization error on unseen test distributions.";
-          excerpt = "UNIT IV: SUPERVISED LEARNING & LINEAR MODELS - Supervised learning is a fundamental machine learning paradigm...";
-        } else if (query.toLowerCase().includes("logistic") || query.toLowerCase().includes("loss")) {
-          answerText = "In logistic regression, Binary Cross-Entropy loss is formulated as J(w) = - (1/N) * sum [ y log(y_hat) + (1-y) log(1-y_hat) ]. It provides a smooth, convex optimization surface that guarantees gradient descent converges toward the global optimum without getting trapped in local minima.";
-          excerpt = "LOGISTIC REGRESSION AND CROSS-ENTROPY LOSS: Cross-entropy produces a smooth, convex optimization surface for logistic regression...";
-        } else if (query.toLowerCase().includes("gradient")) {
-          answerText = "Gradient descent is a first-order iterative optimization algorithm that updates weights opposite to the gradient: w := w - alpha * grad_w J(w). The learning rate alpha controls step size to balance convergence speed against numerical divergence.";
-          excerpt = "5. GRADIENT DESCENT OPTIMIZATION: w := w - alpha * grad_w J(w)...";
-        } else {
-          answerText = `Based on your selected syllabus module (<strong>${doc.filename}</strong>), this topic involves establishing clear mathematical formulations from the text. Core principles emphasize systematic parameter optimization and verifiable empirical evaluation.`;
-          excerpt = doc.preview.slice(0, 140) + "...";
+        if (!resp.ok) {
+          const errData = await resp.json();
+          throw new Error(errData.detail || "Query failed");
         }
 
-        const bubbleHtml = `
-          <div class="simulated-pill">Simulated Grounded Response</div>
-          <p>${answerText}</p>
-          <div class="rationale-box" style="margin-top: 0.6rem;">
-            <strong style="color: var(--teal-light);">Syllabus Citation:</strong> <em>"${escapeHtml(excerpt)}"</em>
-          </div>
-          <p style="font-size: 0.72rem; color: var(--text-dim); margin-top: 0.5rem; font-style: italic;">
-            Notice: Prototype demo response synthesized from syllabus notes.
-          </p>
-        `;
+        const data = await resp.json();
+        setAvatarState("EXPLAINING");
+
+        let bubbleHtml = `<p>${formatMarkdown(data.answer)}</p>`;
+        if (data.context_excerpt) {
+          bubbleHtml += `<div class="rationale-box" style="margin-top: 0.6rem;"><strong style="color: var(--teal-light);">Syllabus Excerpt:</strong> <em>"${escapeHtml(data.context_excerpt)}"</em></div>`;
+        }
+        bubbleHtml += `<div style="font-size: 0.72rem; color: var(--text-dim); margin-top: 0.5rem; font-style: italic;">${escapeHtml(data.disclaimer)}</div>`;
 
         appendTutorMessage(bubbleHtml);
         setTimeout(() => setAvatarState("IDLE"), 2500);
-      }, 1200);
+      } catch (err) {
+        removeThinkingIndicator(thinkingId);
+        sendBtn.disabled = false;
+        appendTutorMessage(`<span style="color: var(--danger);">Error: ${escapeHtml(err.message)}</span>`);
+        setAvatarState("IDLE");
+      }
     }
 
-    function askSimplify() {
+    async function askSimplify() {
       const input = document.getElementById("user-input");
       let concept = input.value.trim();
       if (!concept) {
@@ -1737,6 +1558,11 @@
         return;
       }
       concept = concept.replace(/^simplify:\s*/i, "");
+
+      if (!currentDocId) {
+        showToast("Please load or upload a study document first!");
+        return;
+      }
 
       appendUserMessage(`Simplify: ${concept}`);
       input.value = "";
@@ -1746,63 +1572,49 @@
       const simplifyBtn = document.getElementById("simplify-btn");
       simplifyBtn.disabled = true;
 
-      setTimeout(() => {
+      try {
+        const resp = await fetch("/api/tutor/simplify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ doc_id: currentDocId, concept: concept })
+        });
+
         removeThinkingIndicator(thinkingId);
         simplifyBtn.disabled = false;
-        setAvatarState("EXPLAINING");
 
-        let analogy = "";
-        let defn = "";
-        let points = [];
-
-        if (concept.toLowerCase().includes("overfit")) {
-          defn = "High-variance condition where a high-capacity model learns training noise rather than true underlying functions.";
-          analogy = "Imagine a student who memorizes exact practice exam questions word-for-word rather than understanding the concepts. They score 100% on homework, but fail when test questions are slightly rephrased.";
-          points = [
-            "Characterized by near-zero training error but high test error",
-            "Mitigated via L1/L2 regularization penalties, dropout, or increased training data",
-            "Balancing model capacity prevents learning idiosyncratic noise"
-          ];
-        } else if (concept.toLowerCase().includes("gradient")) {
-          defn = "Iterative optimization procedure moving parameters in the steepest descent direction.";
-          analogy = "Imagine a hiker stranded on a foggy mountain peak trying to reach the valley floor. Without visibility, they feel the downward slope beneath their boots and take measured steps downhill.";
-          points = [
-            "Step size is governed by learning rate hyperparameter alpha",
-            "Convex loss surfaces guarantee finding the global minimum",
-            "Momentum and adaptive rates prevent oscillations"
-          ];
-        } else {
-          defn = `${concept} as defined in the engineering course syllabus.`;
-          analogy = `A real-world mechanism translating theoretical rules into intuitive practical outcomes.`;
-          points = [
-            "Anchored directly in current syllabus module",
-            "Optimizes decision boundaries between categories",
-            "Enables robust generalization on test distributions"
-          ];
+        if (!resp.ok) {
+          const errData = await resp.json();
+          throw new Error(errData.detail || "Simplification failed");
         }
 
-        const bubbleHtml = `
-          <div class="simulated-pill">Concept Simplification Demo</div>
-          <h4 style="font-size: 0.88rem; color: #5EEAD4; margin-bottom: 0.35rem;">Decomposition: ${escapeHtml(concept)}</h4>
-          <p style="font-size: 0.82rem; color: #CBD5E1; margin-bottom: 0.6rem;"><em>${escapeHtml(defn)}</em></p>
+        const data = await resp.json();
+        setAvatarState("EXPLAINING");
+
+        let pointsHtml = data.key_points.map(pt => `<li>${escapeHtml(pt)}</li>`).join("");
+        let bubbleHtml = `
+          <h4 style="font-size: 0.88rem; color: #5EEAD4; margin-bottom: 0.35rem;">Concept Decomposition: ${escapeHtml(data.concept)}</h4>
+          <p style="font-size: 0.82rem; color: #CBD5E1; margin-bottom: 0.6rem;"><em>${escapeHtml(data.syllabus_definition)}</em></p>
           
           <div class="tutor-analogy-box">
             <div class="title">
               <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
               Intuitive Real-World Analogy
             </div>
-            <p>${escapeHtml(analogy)}</p>
+            <p>${escapeHtml(data.analogy)}</p>
           </div>
 
           <div style="margin-top: 0.65rem; font-size: 0.8rem; font-weight: 700; color: #5EEAD4;">Key Educational Takeaways:</div>
-          <ul class="key-points-list">
-            ${points.map(pt => `<li>${escapeHtml(pt)}</li>`).join("")}
-          </ul>
+          <ul class="key-points-list">${pointsHtml}</ul>
         `;
 
         appendTutorMessage(bubbleHtml);
         setTimeout(() => setAvatarState("IDLE"), 2500);
-      }, 1200);
+      } catch (err) {
+        removeThinkingIndicator(thinkingId);
+        simplifyBtn.disabled = false;
+        appendTutorMessage(`<span style="color: var(--danger);">Error: ${escapeHtml(err.message)}</span>`);
+        setAvatarState("IDLE");
+      }
     }
 
     function appendUserMessage(text) {
@@ -1851,7 +1663,7 @@
         <div class="msg-avatar">AI</div>
         <div class="msg-content-wrapper">
           <div class="msg-header-line">
-            <strong>EduVerse AI Tutor</strong> • <span>Synthesizing syllabus...</span>
+            <strong>EduVerse AI Tutor</strong> • <span>Querying SQLite & reasoning...</span>
           </div>
           <div class="msg-bubble" style="padding: 0.65rem 1rem;">
             <div class="typing-indicator">
@@ -1872,6 +1684,16 @@
       if (el) el.remove();
     }
 
+    function formatMarkdown(text) {
+      if (!text) return "";
+      let safe = escapeHtml(text);
+      safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      safe = safe.replace(/\*(.*?)\*/g, '<em>$1</em>');
+      safe = safe.replace(/`([^`]+)`/g, '<code style="background: #090E17; color: #5EEAD4; padding: 0.1rem 0.35rem; border-radius: 4px; font-family: monospace;">$1</code>');
+      safe = safe.replace(/\n/g, '<br>');
+      return safe;
+    }
+
     function escapeHtml(str) {
       if (!str) return "";
       return String(str).replace(/[&<>"']/g, m => ({
@@ -1880,35 +1702,52 @@
     }
 
     // -------------------------------------------------------------
-    // Quiz Generation & Evaluation (Prototype Interactive Flow)
+    // Real Backend Quiz Generation & Evaluation
     // -------------------------------------------------------------
-    function generateQuiz() {
-      const doc = SAMPLE_CURRICULA[activeDocId];
-      if (!doc) return;
+    async function generateQuiz() {
+      if (!currentDocId) {
+        showToast("Please load a document first before generating a quiz!");
+        return;
+      }
 
       const count = parseInt(document.getElementById("quiz-count-select").value) || 3;
       const btn = document.getElementById("gen-quiz-btn");
-      btn.innerHTML = `<span class="typing-dot" style="display:inline-block;width:6px;height:6px;background:#fff;border-radius:50%;margin-right:4px;"></span> Generating...`;
+      btn.innerHTML = `<span class="typing-dot" style="display:inline-block;width:6px;height:6px;background:#fff;border-radius:50%;margin-right:4px;"></span> Synthesizing...`;
       btn.disabled = true;
       setAvatarState("THINKING");
 
-      setTimeout(() => {
-        btn.innerHTML = `
-          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83"></path></svg>
-          Generate Demo Quiz
-        `;
-        btn.disabled = false;
-        setAvatarState("IDLE");
+      try {
+        const resp = await fetch("/api/quiz/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ doc_id: currentDocId, count: count })
+        });
 
-        currentQuizData = doc.questions.slice(0, count);
+        if (!resp.ok) {
+          const errData = await resp.json();
+          throw new Error(errData.detail || "Quiz generation failed");
+        }
+
+        const data = await resp.json();
+        activeQuizId = data.quiz_id;
+        currentQuizData = data.questions;
         userAnswers = {};
 
-        renderQuizQuestions(currentQuizData);
+        renderQuizQuestions(data.questions);
         document.getElementById("quiz-score-container").style.display = "none";
         document.getElementById("quiz-submit-bar").style.display = "block";
         updateSubmitButtonState();
-        showToast(`Synthesized ${currentQuizData.length} active recall questions.`);
-      }, 700);
+        showToast(`Synthesized ${data.total_questions} questions into SQLite database!`);
+      } catch (err) {
+        showToast(err.message);
+      } finally {
+        btn.innerHTML = `
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83"></path></svg>
+          Generate Quiz
+        `;
+        btn.disabled = false;
+        setAvatarState("IDLE");
+      }
     }
 
     function renderQuizQuestions(questions) {
@@ -1960,11 +1799,15 @@
       btn.innerText = `Submit & Check Answers (${answeredCount}/${total} Answered)`;
     }
 
-    function submitQuizEvaluation() {
-      if (!currentQuizData) return;
+    async function submitQuizEvaluation() {
+      if (!activeQuizId || !currentQuizData) return;
 
-      const answeredCount = Object.keys(userAnswers).length;
-      if (answeredCount === 0) {
+      const submissions = Object.keys(userAnswers).map(qid => ({
+        question_id: parseInt(qid),
+        selected_option_index: userAnswers[qid]
+      }));
+
+      if (submissions.length === 0) {
         showToast("Please choose an answer before submitting.");
         return;
       }
@@ -1973,60 +1816,70 @@
       const submitBtn = document.getElementById("submit-quiz-btn");
       submitBtn.disabled = true;
 
-      setTimeout(() => {
+      try {
+        const resp = await fetch("/api/quiz/evaluate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            quiz_id: activeQuizId,
+            answers: submissions
+          })
+        });
+
+        if (!resp.ok) {
+          const errData = await resp.json();
+          throw new Error(errData.detail || "Evaluation failed");
+        }
+
+        const result = await resp.json();
         setAvatarState("EXPLAINING");
-        submitBtn.disabled = false;
 
-        let correctCount = 0;
-        currentQuizData.forEach(q => {
-          const selected = userAnswers[q.question_id];
-          const isCorrect = selected === q.correct_option_index;
-          if (isCorrect) correctCount++;
+        // Display Score Banner
+        const scoreBox = document.getElementById("quiz-score-container");
+        scoreBox.style.display = "block";
+        scoreBox.innerHTML = `
+          <div class="quiz-score-banner">
+            <div style="font-size: 0.72rem; color: #5EEAD4; font-weight: 700; text-transform: uppercase; margin-bottom: 0.25rem;">SQLite Verified Assessment</div>
+            <h3>Score: ${result.correct_count} / ${result.total_questions} (${result.score_percentage}%)</h3>
+            <p>${escapeHtml(result.feedback_message)}</p>
+          </div>
+        `;
 
-          // Highlight correct option in green
-          const correctLabel = document.getElementById(`opt-label-${q.question_id}-${q.correct_option_index}`);
+        // Colorize Options and Display Rationales
+        result.breakdown.forEach(item => {
+          const correctLabel = document.getElementById(`opt-label-${item.question_id}-${item.correct_option_index}`);
           if (correctLabel) {
             correctLabel.classList.add("correct");
             correctLabel.classList.remove("selected");
           }
 
-          // Highlight incorrect selection in red
-          if (!isCorrect && selected !== undefined) {
-            const wrongLabel = document.getElementById(`opt-label-${q.question_id}-${selected}`);
-            if (wrongLabel) {
-              wrongLabel.classList.add("incorrect");
-              wrongLabel.classList.remove("selected");
+          if (!item.is_correct && item.selected_option_index >= 0) {
+            const incorrectLabel = document.getElementById(`opt-label-${item.question_id}-${item.selected_option_index}`);
+            if (incorrectLabel) {
+              incorrectLabel.classList.add("incorrect");
+              incorrectLabel.classList.remove("selected");
             }
           }
 
-          // Show rationale
-          const rationaleEl = document.getElementById(`rationale-${q.question_id}`);
-          if (rationaleEl) {
-            rationaleEl.style.display = "block";
-            rationaleEl.innerHTML = `<strong style="color: var(--teal-light);">Educational Rationale:</strong> ${escapeHtml(q.rationale)}`;
+          const rationaleDiv = document.getElementById(`rationale-${item.question_id}`);
+          if (rationaleDiv) {
+            rationaleDiv.style.display = "block";
+            rationaleDiv.innerHTML = `<strong style="color: var(--teal-light);">Educational Rationale:</strong> ${escapeHtml(item.rationale)}`;
           }
         });
 
-        const total = currentQuizData.length;
-        const scorePct = Math.round((correctCount / total) * 100);
-
-        const scoreBox = document.getElementById("quiz-score-container");
-        scoreBox.style.display = "block";
-        scoreBox.innerHTML = `
-          <div class="quiz-score-banner">
-            <div class="simulated-pill" style="margin-bottom: 0.25rem;">Prototype Demo Evaluation</div>
-            <h3>Score: ${correctCount} / ${total} (${scorePct}%)</h3>
-            <p>${scorePct >= 70 ? "Excellent mastery of this syllabus module!" : "Review recommended — inspect the answer rationales below."}</p>
-          </div>
-        `;
-
         document.getElementById("quiz-submit-bar").style.display = "none";
-        showToast(`Quiz completed: ${scorePct}% Score`);
+        showToast(`Quiz evaluation saved to SQLite: ${result.score_percentage}% Score`);
         setTimeout(() => setAvatarState("IDLE"), 2500);
-      }, 600);
+      } catch (err) {
+        showToast(err.message);
+        submitBtn.disabled = false;
+        setAvatarState("IDLE");
+      }
     }
 
     function resetQuizUI() {
+      activeQuizId = null;
       currentQuizData = null;
       userAnswers = {};
       document.getElementById("quiz-score-container").style.display = "none";
@@ -2035,7 +1888,7 @@
         <div style="text-align: center; padding: 2rem 1rem; color: var(--text-dim);">
           <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin: 0 auto 0.5rem; opacity: 0.5;"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
           <p style="font-size: 0.82rem; font-weight: 500;">No active quiz session</p>
-          <span style="font-size: 0.74rem; display: block; margin-top: 0.25rem;">Click <strong>Generate Demo Quiz</strong> to practice active recall.</span>
+          <span style="font-size: 0.74rem; display: block; margin-top: 0.25rem;">Load notes and click <strong>Generate Quiz</strong> to test active recall.</span>
         </div>
       `;
     }
@@ -2050,7 +1903,8 @@
     // Initialize on Load
     window.addEventListener("DOMContentLoaded", () => {
       init3DAvatar();
-      selectSampleDoc(1);
+      // Auto-load sample document from backend SQLite on startup
+      loadSampleDocument();
     });
   </script>
 </body>
