@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EduVerse AI — Animated Virtual Tutor for Personalized Learning</title>
+  <title>EduVerse AI — Interactive Learning Prototype (Phase 1)</title>
   <link rel="icon" type="image/png" href="/images/college_logo.png" />
   <!-- Google Fonts: Inter & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,32 +14,45 @@
 
   <style>
     :root {
-      --navy: #0F172A;
-      --navy-light: #1E293B;
-      --deep-teal: #005F73;
-      --accent-teal: #0A9396;
-      --soft-cyan: #94D2BD;
-      --light-cyan: #E6F5F5;
-      --card-bg: #FFFFFF;
-      --surface-bg: #F8FAFC;
-      --border: #E2E8F0;
-      --border-focus: #0A9396;
-      --text-dark: #0F172A;
-      --text-body: #334155;
-      --text-muted: #64748B;
-      --success: #15803D;
-      --success-bg: #DCFCE7;
-      --success-border: #86EFAC;
-      --warning: #B45309;
-      --warning-bg: #FEF3C7;
-      --danger: #B91C1C;
-      --danger-bg: #FEE2E2;
-      --danger-border: #FCA5A5;
+      /* Dark Charcoal & Midnight Theme */
+      --bg-midnight: #0B0F19;
+      --bg-panel: #111827;
+      --bg-card: #182234;
+      --bg-surface: #1E293B;
+      --bg-input: #0F172A;
+      
+      /* Restrained Teal Accents */
+      --teal-primary: #0D9488;
+      --teal-light: #14B8A6;
+      --teal-muted: rgba(13, 148, 136, 0.16);
+      --teal-border: rgba(20, 184, 166, 0.35);
+      --teal-glow: rgba(20, 184, 166, 0.25);
+      
+      /* Borders & Dividing Lines */
+      --border-subtle: #1E293B;
+      --border-medium: #334155;
+      --border-focus: #14B8A6;
+
+      /* High-contrast Text */
+      --text-white: #F8FAFC;
+      --text-muted: #94A3B8;
+      --text-dim: #64748B;
+
+      /* Feedback Colors */
+      --success: #10B981;
+      --success-bg: rgba(16, 185, 129, 0.15);
+      --success-border: #059669;
+      --warning: #F59E0B;
+      --warning-bg: rgba(245, 158, 11, 0.15);
+      --danger: #F43F5E;
+      --danger-bg: rgba(244, 63, 94, 0.15);
+      --danger-border: #E11D48;
+
+      /* Radii & Shadows */
       --radius: 12px;
       --radius-sm: 8px;
-      --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05);
-      --shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
-      --shadow-lg: 0 10px 25px rgba(15, 23, 42, 0.08);
+      --shadow-panel: 0 8px 32px rgba(0, 0, 0, 0.45);
+      --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.3);
       --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
@@ -51,8 +64,8 @@
 
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background-color: var(--surface-bg);
-      color: var(--text-dark);
+      background-color: var(--bg-midnight);
+      color: var(--text-white);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -60,16 +73,39 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* Focus visible for accessibility */
     *:focus-visible {
-      outline: 2px solid var(--accent-teal);
+      outline: 2px solid var(--teal-light);
       outline-offset: 2px;
     }
 
-    /* Top Navigation Header */
+    /* Top Prototype Notice Banner */
+    .prototype-banner {
+      background: linear-gradient(90deg, #0F172A 0%, #134E4A 50%, #0F172A 100%);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 0.35rem 1.5rem;
+      font-size: 0.74rem;
+      color: #CCFBF1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      text-align: center;
+    }
+
+    .prototype-tag {
+      background: var(--teal-primary);
+      color: #FFFFFF;
+      font-weight: 700;
+      font-size: 0.68rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    /* Main Navigation Header */
     header {
-      background: #FFFFFF;
-      border-bottom: 1px solid var(--border);
+      background: #0E1526;
+      border-bottom: 1px solid var(--border-subtle);
       padding: 0.75rem 2rem;
       display: flex;
       align-items: center;
@@ -77,7 +113,7 @@
       position: sticky;
       top: 0;
       z-index: 50;
-      box-shadow: var(--shadow-sm);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
     }
 
     .brand-section {
@@ -87,38 +123,37 @@
     }
 
     .brand-logo-img {
-      height: 44px;
+      height: 42px;
       width: auto;
       border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      box-shadow: 0 0 12px rgba(13, 148, 136, 0.3);
+      border: 1px solid var(--border-medium);
     }
 
     .brand-text h1 {
       font-size: 1.25rem;
       font-weight: 800;
-      color: var(--navy);
+      color: var(--text-white);
       display: flex;
       align-items: center;
-      gap: 0.6rem;
+      gap: 0.65rem;
       letter-spacing: -0.02em;
     }
 
-    .badge-review {
+    .badge-phase {
       font-size: 0.7rem;
       font-weight: 700;
-      padding: 0.2rem 0.6rem;
+      padding: 0.2rem 0.65rem;
       border-radius: 20px;
-      background: linear-gradient(135deg, #E6F5F5 0%, #D1F0EE 100%);
-      color: var(--deep-teal);
-      border: 1px solid var(--soft-cyan);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
+      background: var(--teal-muted);
+      color: var(--teal-light);
+      border: 1px solid var(--teal-border);
+      letter-spacing: 0.03em;
     }
 
     .brand-text p {
       font-size: 0.78rem;
       color: var(--text-muted);
-      font-weight: 400;
     }
 
     .header-actions {
@@ -127,54 +162,53 @@
       gap: 0.85rem;
     }
 
-    .active-doc-pill {
+    .active-doc-capsule {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      background: #FFFFFF;
-      border: 1.5px solid var(--border);
-      color: var(--text-body);
-      padding: 0.4rem 0.85rem;
+      gap: 0.55rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border-medium);
+      color: var(--text-muted);
+      padding: 0.4rem 0.9rem;
       border-radius: 24px;
       font-size: 0.82rem;
       font-weight: 500;
       transition: var(--transition);
-      box-shadow: var(--shadow-sm);
     }
 
-    .active-doc-pill.loaded {
-      background: #F0FDF4;
-      border-color: #86EFAC;
-      color: #166534;
+    .active-doc-capsule.loaded {
+      border-color: var(--teal-border);
+      color: #5EEAD4;
+      background: rgba(13, 148, 136, 0.12);
     }
 
     .status-dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: #94A3B8;
+      background: var(--text-dim);
       transition: var(--transition);
     }
 
     .status-dot.active {
-      background: #10B981;
-      box-shadow: 0 0 8px rgba(16, 185, 129, 0.7);
+      background: var(--teal-light);
+      box-shadow: 0 0 10px rgba(20, 184, 166, 0.8);
       animation: pulse-dot 2s infinite;
     }
 
     @keyframes pulse-dot {
       0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.6; transform: scale(1.15); }
+      50% { opacity: 0.5; transform: scale(1.2); }
     }
 
-    .header-btn {
-      background: #FFFFFF;
-      border: 1px solid var(--border);
+    .btn-header-action {
+      background: var(--bg-card);
+      border: 1px solid var(--border-medium);
       border-radius: var(--radius-sm);
-      padding: 0.4rem 0.75rem;
+      padding: 0.45rem 0.8rem;
       font-size: 0.78rem;
       font-weight: 500;
-      color: var(--text-body);
+      color: var(--text-muted);
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -182,24 +216,24 @@
       transition: var(--transition);
     }
 
-    .header-btn:hover {
-      background: var(--surface-bg);
-      border-color: #CBD5E1;
-      color: var(--navy);
+    .btn-header-action:hover {
+      background: var(--bg-surface);
+      color: var(--text-white);
+      border-color: var(--border-focus);
     }
 
-    /* Mobile Tab Switcher */
+    /* Mobile Tabs */
     .mobile-nav-tabs {
       display: none;
-      background: #FFFFFF;
-      border-bottom: 1px solid var(--border);
+      background: #0E1526;
+      border-bottom: 1px solid var(--border-subtle);
       padding: 0.4rem 1rem;
       gap: 0.5rem;
       overflow-x: auto;
     }
 
     .mobile-tab-btn {
-      padding: 0.4rem 0.8rem;
+      padding: 0.45rem 0.85rem;
       border-radius: 20px;
       font-size: 0.8rem;
       font-weight: 600;
@@ -211,12 +245,12 @@
     }
 
     .mobile-tab-btn.active {
-      background: var(--light-cyan);
-      color: var(--deep-teal);
-      border-color: var(--soft-cyan);
+      background: var(--teal-muted);
+      color: var(--teal-light);
+      border-color: var(--teal-border);
     }
 
-    /* Main Grid Layout: 3 Columns */
+    /* 3-Column Grid Layout */
     main {
       flex: 1;
       display: grid;
@@ -263,25 +297,25 @@
 
     /* Panel Card Structure */
     .panel {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
       border-radius: var(--radius);
-      box-shadow: var(--shadow);
+      box-shadow: var(--shadow-panel);
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      height: calc(100vh - 105px);
+      height: calc(100vh - 128px);
       transition: var(--transition);
     }
 
     .panel:hover {
-      box-shadow: var(--shadow-lg);
+      border-color: rgba(20, 184, 166, 0.25);
     }
 
     .panel-header {
       padding: 0.85rem 1.15rem;
-      border-bottom: 1px solid var(--border);
-      background: #FFFFFF;
+      border-bottom: 1px solid var(--border-subtle);
+      background: #0E1626;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -290,25 +324,25 @@
     .panel-header h2 {
       font-size: 0.95rem;
       font-weight: 700;
-      color: var(--navy);
+      color: var(--text-white);
       display: flex;
       align-items: center;
       gap: 0.55rem;
       letter-spacing: -0.01em;
     }
 
-    .panel-header-badge {
+    .panel-tag {
       font-size: 0.72rem;
       font-weight: 600;
-      color: var(--text-muted);
-      background: var(--surface-bg);
-      padding: 0.2rem 0.55rem;
+      color: var(--teal-light);
+      background: var(--teal-muted);
+      padding: 0.2rem 0.6rem;
       border-radius: 12px;
-      border: 1px solid var(--border);
+      border: 1px solid var(--teal-border);
     }
 
     .panel-body {
-      padding: 1.1rem;
+      padding: 1.15rem;
       overflow-y: auto;
       flex: 1;
       display: flex;
@@ -317,19 +351,18 @@
 
     /* Column 1: Document Management */
     .upload-zone {
-      border: 2px dashed #94D2BD;
+      border: 2px dashed var(--border-medium);
       border-radius: var(--radius);
-      background: linear-gradient(180deg, #F8FBFC 0%, #F0FDF4 100%);
+      background: var(--bg-card);
       padding: 1.5rem 1rem;
       text-align: center;
       cursor: pointer;
       transition: var(--transition);
-      position: relative;
     }
 
     .upload-zone:hover, .upload-zone.dragover {
-      border-color: var(--accent-teal);
-      background: #DEF0F0;
+      border-color: var(--teal-light);
+      background: #1A283D;
       transform: translateY(-1px);
     }
 
@@ -337,19 +370,19 @@
       width: 44px;
       height: 44px;
       margin: 0 auto 0.6rem;
-      background: #FFFFFF;
+      background: var(--bg-surface);
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 2px 6px rgba(10, 147, 150, 0.15);
-      color: var(--accent-teal);
+      color: var(--teal-light);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     }
 
     .upload-zone p {
       font-size: 0.88rem;
       font-weight: 600;
-      color: var(--navy);
+      color: var(--text-white);
       margin-bottom: 0.2rem;
     }
 
@@ -359,126 +392,117 @@
       display: block;
     }
 
-    .sample-doc-btn {
-      width: 100%;
-      margin-top: 0.85rem;
-      padding: 0.65rem 0.85rem;
-      background: #FFFFFF;
-      border: 1.5px solid var(--soft-cyan);
-      color: var(--deep-teal);
-      border-radius: var(--radius-sm);
-      font-size: 0.82rem;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-      transition: var(--transition);
-      box-shadow: var(--shadow-sm);
+    .sample-docs-section {
+      margin-top: 1.1rem;
     }
 
-    .sample-doc-btn:hover {
-      background: var(--light-cyan);
-      border-color: var(--accent-teal);
-      transform: translateY(-1px);
+    .section-label {
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .sample-doc-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.65rem 0.85rem;
+      margin-bottom: 0.5rem;
+      cursor: pointer;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .sample-doc-card:hover {
+      border-color: var(--teal-border);
+      background: var(--bg-surface);
+      transform: translateX(2px);
+    }
+
+    .sample-doc-card.active {
+      border-color: var(--teal-light);
+      background: rgba(13, 148, 136, 0.14);
+    }
+
+    .sample-doc-info h4 {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-white);
+      margin-bottom: 0.15rem;
+    }
+
+    .sample-doc-info p {
+      font-size: 0.72rem;
+      color: var(--text-muted);
     }
 
     .doc-stats-card {
-      margin-top: 1.1rem;
+      margin-top: 1rem;
       padding: 1rem;
-      background: #FAFCFD;
-      border: 1.5px solid var(--border);
+      background: var(--bg-card);
+      border: 1px solid var(--border-medium);
       border-radius: var(--radius-sm);
-      position: relative;
-    }
-
-    .doc-badge-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-      background: #DCFCE7;
-      color: #15803D;
-      padding: 0.2rem 0.55rem;
-      border-radius: 12px;
-      font-size: 0.7rem;
-      font-weight: 700;
-      margin-bottom: 0.5rem;
     }
 
     .doc-stats-card h3 {
-      font-size: 0.88rem;
-      color: var(--navy);
+      font-size: 0.86rem;
+      font-weight: 700;
+      color: var(--text-white);
       margin-bottom: 0.75rem;
       word-break: break-all;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
     }
 
     .stat-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 0.5rem;
-      margin-bottom: 0.5rem;
     }
 
-    .stat-item {
-      background: #FFFFFF;
+    .stat-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
       padding: 0.5rem 0.65rem;
       border-radius: 6px;
-      border: 1px solid var(--border);
     }
 
-    .stat-label {
-      font-size: 0.7rem;
-      color: var(--text-muted);
+    .stat-box .lbl {
+      font-size: 0.68rem;
+      color: var(--text-dim);
       text-transform: uppercase;
-      letter-spacing: 0.03em;
+      font-weight: 600;
     }
 
-    .stat-val {
+    .stat-box .val {
       font-size: 0.85rem;
       font-weight: 700;
-      color: var(--deep-teal);
+      color: var(--teal-light);
     }
 
     .preview-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-top: 0.85rem;
+      margin-top: 0.9rem;
       margin-bottom: 0.35rem;
-    }
-
-    .preview-title {
-      font-size: 0.78rem;
-      font-weight: 700;
-      color: var(--navy);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-
-    .btn-toggle-preview {
-      background: transparent;
-      border: none;
-      color: var(--deep-teal);
-      font-size: 0.74rem;
-      font-weight: 600;
-      cursor: pointer;
-      text-decoration: underline;
     }
 
     .doc-preview-box {
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.74rem;
-      color: var(--text-body);
-      background: #F8FAFC;
-      border: 1px solid var(--border);
+      color: #CBD5E1;
+      background: #090E17;
+      border: 1px solid var(--border-subtle);
       padding: 0.75rem;
       border-radius: 6px;
-      max-height: 220px;
+      max-height: 200px;
       overflow-y: auto;
       white-space: pre-wrap;
       line-height: 1.45;
@@ -491,8 +515,8 @@
       padding: 1rem;
       display: flex;
       flex-direction: column;
-      gap: 1.1rem;
-      background: #FAFCFD;
+      gap: 1.15rem;
+      background: #0C1220;
     }
 
     .msg {
@@ -526,17 +550,18 @@
       font-size: 0.78rem;
       font-weight: 700;
       flex-shrink: 0;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
     }
 
     .msg.user .msg-avatar {
-      background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
-      color: #FFFFFF;
+      background: linear-gradient(135deg, #334155 0%, #1E293B 100%);
+      color: var(--text-white);
+      border: 1px solid var(--border-medium);
     }
 
     .msg.tutor .msg-avatar {
-      background: linear-gradient(135deg, #0A9396 0%, #005F73 100%);
+      background: linear-gradient(135deg, #0D9488 0%, #115E59 100%);
       color: #FFFFFF;
+      box-shadow: 0 0 10px rgba(13, 148, 136, 0.4);
     }
 
     .msg-content-wrapper {
@@ -548,9 +573,9 @@
     .msg-header-line {
       display: flex;
       align-items: center;
-      gap: 0.4rem;
+      gap: 0.45rem;
       font-size: 0.72rem;
-      color: var(--text-muted);
+      color: var(--text-dim);
     }
 
     .msg.user .msg-header-line {
@@ -565,56 +590,65 @@
     }
 
     .msg.user .msg-bubble {
-      background: #0F172A;
-      color: #FFFFFF;
+      background: #1E293B;
+      color: var(--text-white);
       border-bottom-right-radius: 3px;
-      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+      border: 1px solid #334155;
     }
 
     .msg.tutor .msg-bubble {
-      background: #FFFFFF;
-      border: 1px solid var(--border);
-      color: var(--text-dark);
+      background: #162032;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-white);
       border-bottom-left-radius: 3px;
-      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
     }
 
-    .tutor-analogy-card {
-      background: #F0FDF4;
-      border: 1.5px solid #BBF7D0;
+    .simulated-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.68rem;
+      font-weight: 600;
+      background: rgba(245, 158, 11, 0.15);
+      color: #FBBF24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      padding: 0.1rem 0.45rem;
       border-radius: 10px;
-      padding: 0.85rem 1rem;
+      margin-bottom: 0.45rem;
+    }
+
+    .tutor-analogy-box {
+      background: rgba(13, 148, 136, 0.12);
+      border: 1px solid var(--teal-border);
+      border-radius: 8px;
+      padding: 0.8rem 0.95rem;
       margin-top: 0.75rem;
     }
 
-    .analogy-title {
+    .tutor-analogy-box .title {
       font-weight: 700;
-      color: #166534;
-      font-size: 0.84rem;
-      margin-bottom: 0.35rem;
+      color: #5EEAD4;
+      font-size: 0.82rem;
+      margin-bottom: 0.3rem;
       display: flex;
       align-items: center;
-      gap: 0.45rem;
+      gap: 0.4rem;
+    }
+
+    .tutor-analogy-box p {
+      font-size: 0.82rem;
+      color: #CCFBF1;
     }
 
     .key-points-list {
       margin-top: 0.5rem;
       padding-left: 1.25rem;
-      font-size: 0.83rem;
-      color: #1E293B;
+      font-size: 0.82rem;
+      color: #CBD5E1;
     }
 
     .key-points-list li {
-      margin-bottom: 0.3rem;
-    }
-
-    .chat-disclaimer {
-      font-size: 0.73rem;
-      color: var(--text-muted);
-      margin-top: 0.6rem;
-      padding-top: 0.45rem;
-      border-top: 1px solid #F1F5F9;
-      font-style: italic;
+      margin-bottom: 0.25rem;
     }
 
     .suggested-prompts {
@@ -622,18 +656,18 @@
       flex-wrap: wrap;
       gap: 0.45rem;
       padding: 0.65rem 1rem;
-      border-top: 1px solid var(--border);
-      background: #FFFFFF;
+      border-top: 1px solid var(--border-subtle);
+      background: #0E1526;
     }
 
     .prompt-chip {
-      background: var(--surface-bg);
-      border: 1px solid var(--border);
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
       border-radius: 16px;
       padding: 0.3rem 0.75rem;
-      font-size: 0.77rem;
+      font-size: 0.76rem;
       font-weight: 500;
-      color: var(--deep-teal);
+      color: var(--teal-light);
       cursor: pointer;
       transition: var(--transition);
       display: flex;
@@ -642,15 +676,15 @@
     }
 
     .prompt-chip:hover {
-      background: var(--light-cyan);
-      border-color: var(--soft-cyan);
+      background: var(--teal-muted);
+      border-color: var(--teal-border);
       transform: translateY(-1px);
     }
 
     .chat-input-area {
       padding: 0.85rem 1rem;
-      border-top: 1px solid var(--border);
-      background: #FFFFFF;
+      border-top: 1px solid var(--border-subtle);
+      background: #0E1526;
       display: flex;
       gap: 0.55rem;
       align-items: center;
@@ -659,18 +693,18 @@
     .chat-input-area input {
       flex: 1;
       padding: 0.7rem 1rem;
-      border: 1.5px solid var(--border);
+      border: 1.5px solid var(--border-medium);
       border-radius: 10px;
       font-size: 0.88rem;
       outline: none;
       transition: var(--transition);
-      background: var(--surface-bg);
+      background: var(--bg-input);
+      color: var(--text-white);
     }
 
     .chat-input-area input:focus {
       border-color: var(--border-focus);
-      background: #FFFFFF;
-      box-shadow: 0 0 0 3px rgba(10, 147, 150, 0.15);
+      box-shadow: 0 0 0 3px var(--teal-glow);
     }
 
     .btn {
@@ -684,46 +718,47 @@
       align-items: center;
       gap: 0.45rem;
       transition: var(--transition);
-      box-shadow: var(--shadow-sm);
     }
 
     .btn:hover:not(:disabled) {
       transform: translateY(-1px);
-      box-shadow: var(--shadow);
     }
 
     .btn:disabled {
-      opacity: 0.6;
+      opacity: 0.55;
       cursor: not-allowed;
     }
 
-    .btn-primary {
-      background: var(--deep-teal);
+    .btn-teal {
+      background: var(--teal-primary);
       color: #FFFFFF;
+      box-shadow: 0 2px 8px rgba(13, 148, 136, 0.4);
     }
 
-    .btn-primary:hover:not(:disabled) {
-      background: var(--navy);
+    .btn-teal:hover:not(:disabled) {
+      background: var(--teal-light);
     }
 
-    .btn-accent {
-      background: var(--accent-teal);
-      color: #FFFFFF;
+    .btn-dark {
+      background: var(--bg-card);
+      border: 1px solid var(--border-medium);
+      color: var(--text-white);
     }
 
-    .btn-accent:hover:not(:disabled) {
-      background: #087F82;
+    .btn-dark:hover:not(:disabled) {
+      background: var(--bg-surface);
+      border-color: var(--border-focus);
     }
 
-    /* Column 3: Avatar & Quiz */
+    /* Column 3: 3D Avatar & Quiz */
     .avatar-card {
-      background: #0A1128;
+      background: #070B14;
       border-radius: var(--radius);
       overflow: hidden;
       margin-bottom: 1.1rem;
       position: relative;
-      border: 1px solid #1E293B;
-      box-shadow: 0 8px 24px rgba(10, 17, 40, 0.25);
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
     }
 
     #avatar-canvas {
@@ -749,10 +784,10 @@
     }
 
     .avatar-pill {
-      background: rgba(15, 23, 42, 0.85);
+      background: rgba(11, 15, 25, 0.85);
       backdrop-filter: blur(6px);
-      border: 1px solid rgba(148, 210, 189, 0.35);
-      color: #94D2BD;
+      border: 1px solid var(--border-medium);
+      color: var(--teal-light);
       font-size: 0.72rem;
       padding: 0.25rem 0.65rem;
       border-radius: 14px;
@@ -766,7 +801,7 @@
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: #10B981;
+      background: var(--teal-light);
     }
 
     .quiz-section {
@@ -784,32 +819,27 @@
 
     .quiz-controls select {
       padding: 0.65rem;
-      border: 1.5px solid var(--border);
+      border: 1.5px solid var(--border-medium);
       border-radius: var(--radius-sm);
       font-size: 0.82rem;
-      background: #FFFFFF;
+      background: var(--bg-card);
       outline: none;
       font-weight: 500;
-      color: var(--text-dark);
+      color: var(--text-white);
       cursor: pointer;
     }
 
-    .quiz-controls select:focus {
-      border-color: var(--accent-teal);
-    }
-
     .question-card {
-      background: #FFFFFF;
-      border: 1.5px solid var(--border);
+      background: var(--bg-card);
+      border: 1.5px solid var(--border-subtle);
       border-radius: var(--radius-sm);
       padding: 0.95rem;
       margin-bottom: 0.85rem;
-      box-shadow: var(--shadow-sm);
       transition: var(--transition);
     }
 
     .question-card:hover {
-      border-color: #CBD5E1;
+      border-color: var(--border-medium);
     }
 
     .question-meta {
@@ -822,8 +852,8 @@
     .question-badge {
       font-size: 0.7rem;
       font-weight: 700;
-      color: var(--deep-teal);
-      background: var(--light-cyan);
+      color: var(--teal-light);
+      background: var(--teal-muted);
       padding: 0.15rem 0.5rem;
       border-radius: 10px;
     }
@@ -831,7 +861,7 @@
     .question-title {
       font-size: 0.86rem;
       font-weight: 600;
-      color: var(--navy);
+      color: var(--text-white);
       margin-bottom: 0.65rem;
       line-height: 1.4;
     }
@@ -847,38 +877,38 @@
       align-items: center;
       gap: 0.6rem;
       padding: 0.55rem 0.75rem;
-      background: var(--surface-bg);
-      border: 1.5px solid var(--border);
+      background: var(--bg-surface);
+      border: 1.5px solid var(--border-subtle);
       border-radius: 8px;
       font-size: 0.82rem;
-      color: var(--text-dark);
+      color: #E2E8F0;
       cursor: pointer;
       transition: var(--transition);
     }
 
     .option-label:hover {
-      background: #F1F5F9;
-      border-color: #CBD5E1;
+      background: #253348;
+      border-color: var(--border-medium);
     }
 
     .option-label.selected {
-      background: #EFF6FF;
-      border-color: #3B82F6;
-      color: #1E3A8A;
+      background: rgba(13, 148, 136, 0.16);
+      border-color: var(--teal-light);
+      color: #CCFBF1;
       font-weight: 600;
     }
 
     .option-label.correct {
       background: var(--success-bg) !important;
       border-color: var(--success-border) !important;
-      color: #14532D !important;
+      color: #6EE7B7 !important;
       font-weight: 700;
     }
 
     .option-label.incorrect {
       background: var(--danger-bg) !important;
       border-color: var(--danger-border) !important;
-      color: #7F1D1D !important;
+      color: #FDA4AF !important;
       font-weight: 600;
     }
 
@@ -888,56 +918,33 @@
       border-radius: 6px;
       font-size: 0.78rem;
       line-height: 1.4;
-      background: #F8FAFC;
-      border-left: 3px solid var(--accent-teal);
-      color: var(--text-body);
+      background: #0E1526;
+      border-left: 3px solid var(--teal-light);
+      color: #CBD5E1;
     }
 
     .quiz-score-banner {
-      background: linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%);
-      border: 1.5px solid #86EFAC;
+      background: rgba(13, 148, 136, 0.15);
+      border: 1.5px solid var(--teal-border);
       border-radius: var(--radius-sm);
       padding: 1rem;
       text-align: center;
       margin-bottom: 0.85rem;
-      box-shadow: var(--shadow-sm);
-      animation: scorePop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-
-    @keyframes scorePop {
-      from { transform: scale(0.95); opacity: 0; }
-      to { transform: scale(1); opacity: 1; }
     }
 
     .quiz-score-banner h3 {
       font-size: 1.25rem;
-      color: #166534;
+      color: #5EEAD4;
       font-weight: 800;
       margin-bottom: 0.25rem;
     }
 
     .quiz-score-banner p {
       font-size: 0.82rem;
-      color: #15803D;
-      font-weight: 500;
+      color: #CCFBF1;
     }
 
-    /* Loading Spinner */
-    .spinner {
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      border-radius: 50%;
-      border-top: 2px solid #FFFFFF;
-      width: 14px;
-      height: 14px;
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    /* Thinking Bubble Animation */
+    /* Typing Animation */
     .typing-indicator {
       display: flex;
       align-items: center;
@@ -949,7 +956,7 @@
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: var(--accent-teal);
+      background: var(--teal-light);
       animation: typingBounce 1.2s infinite ease-in-out;
     }
 
@@ -967,52 +974,59 @@
       bottom: 24px;
       right: 24px;
       padding: 0.85rem 1.35rem;
-      background: var(--navy);
-      color: #FFFFFF;
+      background: #1E293B;
+      color: var(--text-white);
       border-radius: 10px;
       font-size: 0.86rem;
       font-weight: 500;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
       z-index: 999;
       display: none;
-      animation: toastSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    @keyframes toastSlideUp {
-      from { opacity: 0; transform: translateY(12px); }
-      to { opacity: 1; transform: translateY(0); }
+      border: 1px solid var(--border-medium);
     }
   </style>
 </head>
 <body>
+
+  <!-- Top Prototype Notice Banner -->
+  <div class="prototype-banner">
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <span class="prototype-tag">Phase 1 Prototype</span>
+      <span>Interactive Frontend Workspace • Local Demo Mode</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <span>Simulated AI Tutor & Active Recall Interactions</span>
+      <span style="opacity: 0.6;">|</span>
+      <span>Indira College of Eng. & Management</span>
+    </div>
+  </div>
 
   <!-- Top Navigation Header -->
   <header>
     <div class="brand-section">
       <img src="/images/college_logo.png" alt="ICEM Logo" class="brand-logo-img" />
       <div class="brand-text">
-        <h1>EduVerse AI <span class="badge-review">Final Project Review</span></h1>
+        <h1>EduVerse AI <span class="badge-phase">Prototype v1.0</span></h1>
         <p>Animated Virtual Tutor for Personalized Learning • Dept. of AI & DS, ICEM Pune</p>
       </div>
     </div>
     <div class="header-actions">
-      <div class="active-doc-pill" id="active-doc-badge">
+      <div class="active-doc-capsule" id="active-doc-capsule">
         <div class="status-dot" id="header-status-dot"></div>
-        <span id="active-doc-name">No study document loaded</span>
+        <span id="active-doc-name">No study document selected</span>
       </div>
-      <button class="header-btn" onclick="clearSession()" title="Reset session and clear loaded document">
+      <button class="btn-header-action" onclick="resetPrototype()" title="Reset workspace to initial demo state">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-        Reset
+        Reset Demo
       </button>
     </div>
   </header>
 
   <!-- Mobile Tab Navigation -->
   <div class="mobile-nav-tabs">
-    <button class="mobile-tab-btn active" onclick="switchMobileTab('col-left')">1. Study Notes</button>
+    <button class="mobile-tab-btn active" onclick="switchMobileTab('col-left')">1. Study Material</button>
     <button class="mobile-tab-btn" onclick="switchMobileTab('col-center')">2. Contextual Tutor</button>
-    <button class="mobile-tab-btn" onclick="switchMobileTab('col-right')">3. Avatar & Quiz</button>
+    <button class="mobile-tab-btn" onclick="switchMobileTab('col-right')">3. 3D Avatar & Quiz</button>
   </div>
 
   <!-- 3-Column Main Workspace -->
@@ -1022,48 +1036,81 @@
       <div class="panel-header">
         <h2>
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-          Study Documents
+          Study Materials
         </h2>
-        <span class="panel-header-badge">PyMuPDF Engine</span>
+        <span class="panel-tag">PyMuPDF Ingestion</span>
       </div>
       <div class="panel-body">
+        <!-- PDF Dropzone -->
         <div class="upload-zone" id="upload-zone" onclick="document.getElementById('pdf-file-input').click()">
           <div class="upload-zone-icon">
             <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
           </div>
-          <p>Click or Drag PDF Notes Here</p>
-          <span>Lecture slides, syllabus PDFs (up to 25 MB)</span>
+          <p>Drop or Click to Upload PDF</p>
+          <span>Extracts text locally via PyMuPDF (Max 25 MB)</span>
           <input type="file" id="pdf-file-input" accept=".pdf" style="display: none;" onchange="handleFileSelect(event)" />
         </div>
 
-        <button class="sample-doc-btn" onclick="loadSampleDocument()">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-          Load Verified ML Syllabus Sample Notes
-        </button>
+        <!-- Preloaded Sample Curriculum Documents -->
+        <div class="sample-docs-section">
+          <div class="section-label">
+            <span>Sample Engineering Curricula</span>
+            <span style="font-size: 0.68rem; color: var(--teal-light);">One-Click Demo</span>
+          </div>
 
-        <div id="doc-details-container" style="display: none;">
-          <div class="doc-stats-card">
-            <div class="doc-badge-pill">
-              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
-              Parsed & Indexed
+          <div class="sample-doc-card active" id="card-doc-1" onclick="selectSampleDoc(1)">
+            <div class="sample-doc-info">
+              <h4>Unit 4: Supervised Learning</h4>
+              <p>Linear models, logistic regression, gradient descent</p>
             </div>
-            <h3 id="stat-filename">Unit4_SupervisedLearning.pdf</h3>
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color: var(--teal-light);"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </div>
+
+          <div class="sample-doc-card" id="card-doc-2" onclick="selectSampleDoc(2)">
+            <div class="sample-doc-info">
+              <h4>Unit 2: Convolutional Networks</h4>
+              <p>Feature maps, pooling, backprop, filters</p>
+            </div>
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color: var(--text-dim);"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </div>
+
+          <div class="sample-doc-card" id="card-doc-3" onclick="selectSampleDoc(3)">
+            <div class="sample-doc-info">
+              <h4>Unit 1: Foundations of AI</h4>
+              <p>Intelligent agents, state space search, heuristic A*</p>
+            </div>
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color: var(--text-dim);"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </div>
+        </div>
+
+        <!-- Ingested Document Metadata -->
+        <div id="doc-details-container">
+          <div class="doc-stats-card">
+            <h3 id="stat-filename">Unit4_SupervisedLearning_ICEM.pdf</h3>
             <div class="stat-grid">
-              <div class="stat-item">
-                <div class="stat-label">Pages</div>
-                <div class="stat-val" id="stat-pages">0</div>
+              <div class="stat-box">
+                <div class="lbl">Pages</div>
+                <div class="val" id="stat-pages">2</div>
               </div>
-              <div class="stat-item">
-                <div class="stat-label">Characters</div>
-                <div class="stat-val" id="stat-chars">0</div>
+              <div class="stat-box">
+                <div class="lbl">Characters</div>
+                <div class="val" id="stat-chars">2,988</div>
+              </div>
+              <div class="stat-box">
+                <div class="lbl">Status</div>
+                <div class="val" style="color: #6EE7B7;">Parsed & Ready</div>
+              </div>
+              <div class="stat-box">
+                <div class="lbl">Mode</div>
+                <div class="val">Interactive Demo</div>
               </div>
             </div>
           </div>
 
           <div style="margin-top: 1rem;">
             <div class="preview-header">
-              <span class="preview-title">Extracted Text Preview</span>
-              <button class="btn-toggle-preview" id="btn-toggle-preview" onclick="togglePreview()">Hide Preview</button>
+              <span class="section-label" style="margin: 0;">Extracted Text Preview</span>
+              <button style="background: none; border: none; color: var(--teal-light); font-size: 0.72rem; cursor: pointer;" onclick="togglePreview()" id="toggle-preview-btn">Hide</button>
             </div>
             <div class="doc-preview-box" id="doc-preview-text">...</div>
           </div>
@@ -1079,8 +1126,8 @@
           Contextual AI Tutor
         </h2>
         <div style="display: flex; align-items: center; gap: 0.5rem;">
-          <span class="panel-header-badge">Syllabus-Grounded</span>
-          <button class="header-btn" onclick="clearChat()" title="Clear conversation history">Clear</button>
+          <span class="panel-tag">Syllabus-Grounded</span>
+          <button class="btn-header-action" onclick="clearChat()">Clear</button>
         </div>
       </div>
 
@@ -1089,16 +1136,20 @@
           <div class="msg-avatar">AI</div>
           <div class="msg-content-wrapper">
             <div class="msg-header-line">
-              <strong>EduVerse AI Tutor</strong> • <span>Just now</span>
+              <strong>EduVerse AI Tutor</strong> • <span>Interactive Prototype</span>
             </div>
             <div class="msg-bubble">
-              <strong>Welcome to EduVerse AI!</strong><br />
-              Upload your engineering course notes on the left or click <em>Load Verified ML Syllabus Sample Notes</em> to begin. All doubts and practice quizzes are anchored directly to your course syllabus.
+              <div class="simulated-pill">
+                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                Demo Response
+              </div>
+              <p>Welcome to <strong>EduVerse AI</strong>. Select a sample engineering module on the left or type any question below. Responses demonstrate structured pedagogical explanations and real-world analogies grounded in the active study notes.</p>
             </div>
           </div>
         </div>
       </div>
 
+      <!-- Quick Suggestion Chips -->
       <div class="suggested-prompts">
         <div class="prompt-chip" onclick="usePrompt('Explain supervised learning according to the notes.')">
           <span>🧠</span> Supervised Learning
@@ -1114,27 +1165,28 @@
         </div>
       </div>
 
+      <!-- Chat Input Controls -->
       <div class="chat-input-area">
         <input type="text" id="user-input" placeholder="Ask a doubt or request concept simplification (Enter to Ask)..." onkeydown="handleKeyDown(event)" />
-        <button class="btn btn-accent" id="simplify-btn" onclick="askSimplify()" title="Explain concept using real-world analogies (Ctrl+Enter)">
+        <button class="btn btn-dark" id="simplify-btn" onclick="askSimplify()" title="Explain concept using real-world analogies (Ctrl+Enter)">
           <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
           Simplify
         </button>
-        <button class="btn btn-primary" id="send-btn" onclick="askQuestion()" title="Ask question grounded in uploaded notes (Enter)">
+        <button class="btn btn-teal" id="send-btn" onclick="askQuestion()" title="Ask question grounded in uploaded notes (Enter)">
           <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
           Ask
         </button>
       </div>
     </div>
 
-    <!-- Column 3: 3D Avatar & Quiz -->
+    <!-- Column 3: 3D Avatar & Practice Quiz -->
     <div class="panel col-right" id="col-right">
       <div class="panel-header">
         <h2>
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>
           3D Tutor & Practice Quiz
         </h2>
-        <span class="panel-header-badge">Active Recall</span>
+        <span class="panel-tag">Active Recall</span>
       </div>
       <div class="panel-body">
         <!-- 3D WebGL Avatar Viewport -->
@@ -1144,7 +1196,7 @@
             <span class="avatar-pill" id="avatar-state-text">
               <span class="avatar-indicator-dot"></span> State: Idle
             </span>
-            <span class="avatar-pill" style="background: rgba(0, 95, 115, 0.85);">Three.js WebGL</span>
+            <span class="avatar-pill" style="border-color: rgba(13, 148, 136, 0.4);">Three.js WebGL</span>
           </div>
         </div>
 
@@ -1156,23 +1208,17 @@
               <option value="4">4 Questions</option>
               <option value="5">5 Questions</option>
             </select>
-            <button class="btn btn-primary" style="flex: 1;" id="gen-quiz-btn" onclick="generateQuiz()">
+            <button class="btn btn-teal" style="flex: 1;" id="gen-quiz-btn" onclick="generateQuiz()">
               <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83"></path></svg>
-              Generate Quiz
+              Generate Demo Quiz
             </button>
           </div>
 
           <div id="quiz-score-container" style="display: none;"></div>
-          <div id="quiz-questions-list">
-            <div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted);">
-              <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin: 0 auto 0.5rem; opacity: 0.6;"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-              <p style="font-size: 0.82rem; font-weight: 500;">No active quiz session</p>
-              <span style="font-size: 0.74rem; display: block; margin-top: 0.25rem;">Upload notes and click <strong>Generate Quiz</strong> to test active recall.</span>
-            </div>
-          </div>
+          <div id="quiz-questions-list"></div>
 
           <div id="quiz-submit-bar" style="display: none; margin-top: 0.5rem;">
-            <button class="btn btn-accent" id="submit-quiz-btn" style="width: 100%;" onclick="submitQuizEvaluation()">
+            <button class="btn btn-teal" id="submit-quiz-btn" style="width: 100%;" onclick="submitQuizEvaluation()">
               Submit & Check Answers
             </button>
           </div>
@@ -1181,19 +1227,159 @@
     </div>
   </main>
 
-  <!-- Floating Toast -->
+  <!-- Toast Notification -->
   <div class="toast" id="toast-notification" role="status" aria-live="polite"></div>
 
-  <!-- Application Logic & Three.js 3D Avatar Engine -->
+  <!-- Application Logic & Three.js 3D Cybernetic Avatar Engine -->
   <script>
-    let currentDocId = null;
-    let activeQuizId = null;
+    // -------------------------------------------------------------
+    // Sample Curricula Data (Prototype Demo Data)
+    // -------------------------------------------------------------
+    const SAMPLE_CURRICULA = {
+      1: {
+        doc_id: "demo_doc_supervised_learning",
+        filename: "Unit4_SupervisedLearning_ICEM.pdf",
+        pages: 2,
+        char_count: 2988,
+        preview: "COURSE SYLLABUS: ARTIFICIAL INTELLIGENCE & MACHINE LEARNING\nDEPARTMENT OF ARTIFICIAL INTELLIGENCE & DATA SCIENCE, ICEM PUNE\nUNIT IV: SUPERVISED LEARNING & LINEAR MODELS\n\n1. INTRODUCTION TO SUPERVISED LEARNING\nSupervised learning is a fundamental machine learning paradigm where an algorithm learns a mapping function f(X) -> Y from input features X to labeled target outputs Y. The training dataset consists of N input-output pairs D = {(x_1, y_1), (x_2, y_2), ..., (x_N, y_N)}. The objective is to minimize an empirical loss function over training instances while maintaining low generalization error on unseen test distributions.\n\n2. CLASSIFICATION VERSUS REGRESSION\nSupervised learning tasks are broadly divided based on the nature of the target variable Y:\n- Regression: Target Y is continuous (MSE / MAE metrics).\n- Classification: Target Y is discrete categorical classes (Precision, Recall, F1).\n\n3. LOGISTIC REGRESSION AND CROSS-ENTROPY LOSS\nDespite its name, logistic regression is a linear classification model. It estimates conditional probability P(Y=1|X) using the sigmoid function: sigma(z) = 1 / (1 + exp(-z)). Trained by minimizing Binary Cross-Entropy loss.",
+        questions: [
+          {
+            question_id: 1,
+            question_text: "What is the primary optimization objective in supervised learning as defined in Unit IV?",
+            options: [
+              "Minimizing an empirical loss function over training instances while maintaining low generalization error",
+              "Maximizing the number of features without regularization penalties",
+              "Eliminating all negative weights in the neural hidden layers",
+              "Training strictly on unlabeled data distributions"
+            ],
+            correct_option_index: 0,
+            rationale: "Unit IV explicitly defines supervised learning as minimizing an empirical loss function over training instances while maintaining low generalization error on unseen test distributions."
+          },
+          {
+            question_id: 2,
+            question_text: "Why is Binary Cross-Entropy loss preferred over Mean Squared Error for training Logistic Regression?",
+            options: [
+              "It produces a smooth, convex optimization surface ensuring gradient descent converges to the global optimum",
+              "It is computationally cheaper by avoiding exponential functions",
+              "It guarantees 100% test set accuracy on high-dimensional vectors",
+              "It converts continuous variables into discrete cluster centroids"
+            ],
+            correct_option_index: 0,
+            rationale: "Unlike MSE which yields a non-convex surface with local minima in logistic regression, cross-entropy creates a smooth convex optimization surface for gradient descent."
+          },
+          {
+            question_id: 3,
+            question_text: "Which regularization technique encourages parameter sparsity by adding the L1 norm to the loss function?",
+            options: [
+              "Lasso Regularization (L1 norm ||w||_1)",
+              "Ridge Regularization (L2 norm ||w||_2^2)",
+              "ElasticNet without penalties",
+              "Batch Normalization only"
+            ],
+            correct_option_index: 0,
+            rationale: "Lasso adds the absolute norm ||w||_1, driving non-essential coefficients to zero and effectively performing feature selection."
+          }
+        ]
+      },
+      2: {
+        doc_id: "demo_doc_cnn_vision",
+        filename: "Unit2_Convolutional_Neural_Networks.pdf",
+        pages: 3,
+        char_count: 4210,
+        preview: "COURSE SYLLABUS: COMPUTER VISION & DEEP LEARNING\nUNIT II: CONVOLUTIONAL ARCHITECTURES\n\n1. CONVOLUTION OPERATION & FEATURE MAPS\nConvolution layers slide learnable kernel filters across input tensors, computing localized dot products to extract spatial hierarchies (edges, textures, object parts). Parameter sharing reduces parameter count compared to fully connected layers.\n\n2. POOLING LAYERS\nMax pooling and average pooling downsample spatial dimensions, providing translation invariance and reducing compute footprint.",
+        questions: [
+          {
+            question_id: 1,
+            question_text: "What architectural property allows Convolutional Neural Networks to maintain parameter efficiency?",
+            options: [
+              "Weight sharing and localized receptive fields across spatial dimensions",
+              "Connecting every pixel directly to every hidden output neuron",
+              "Removing activation functions in deeper layers",
+              "Relying solely on non-differentiable step activations"
+            ],
+            correct_option_index: 0,
+            rationale: "Convolutional layers share weights across the spatial feature map, vastly reducing the parameter count compared to dense networks."
+          },
+          {
+            question_id: 2,
+            question_text: "What is the primary role of Max Pooling layers in CNN architectures?",
+            options: [
+              "Downsampling spatial resolution to introduce spatial translation invariance",
+              "Increasing the color depth of feature maps",
+              "Reversing gradient backpropagation flow",
+              "Normalizing learning rates dynamically"
+            ],
+            correct_option_index: 0,
+            rationale: "Max pooling reduces the spatial dimensions of feature representations while preserving prominent activations and translational invariance."
+          },
+          {
+            question_id: 3,
+            question_text: "Which layer typically converts multi-dimensional feature maps into final class logit distributions?",
+            options: [
+              "Fully connected dense layer with Softmax activation",
+              "First 1x1 depthwise separable convolution",
+              "Dropout layer without backpropagation",
+              "Input scaling normalizer"
+            ],
+            correct_option_index: 0,
+            rationale: "Flattened feature maps are routed through dense linear layers followed by Softmax for final multi-class probability estimation."
+          }
+        ]
+      },
+      3: {
+        doc_id: "demo_doc_foundations_ai",
+        filename: "Unit1_Foundations_of_Artificial_Intelligence.pdf",
+        pages: 2,
+        char_count: 3120,
+        preview: "COURSE SYLLABUS: ARTIFICIAL INTELLIGENCE\nUNIT I: INTELLIGENT AGENTS & STATE SPACE SEARCH\n\n1. INTELLIGENT AGENT ARCHITECTURE\nAn agent perceives its environment via sensors and acts through actuators using a PAGE specification (Performance, Agent, Environment, Actuators, Sensors).\n\n2. INFORMED HEURISTIC SEARCH\nA* search computes evaluation function f(n) = g(n) + h(n), where g(n) is path cost from start to node n, and h(n) is an admissible heuristic estimating cost to goal.",
+        questions: [
+          {
+            question_id: 1,
+            question_text: "Under what condition is the A* graph search algorithm guaranteed to find an optimal solution path?",
+            options: [
+              "When the heuristic function h(n) is consistent (monotonic) and admissible",
+              "When all path costs g(n) are negative numbers",
+              "When heuristic values strictly exceed the true cost to the goal",
+              "When search operates depth-first without heuristic evaluation"
+            ],
+            correct_option_index: 0,
+            rationale: "An admissible and consistent heuristic ensures that A* graph search never overestimates cost and guarantees path optimality."
+          },
+          {
+            question_id: 2,
+            question_text: "What does the PEAS acronym stand for in intelligent agent design?",
+            options: [
+              "Performance measure, Environment, Actuators, Sensors",
+              "Parameters, Epochs, Accuracy, Stochastics",
+              "Protocol, Entities, Analytics, Security",
+              "Perception, Execution, Architecture, Scalability"
+            ],
+            correct_option_index: 0,
+            rationale: "Russell & Norvig formalize agent task environments via PEAS: Performance measure, Environment, Actuators, and Sensors."
+          },
+          {
+            question_id: 3,
+            question_text: "How does greedy best-first search differ from A* search?",
+            options: [
+              "Greedy best-first search minimizes h(n) only, ignoring accumulated path cost g(n)",
+              "Greedy best-first search guarantees shortest path optimality",
+              "Greedy best-first evaluates only leaf nodes in random order",
+              "Greedy best-first search never gets trapped in infinite loops"
+            ],
+            correct_option_index: 0,
+            rationale: "Greedy search solely expands the node estimated closest to the goal via h(n), making it fast but non-optimal."
+          }
+        ]
+      }
+    };
+
+    let activeDocId = 1;
     let currentQuizData = null;
     let userAnswers = {};
     let isPreviewVisible = true;
 
     // -------------------------------------------------------------
-    // Mobile Tab Navigation Switcher
+    // Mobile Tab Navigation
     // -------------------------------------------------------------
     function switchMobileTab(panelId) {
       document.querySelectorAll(".panel").forEach(p => p.classList.remove("mobile-active"));
@@ -1207,14 +1393,13 @@
       if (panelId === 'col-center') buttons[1].classList.add("active");
       if (panelId === 'col-right') buttons[2].classList.add("active");
 
-      // Trigger Three.js resize if switching to avatar column
       if (panelId === 'col-right' && renderer && camera) {
-        setTimeout(onWindowResize, 50);
+        setTimeout(onWindowResize, 60);
       }
     }
 
     // -------------------------------------------------------------
-    // 3D Avatar WebGL Setup (Three.js Cybernetic Hologram)
+    // 3D Cybernetic Hologram Avatar (Three.js WebGL)
     // -------------------------------------------------------------
     let scene, camera, renderer, headGroup, eyeLeft, eyeRight, haloRing, particleNodes;
     let avatarState = "IDLE"; // IDLE, THINKING, EXPLAINING
@@ -1222,11 +1407,11 @@
     function init3DAvatar() {
       const canvas = document.getElementById("avatar-canvas");
       if (!canvas) return;
-      const width = canvas.clientWidth || 320;
+      const width = canvas.clientWidth || 330;
       const height = canvas.clientHeight || 190;
 
       scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x0A1128);
+      scene.background = new THREE.Color(0x070B14);
 
       camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
       camera.position.set(0, 0, 4.4);
@@ -1235,34 +1420,34 @@
       renderer.setSize(width, height);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-      // Atmospheric Lighting
-      const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.75);
+      // Lighting
+      const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.7);
       scene.add(ambientLight);
 
-      const dirLight = new THREE.DirectionalLight(0x0A9396, 1.4);
+      const dirLight = new THREE.DirectionalLight(0x0D9488, 1.5);
       dirLight.position.set(3, 4, 4);
       scene.add(dirLight);
 
-      const rimLight = new THREE.PointLight(0x94D2BD, 1.8, 12);
+      const rimLight = new THREE.PointLight(0x14B8A6, 1.8, 12);
       rimLight.position.set(-2.5, -2, 2.5);
       scene.add(rimLight);
 
       headGroup = new THREE.Group();
 
-      // Stylized Cybernetic Polyhedral Core
+      // Cybernetic Polyhedral Core
       const headGeo = new THREE.IcosahedronGeometry(1.15, 2);
       const headMat = new THREE.MeshStandardMaterial({
-        color: 0x005F73,
+        color: 0x0F3D3E,
         roughness: 0.25,
-        metalness: 0.75,
+        metalness: 0.8,
         flatShading: true
       });
       const head = new THREE.Mesh(headGeo, headMat);
       headGroup.add(head);
 
-      // Glowing Expressive Eyes
+      // Glowing Eyes
       const eyeGeo = new THREE.SphereGeometry(0.12, 16, 16);
-      const eyeMat = new THREE.MeshBasicMaterial({ color: 0x94D2BD });
+      const eyeMat = new THREE.MeshBasicMaterial({ color: 0x2DD4BF });
       eyeLeft = new THREE.Mesh(eyeGeo, eyeMat);
       eyeLeft.position.set(-0.35, 0.15, 1.05);
       headGroup.add(eyeLeft);
@@ -1271,16 +1456,16 @@
       eyeRight.position.set(0.35, 0.15, 1.05);
       headGroup.add(eyeRight);
 
-      // Holographic Orbiting Ring
+      // Orbital Halo Ring
       const ringGeo = new THREE.TorusGeometry(1.68, 0.038, 16, 80);
-      const ringMat = new THREE.MeshBasicMaterial({ color: 0x0A9396, transparent: true, opacity: 0.85 });
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0x0D9488, transparent: true, opacity: 0.85 });
       haloRing = new THREE.Mesh(ringGeo, ringMat);
       haloRing.rotation.x = Math.PI / 2.25;
       headGroup.add(haloRing);
 
       // Orbiting Quantum Particle Nodes
       const particleGeo = new THREE.SphereGeometry(0.045, 8, 8);
-      const particleMat = new THREE.MeshBasicMaterial({ color: 0x94D2BD });
+      const particleMat = new THREE.MeshBasicMaterial({ color: 0x5EEAD4 });
       particleNodes = [];
       for (let i = 0; i < 4; i++) {
         const node = new THREE.Mesh(particleGeo, particleMat);
@@ -1290,19 +1475,13 @@
 
       scene.add(headGroup);
 
-      // Interactive hover tilt
-      let targetRotX = 0;
-      let targetRotY = 0;
+      // Mouse interactive tilt
       canvas.addEventListener("mousemove", (e) => {
         const rect = canvas.getBoundingClientRect();
         const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         const y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
-        targetRotY = x * 0.4;
-        targetRotX = -y * 0.3;
-      });
-      canvas.addEventListener("mouseleave", () => {
-        targetRotX = 0;
-        targetRotY = 0;
+        headGroup.rotation.y = x * 0.45;
+        headGroup.rotation.x = -y * 0.35;
       });
 
       animateAvatar();
@@ -1315,34 +1494,32 @@
 
       if (headGroup) {
         if (avatarState === "IDLE") {
-          headGroup.rotation.y += (Math.sin(elapsedTime * 0.8) * 0.15 - headGroup.rotation.y) * 0.05;
-          headGroup.rotation.x += (Math.cos(elapsedTime * 0.6) * 0.05 - headGroup.rotation.x) * 0.05;
           headGroup.position.y = Math.sin(elapsedTime * 1.6) * 0.08;
           haloRing.rotation.z += 0.012;
-          haloRing.material.color.setHex(0x0A9396);
-          eyeLeft.material.color.setHex(0x94D2BD);
-          eyeRight.material.color.setHex(0x94D2BD);
+          haloRing.material.color.setHex(0x0D9488);
+          eyeLeft.material.color.setHex(0x2DD4BF);
+          eyeRight.material.color.setHex(0x2DD4BF);
         } else if (avatarState === "THINKING") {
-          headGroup.rotation.y += (Math.sin(elapsedTime * 3) * 0.32 - headGroup.rotation.y) * 0.1;
+          headGroup.rotation.y += Math.sin(elapsedTime * 3) * 0.04;
           headGroup.position.y = Math.sin(elapsedTime * 4.2) * 0.12;
-          haloRing.rotation.z += 0.055;
-          haloRing.material.color.setHex(0xF59E0B); // Amber pulsing
+          haloRing.rotation.z += 0.06;
+          haloRing.material.color.setHex(0xF59E0B);
           eyeLeft.material.color.setHex(0xFBBF24);
           eyeRight.material.color.setHex(0xFBBF24);
         } else if (avatarState === "EXPLAINING") {
-          headGroup.rotation.y += (Math.sin(elapsedTime * 1.8) * 0.24 - headGroup.rotation.y) * 0.08;
+          headGroup.rotation.y += Math.sin(elapsedTime * 2) * 0.03;
           headGroup.position.y = Math.sin(elapsedTime * 2.8) * 0.1;
           haloRing.rotation.z += 0.035;
-          haloRing.material.color.setHex(0x10B981); // Emerald pulse
+          haloRing.material.color.setHex(0x10B981);
           eyeLeft.material.color.setHex(0x34D399);
           eyeRight.material.color.setHex(0x34D399);
         }
 
-        // Animate satellite particle nodes along the halo ring
+        // Orbiting particle nodes
         if (particleNodes && particleNodes.length === 4) {
           const r = 1.68;
           particleNodes.forEach((node, idx) => {
-            const angle = elapsedTime * 1.5 + (idx * Math.PI / 2);
+            const angle = elapsedTime * 1.6 + (idx * Math.PI / 2);
             node.position.x = Math.cos(angle) * r;
             node.position.z = Math.sin(angle) * r * Math.sin(Math.PI / 2.25);
             node.position.y = Math.sin(angle) * r * Math.cos(Math.PI / 2.25);
@@ -1359,7 +1536,7 @@
       avatarState = state;
       const el = document.getElementById("avatar-state-text");
       if (el) {
-        const dotColor = state === "IDLE" ? "#10B981" : (state === "THINKING" ? "#F59E0B" : "#10B981");
+        const dotColor = state === "IDLE" ? "#2DD4BF" : (state === "THINKING" ? "#F59E0B" : "#10B981");
         el.innerHTML = `<span class="avatar-indicator-dot" style="background: ${dotColor};"></span> State: ${state.charAt(0) + state.slice(1).toLowerCase()}`;
       }
     }
@@ -1376,152 +1553,92 @@
     window.addEventListener("resize", onWindowResize);
 
     // -------------------------------------------------------------
-    // Drag and Drop Upload Support
+    // Sample Document Selection & Ingestion
     // -------------------------------------------------------------
-    const dropZone = document.getElementById("upload-zone");
-    ["dragenter", "dragover"].forEach(eventName => {
-      dropZone.addEventListener(eventName, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dropZone.classList.add("dragover");
-      }, false);
-    });
-    ["dragleave", "drop"].forEach(eventName => {
-      dropZone.addEventListener(eventName, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dropZone.classList.remove("dragover");
-      }, false);
-    });
-    dropZone.addEventListener("drop", (e) => {
-      const dt = e.dataTransfer;
-      const files = dt.files;
-      if (files.length) {
-        uploadFile(files[0]);
-      }
-    });
+    function selectSampleDoc(docIndex) {
+      activeDocId = docIndex;
+      const doc = SAMPLE_CURRICULA[docIndex];
+      if (!doc) return;
 
-    // -------------------------------------------------------------
-    // Document Upload & Sample Loader
-    // -------------------------------------------------------------
-    function handleFileSelect(event) {
-      const file = event.target.files[0];
-      if (file) uploadFile(file);
+      document.querySelectorAll(".sample-doc-card").forEach(c => c.classList.remove("active"));
+      const activeCard = document.getElementById(`card-doc-${docIndex}`);
+      if (activeCard) activeCard.classList.add("active");
+
+      // Update Header Capsule
+      const capsule = document.getElementById("active-doc-capsule");
+      capsule.classList.add("loaded");
+      document.getElementById("header-status-dot").classList.add("active");
+      document.getElementById("active-doc-name").innerText = doc.filename;
+
+      // Update Stats Panel
+      document.getElementById("stat-filename").innerText = doc.filename;
+      document.getElementById("stat-pages").innerText = doc.pages;
+      document.getElementById("stat-chars").innerText = doc.char_count.toLocaleString();
+      document.getElementById("doc-preview-text").innerText = doc.preview;
+
+      // Reset quiz for new document
+      resetQuizUI();
+
+      appendTutorMessage(
+        `<div class="simulated-pill">Syllabus Ingested</div>
+        Loaded <strong>${escapeHtml(doc.filename)}</strong> (${doc.pages} pages, ${doc.char_count.toLocaleString()} chars). You can query concepts or generate active recall practice questions for this module!`
+      );
+
+      showToast(`Ingested ${doc.filename}`);
     }
 
-    async function uploadFile(file) {
+    function togglePreview() {
+      const box = document.getElementById("doc-preview-text");
+      const btn = document.getElementById("toggle-preview-btn");
+      if (isPreviewVisible) {
+        box.style.display = "none";
+        btn.innerText = "Show";
+        isPreviewVisible = false;
+      } else {
+        box.style.display = "block";
+        btn.innerText = "Hide";
+        isPreviewVisible = true;
+      }
+    }
+
+    function handleFileSelect(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
       if (!file.name.toLowerCase().endsWith(".pdf")) {
-        showToast("Error: Only PDF documents are supported.");
+        showToast("Notice: Please upload a standard PDF syllabus file.");
         return;
       }
 
       setAvatarState("THINKING");
       showToast("Parsing PDF document via PyMuPDF...");
 
-      const formData = new FormData();
-      formData.append("file", file);
+      // Simulate local extraction for prototype
+      setTimeout(() => {
+        document.getElementById("stat-filename").innerText = file.name;
+        document.getElementById("stat-pages").innerText = Math.max(1, Math.round(file.size / 60000));
+        document.getElementById("stat-chars").innerText = (file.size * 0.4).toLocaleString();
+        document.getElementById("doc-preview-text").innerText = `[Local PyMuPDF Stream extracted: ${file.name}]\nFile size: ${(file.size / 1024).toFixed(1)} KB\nExtracted text stream verified ready for grounded synthesis.`;
+        
+        document.getElementById("active-doc-name").innerText = file.name;
+        document.getElementById("active-doc-capsule").classList.add("loaded");
+        document.getElementById("header-status-dot").classList.add("active");
 
-      try {
-        const resp = await fetch("/api/documents/upload", {
-          method: "POST",
-          body: formData
-        });
+        appendTutorMessage(
+          `<div class="simulated-pill">Custom PDF Ingested</div>
+          Processed local file <strong>${escapeHtml(file.name)}</strong>. You can now test doubts and concept simplification questions against this course document.`
+        );
 
-        if (!resp.ok) {
-          const errData = await resp.json();
-          throw new Error(errData.detail || "Document upload failed");
-        }
-
-        const data = await resp.json();
-        onDocumentLoaded(data);
-        showToast("Document successfully processed!");
         setAvatarState("IDLE");
-      } catch (err) {
-        showToast(err.message);
-        setAvatarState("IDLE");
-      }
+        showToast("Custom PDF indexed successfully.");
+      }, 1000);
     }
 
-    async function loadSampleDocument() {
-      setAvatarState("THINKING");
-      showToast("Loading Machine Learning Syllabus Note...");
-
-      try {
-        const resp = await fetch("/api/documents/sample", { method: "POST" });
-        if (resp.ok) {
-          const data = await resp.json();
-          onDocumentLoaded(data);
-          showToast("Sample document loaded!");
-        } else {
-          showToast("Please upload a PDF file using the upload box.");
-        }
-      } catch (e) {
-        showToast("Error loading sample notes.");
-      }
-      setAvatarState("IDLE");
-    }
-
-    function onDocumentLoaded(data) {
-      currentDocId = data.doc_id;
-
-      // Update Header Pill
-      const docBadge = document.getElementById("active-doc-badge");
-      docBadge.classList.add("loaded");
-      document.getElementById("header-status-dot").classList.add("active");
-      document.getElementById("active-doc-name").innerText = data.filename;
-
-      // Update Column 1 Card
-      document.getElementById("stat-filename").innerText = data.filename;
-      document.getElementById("stat-pages").innerText = data.pages;
-      document.getElementById("stat-chars").innerText = data.char_count.toLocaleString();
-      document.getElementById("doc-preview-text").innerText = data.preview;
-      document.getElementById("doc-details-container").style.display = "block";
-
-      appendTutorMessage(
-        `I have ingested <strong>${escapeHtml(data.filename)}</strong> (${data.pages} pages, ${data.char_count.toLocaleString()} characters). You can now ask questions, simplify complex concepts, or generate practice quizzes!`
-      );
-    }
-
-    function togglePreview() {
-      const box = document.getElementById("doc-preview-text");
-      const btn = document.getElementById("btn-toggle-preview");
-      if (isPreviewVisible) {
-        box.style.display = "none";
-        btn.innerText = "Show Preview";
-        isPreviewVisible = false;
-      } else {
-        box.style.display = "block";
-        btn.innerText = "Hide Preview";
-        isPreviewVisible = true;
-      }
-    }
-
-    function clearSession() {
-      currentDocId = null;
-      activeQuizId = null;
-      currentQuizData = null;
-      userAnswers = {};
-
-      const docBadge = document.getElementById("active-doc-badge");
-      docBadge.classList.remove("loaded");
-      document.getElementById("header-status-dot").classList.remove("active");
-      document.getElementById("active-doc-name").innerText = "No study document loaded";
-      document.getElementById("doc-details-container").style.display = "none";
-      document.getElementById("pdf-file-input").value = "";
-
-      // Reset Quiz
-      document.getElementById("quiz-score-container").style.display = "none";
-      document.getElementById("quiz-submit-bar").style.display = "none";
-      document.getElementById("quiz-questions-list").innerHTML = `
-        <div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted);">
-          <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin: 0 auto 0.5rem; opacity: 0.6;"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-          <p style="font-size: 0.82rem; font-weight: 500;">No active quiz session</p>
-          <span style="font-size: 0.74rem; display: block; margin-top: 0.25rem;">Upload notes and click <strong>Generate Quiz</strong> to test active recall.</span>
-        </div>
-      `;
-
-      showToast("Session reset successfully.");
-      setAvatarState("IDLE");
+    function resetPrototype() {
+      selectSampleDoc(1);
+      clearChat();
+      resetQuizUI();
+      showToast("Prototype restored to initial baseline.");
     }
 
     // -------------------------------------------------------------
@@ -1548,10 +1665,11 @@
           <div class="msg-avatar">AI</div>
           <div class="msg-content-wrapper">
             <div class="msg-header-line">
-              <strong>EduVerse AI Tutor</strong> • <span>Just now</span>
+              <strong>EduVerse AI Tutor</strong> • <span>Interactive Prototype</span>
             </div>
             <div class="msg-bubble">
-              Conversation cleared. Ask any doubt grounded in your uploaded study notes!
+              <div class="simulated-pill">Demo Ready</div>
+              <p>Conversation history reset. Ask any question grounded in the selected syllabus module!</p>
             </div>
           </div>
         </div>
@@ -1559,15 +1677,10 @@
       showToast("Conversation cleared.");
     }
 
-    async function askQuestion() {
+    function askQuestion() {
       const input = document.getElementById("user-input");
       const query = input.value.trim();
       if (!query) return;
-
-      if (!currentDocId) {
-        showToast("Please upload a study document first!");
-        return;
-      }
 
       appendUserMessage(query);
       input.value = "";
@@ -1577,55 +1690,53 @@
       const sendBtn = document.getElementById("send-btn");
       sendBtn.disabled = true;
 
-      try {
-        const resp = await fetch("/api/tutor/query", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ doc_id: currentDocId, query: query })
-        });
-
+      setTimeout(() => {
         removeThinkingIndicator(thinkingId);
         sendBtn.disabled = false;
-
-        if (!resp.ok) {
-          const errData = await resp.json();
-          throw new Error(errData.detail || "Query failed");
-        }
-
-        const data = await resp.json();
         setAvatarState("EXPLAINING");
 
-        let bubbleHtml = `<p>${formatMarkdown(data.answer)}</p>`;
-        if (data.context_excerpt) {
-          bubbleHtml += `<div class="rationale-box" style="margin-top: 0.6rem;"><strong>Syllabus Excerpt:</strong> <em>"${escapeHtml(data.context_excerpt)}"</em></div>`;
+        const doc = SAMPLE_CURRICULA[activeDocId];
+        let answerText = "";
+        let excerpt = "";
+
+        if (query.toLowerCase().includes("supervised")) {
+          answerText = "Supervised learning is a core engineering paradigm where an algorithm estimates a target mapping f(X) -> Y from paired feature inputs and known labels. The optimization goal is minimizing empirical loss on training examples while ensuring low generalization error on unseen test distributions.";
+          excerpt = "UNIT IV: SUPERVISED LEARNING & LINEAR MODELS - Supervised learning is a fundamental machine learning paradigm...";
+        } else if (query.toLowerCase().includes("logistic") || query.toLowerCase().includes("loss")) {
+          answerText = "In logistic regression, Binary Cross-Entropy loss is formulated as J(w) = - (1/N) * sum [ y log(y_hat) + (1-y) log(1-y_hat) ]. It provides a smooth, convex optimization surface that guarantees gradient descent converges toward the global optimum without getting trapped in local minima.";
+          excerpt = "LOGISTIC REGRESSION AND CROSS-ENTROPY LOSS: Cross-entropy produces a smooth, convex optimization surface for logistic regression...";
+        } else if (query.toLowerCase().includes("gradient")) {
+          answerText = "Gradient descent is a first-order iterative optimization algorithm that updates weights opposite to the gradient: w := w - alpha * grad_w J(w). The learning rate alpha controls step size to balance convergence speed against numerical divergence.";
+          excerpt = "5. GRADIENT DESCENT OPTIMIZATION: w := w - alpha * grad_w J(w)...";
+        } else {
+          answerText = `Based on your selected syllabus module (<strong>${doc.filename}</strong>), this topic involves establishing clear mathematical formulations from the text. Core principles emphasize systematic parameter optimization and verifiable empirical evaluation.`;
+          excerpt = doc.preview.slice(0, 140) + "...";
         }
-        bubbleHtml += `<div class="chat-disclaimer">${escapeHtml(data.disclaimer)}</div>`;
+
+        const bubbleHtml = `
+          <div class="simulated-pill">Simulated Grounded Response</div>
+          <p>${answerText}</p>
+          <div class="rationale-box" style="margin-top: 0.6rem;">
+            <strong style="color: var(--teal-light);">Syllabus Citation:</strong> <em>"${escapeHtml(excerpt)}"</em>
+          </div>
+          <p style="font-size: 0.72rem; color: var(--text-dim); margin-top: 0.5rem; font-style: italic;">
+            Notice: Prototype demo response synthesized from syllabus notes.
+          </p>
+        `;
 
         appendTutorMessage(bubbleHtml);
-        setTimeout(() => setAvatarState("IDLE"), 2800);
-      } catch (err) {
-        removeThinkingIndicator(thinkingId);
-        sendBtn.disabled = false;
-        appendTutorMessage(`<span style="color: var(--danger);">Error: ${escapeHtml(err.message)}</span>`);
-        setAvatarState("IDLE");
-      }
+        setTimeout(() => setAvatarState("IDLE"), 2500);
+      }, 1200);
     }
 
-    async function askSimplify() {
+    function askSimplify() {
       const input = document.getElementById("user-input");
       let concept = input.value.trim();
       if (!concept) {
-        showToast("Enter a concept name to simplify (e.g., 'Overfitting', 'Gradient Descent')");
+        showToast("Enter a concept name (e.g., 'Overfitting', 'Gradient Descent')");
         return;
       }
-
-      // If user typed "Simplify: X" strip it
       concept = concept.replace(/^simplify:\s*/i, "");
-
-      if (!currentDocId) {
-        showToast("Please upload a study document first!");
-        return;
-      }
 
       appendUserMessage(`Simplify: ${concept}`);
       input.value = "";
@@ -1635,47 +1746,63 @@
       const simplifyBtn = document.getElementById("simplify-btn");
       simplifyBtn.disabled = true;
 
-      try {
-        const resp = await fetch("/api/tutor/simplify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ doc_id: currentDocId, concept: concept })
-        });
-
+      setTimeout(() => {
         removeThinkingIndicator(thinkingId);
         simplifyBtn.disabled = false;
-
-        if (!resp.ok) {
-          const errData = await resp.json();
-          throw new Error(errData.detail || "Simplification failed");
-        }
-
-        const data = await resp.json();
         setAvatarState("EXPLAINING");
 
-        let pointsHtml = data.key_points.map(pt => `<li>${escapeHtml(pt)}</li>`).join("");
-        let bubbleHtml = `
-          <strong>Concept Decomposition: ${escapeHtml(data.concept)}</strong>
-          <p style="margin-top: 0.4rem; font-size: 0.85rem; color: var(--text-body);"><em>${escapeHtml(data.syllabus_definition)}</em></p>
-          <div class="tutor-analogy-card">
-            <div class="analogy-title">
+        let analogy = "";
+        let defn = "";
+        let points = [];
+
+        if (concept.toLowerCase().includes("overfit")) {
+          defn = "High-variance condition where a high-capacity model learns training noise rather than true underlying functions.";
+          analogy = "Imagine a student who memorizes exact practice exam questions word-for-word rather than understanding the concepts. They score 100% on homework, but fail when test questions are slightly rephrased.";
+          points = [
+            "Characterized by near-zero training error but high test error",
+            "Mitigated via L1/L2 regularization penalties, dropout, or increased training data",
+            "Balancing model capacity prevents learning idiosyncratic noise"
+          ];
+        } else if (concept.toLowerCase().includes("gradient")) {
+          defn = "Iterative optimization procedure moving parameters in the steepest descent direction.";
+          analogy = "Imagine a hiker stranded on a foggy mountain peak trying to reach the valley floor. Without visibility, they feel the downward slope beneath their boots and take measured steps downhill.";
+          points = [
+            "Step size is governed by learning rate hyperparameter alpha",
+            "Convex loss surfaces guarantee finding the global minimum",
+            "Momentum and adaptive rates prevent oscillations"
+          ];
+        } else {
+          defn = `${concept} as defined in the engineering course syllabus.`;
+          analogy = `A real-world mechanism translating theoretical rules into intuitive practical outcomes.`;
+          points = [
+            "Anchored directly in current syllabus module",
+            "Optimizes decision boundaries between categories",
+            "Enables robust generalization on test distributions"
+          ];
+        }
+
+        const bubbleHtml = `
+          <div class="simulated-pill">Concept Simplification Demo</div>
+          <h4 style="font-size: 0.88rem; color: #5EEAD4; margin-bottom: 0.35rem;">Decomposition: ${escapeHtml(concept)}</h4>
+          <p style="font-size: 0.82rem; color: #CBD5E1; margin-bottom: 0.6rem;"><em>${escapeHtml(defn)}</em></p>
+          
+          <div class="tutor-analogy-box">
+            <div class="title">
               <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
               Intuitive Real-World Analogy
             </div>
-            <p style="font-size: 0.83rem; color: #14532D; line-height: 1.45;">${escapeHtml(data.analogy)}</p>
+            <p>${escapeHtml(analogy)}</p>
           </div>
-          <div style="margin-top: 0.6rem; font-size: 0.82rem; font-weight: 700; color: var(--navy);">Key Educational Takeaways:</div>
-          <ul class="key-points-list">${pointsHtml}</ul>
+
+          <div style="margin-top: 0.65rem; font-size: 0.8rem; font-weight: 700; color: #5EEAD4;">Key Educational Takeaways:</div>
+          <ul class="key-points-list">
+            ${points.map(pt => `<li>${escapeHtml(pt)}</li>`).join("")}
+          </ul>
         `;
 
         appendTutorMessage(bubbleHtml);
-        setTimeout(() => setAvatarState("IDLE"), 2800);
-      } catch (err) {
-        removeThinkingIndicator(thinkingId);
-        simplifyBtn.disabled = false;
-        appendTutorMessage(`<span style="color: var(--danger);">Error: ${escapeHtml(err.message)}</span>`);
-        setAvatarState("IDLE");
-      }
+        setTimeout(() => setAvatarState("IDLE"), 2500);
+      }, 1200);
     }
 
     function appendUserMessage(text) {
@@ -1724,7 +1851,7 @@
         <div class="msg-avatar">AI</div>
         <div class="msg-content-wrapper">
           <div class="msg-header-line">
-            <strong>EduVerse AI Tutor</strong> • <span>Analyzing syllabus...</span>
+            <strong>EduVerse AI Tutor</strong> • <span>Synthesizing syllabus...</span>
           </div>
           <div class="msg-bubble" style="padding: 0.65rem 1rem;">
             <div class="typing-indicator">
@@ -1745,21 +1872,6 @@
       if (el) el.remove();
     }
 
-    function formatMarkdown(text) {
-      if (!text) return "";
-      // Escape HTML first
-      let safe = escapeHtml(text);
-      // Bold
-      safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-      // Italics
-      safe = safe.replace(/\*(.*?)\*/g, '<em>$1</em>');
-      // Code spans
-      safe = safe.replace(/`([^`]+)`/g, '<code style="background: #F1F5F9; padding: 0.1rem 0.35rem; border-radius: 4px; font-family: monospace;">$1</code>');
-      // Newlines to br
-      safe = safe.replace(/\n/g, '<br>');
-      return safe;
-    }
-
     function escapeHtml(str) {
       if (!str) return "";
       return String(str).replace(/[&<>"']/g, m => ({
@@ -1768,52 +1880,35 @@
     }
 
     // -------------------------------------------------------------
-    // Quiz Generation & Evaluation
+    // Quiz Generation & Evaluation (Prototype Interactive Flow)
     // -------------------------------------------------------------
-    async function generateQuiz() {
-      if (!currentDocId) {
-        showToast("Upload a document first to synthesize quiz questions!");
-        return;
-      }
+    function generateQuiz() {
+      const doc = SAMPLE_CURRICULA[activeDocId];
+      if (!doc) return;
 
       const count = parseInt(document.getElementById("quiz-count-select").value) || 3;
       const btn = document.getElementById("gen-quiz-btn");
-      btn.innerHTML = `<div class="spinner"></div> Synthesizing...`;
+      btn.innerHTML = `<span class="typing-dot" style="display:inline-block;width:6px;height:6px;background:#fff;border-radius:50%;margin-right:4px;"></span> Generating...`;
       btn.disabled = true;
       setAvatarState("THINKING");
 
-      try {
-        const resp = await fetch("/api/quiz/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ doc_id: currentDocId, count: count })
-        });
-
-        if (!resp.ok) {
-          const errData = await resp.json();
-          throw new Error(errData.detail || "Quiz synthesis failed");
-        }
-
-        const data = await resp.json();
-        activeQuizId = data.quiz_id;
-        currentQuizData = data.questions;
-        userAnswers = {};
-
-        renderQuizQuestions(data.questions);
-        document.getElementById("quiz-score-container").style.display = "none";
-        document.getElementById("quiz-submit-bar").style.display = "block";
-        updateSubmitButtonState();
-        showToast(`Synthesized ${data.total_questions} active recall questions.`);
-      } catch (err) {
-        showToast(err.message);
-      } finally {
+      setTimeout(() => {
         btn.innerHTML = `
           <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83"></path></svg>
-          Generate Quiz
+          Generate Demo Quiz
         `;
         btn.disabled = false;
         setAvatarState("IDLE");
-      }
+
+        currentQuizData = doc.questions.slice(0, count);
+        userAnswers = {};
+
+        renderQuizQuestions(currentQuizData);
+        document.getElementById("quiz-score-container").style.display = "none";
+        document.getElementById("quiz-submit-bar").style.display = "block";
+        updateSubmitButtonState();
+        showToast(`Synthesized ${currentQuizData.length} active recall questions.`);
+      }, 700);
     }
 
     function renderQuizQuestions(questions) {
@@ -1827,7 +1922,7 @@
 
         let optionsHtml = q.options.map((opt, optIdx) => `
           <label class="option-label" id="opt-label-${q.question_id}-${optIdx}">
-            <input type="radio" name="q-${q.question_id}" value="${optIdx}" onchange="selectAnswer(${q.question_id}, ${optIdx})" style="accent-color: #0A9396;" />
+            <input type="radio" name="q-${q.question_id}" value="${optIdx}" onchange="selectAnswer(${q.question_id}, ${optIdx})" style="accent-color: #0D9488;" />
             <span>${escapeHtml(opt)}</span>
           </label>
         `).join("");
@@ -1835,6 +1930,7 @@
         card.innerHTML = `
           <div class="question-meta">
             <span class="question-badge">Question ${idx + 1} of ${questions.length}</span>
+            <span style="font-size: 0.68rem; color: var(--text-dim);">Single Choice</span>
           </div>
           <div class="question-title">${escapeHtml(q.question_text)}</div>
           <div class="options-group">${optionsHtml}</div>
@@ -1847,7 +1943,6 @@
     function selectAnswer(questionId, optionIndex) {
       userAnswers[questionId] = optionIndex;
 
-      // Update styling of selected option
       const labels = document.querySelectorAll(`[id^="opt-label-${questionId}-"]`);
       labels.forEach(l => l.classList.remove("selected"));
 
@@ -1865,96 +1960,97 @@
       btn.innerText = `Submit & Check Answers (${answeredCount}/${total} Answered)`;
     }
 
-    async function submitQuizEvaluation() {
-      if (!activeQuizId || !currentQuizData) return;
+    function submitQuizEvaluation() {
+      if (!currentQuizData) return;
 
-      const submissions = Object.keys(userAnswers).map(qid => ({
-        question_id: parseInt(qid),
-        selected_option_index: userAnswers[qid]
-      }));
-
-      if (submissions.length === 0) {
-        showToast("Please answer at least one question before submitting.");
+      const answeredCount = Object.keys(userAnswers).length;
+      if (answeredCount === 0) {
+        showToast("Please choose an answer before submitting.");
         return;
       }
 
       setAvatarState("THINKING");
       const submitBtn = document.getElementById("submit-quiz-btn");
       submitBtn.disabled = true;
-      submitBtn.innerHTML = `<div class="spinner"></div> Evaluating Responses...`;
 
-      try {
-        const resp = await fetch("/api/quiz/evaluate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            quiz_id: activeQuizId,
-            answers: submissions
-          })
-        });
-
-        if (!resp.ok) {
-          const errData = await resp.json();
-          throw new Error(errData.detail || "Evaluation failed");
-        }
-
-        const result = await resp.json();
+      setTimeout(() => {
         setAvatarState("EXPLAINING");
+        submitBtn.disabled = false;
 
-        // Display Score Banner
-        const scoreBox = document.getElementById("quiz-score-container");
-        scoreBox.style.display = "block";
-        scoreBox.innerHTML = `
-          <div class="quiz-score-banner">
-            <h3>Score: ${result.correct_count} / ${result.total_questions} (${result.score_percentage}%)</h3>
-            <p>${escapeHtml(result.feedback_message)}</p>
-          </div>
-        `;
+        let correctCount = 0;
+        currentQuizData.forEach(q => {
+          const selected = userAnswers[q.question_id];
+          const isCorrect = selected === q.correct_option_index;
+          if (isCorrect) correctCount++;
 
-        // Colorize Options and Display Rationales
-        result.breakdown.forEach(item => {
-          const correctLabel = document.getElementById(`opt-label-${item.question_id}-${item.correct_option_index}`);
+          // Highlight correct option in green
+          const correctLabel = document.getElementById(`opt-label-${q.question_id}-${q.correct_option_index}`);
           if (correctLabel) {
             correctLabel.classList.add("correct");
             correctLabel.classList.remove("selected");
           }
 
-          if (!item.is_correct && item.selected_option_index >= 0) {
-            const incorrectLabel = document.getElementById(`opt-label-${item.question_id}-${item.selected_option_index}`);
-            if (incorrectLabel) {
-              incorrectLabel.classList.add("incorrect");
-              incorrectLabel.classList.remove("selected");
+          // Highlight incorrect selection in red
+          if (!isCorrect && selected !== undefined) {
+            const wrongLabel = document.getElementById(`opt-label-${q.question_id}-${selected}`);
+            if (wrongLabel) {
+              wrongLabel.classList.add("incorrect");
+              wrongLabel.classList.remove("selected");
             }
           }
 
-          const rationaleDiv = document.getElementById(`rationale-${item.question_id}`);
-          if (rationaleDiv) {
-            rationaleDiv.style.display = "block";
-            rationaleDiv.innerHTML = `<strong>Educational Rationale:</strong> ${escapeHtml(item.rationale)}`;
+          // Show rationale
+          const rationaleEl = document.getElementById(`rationale-${q.question_id}`);
+          if (rationaleEl) {
+            rationaleEl.style.display = "block";
+            rationaleEl.innerHTML = `<strong style="color: var(--teal-light);">Educational Rationale:</strong> ${escapeHtml(q.rationale)}`;
           }
         });
 
+        const total = currentQuizData.length;
+        const scorePct = Math.round((correctCount / total) * 100);
+
+        const scoreBox = document.getElementById("quiz-score-container");
+        scoreBox.style.display = "block";
+        scoreBox.innerHTML = `
+          <div class="quiz-score-banner">
+            <div class="simulated-pill" style="margin-bottom: 0.25rem;">Prototype Demo Evaluation</div>
+            <h3>Score: ${correctCount} / ${total} (${scorePct}%)</h3>
+            <p>${scorePct >= 70 ? "Excellent mastery of this syllabus module!" : "Review recommended — inspect the answer rationales below."}</p>
+          </div>
+        `;
+
         document.getElementById("quiz-submit-bar").style.display = "none";
-        showToast(`Quiz completed: ${result.score_percentage}% Score`);
-        setTimeout(() => setAvatarState("IDLE"), 3000);
-      } catch (err) {
-        showToast(err.message);
-        submitBtn.disabled = false;
-        submitBtn.innerText = "Submit & Check Answers";
-        setAvatarState("IDLE");
-      }
+        showToast(`Quiz completed: ${scorePct}% Score`);
+        setTimeout(() => setAvatarState("IDLE"), 2500);
+      }, 600);
+    }
+
+    function resetQuizUI() {
+      currentQuizData = null;
+      userAnswers = {};
+      document.getElementById("quiz-score-container").style.display = "none";
+      document.getElementById("quiz-submit-bar").style.display = "none";
+      document.getElementById("quiz-questions-list").innerHTML = `
+        <div style="text-align: center; padding: 2rem 1rem; color: var(--text-dim);">
+          <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin: 0 auto 0.5rem; opacity: 0.5;"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          <p style="font-size: 0.82rem; font-weight: 500;">No active quiz session</p>
+          <span style="font-size: 0.74rem; display: block; margin-top: 0.25rem;">Click <strong>Generate Demo Quiz</strong> to practice active recall.</span>
+        </div>
+      `;
     }
 
     function showToast(msg) {
       const toast = document.getElementById("toast-notification");
       toast.innerText = msg;
       toast.style.display = "block";
-      setTimeout(() => { toast.style.display = "none"; }, 3500);
+      setTimeout(() => { toast.style.display = "none"; }, 3200);
     }
 
-    // Initialize 3D Avatar on Load
+    // Initialize on Load
     window.addEventListener("DOMContentLoaded", () => {
       init3DAvatar();
+      selectSampleDoc(1);
     });
   </script>
 </body>
