@@ -1,7 +1,14 @@
 import asyncio
 import sqlite3
 import os
-from playwright.async_api import async_playwright
+
+# Instruct pytest not to treat this standalone verification script as a unit test
+__test__ = False
+
+try:
+    from playwright.async_api import async_playwright
+except ImportError:
+    async_playwright = None
 
 async def run_e2e_test():
     async with async_playwright() as p:
