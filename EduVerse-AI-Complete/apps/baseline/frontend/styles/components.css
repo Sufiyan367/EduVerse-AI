@@ -1,0 +1,470 @@
+/**
+ * EduVerse AI — Astra Component Library
+ * Reusable buttons, inputs, cards, evidence callouts, assessment options, and state indicators.
+ */
+
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  padding: 0.6rem 1.25rem;
+  min-height: 44px; /* Minimum accessible touch target */
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--transition-fast);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--accent-teal);
+  outline-offset: 2px;
+}
+
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-teal) 0%, #38BDF8 100%);
+  color: var(--text-inverse);
+  box-shadow: 0 2px 12px rgba(114, 217, 204, 0.25);
+}
+
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+  box-shadow: 0 4px 16px rgba(114, 217, 204, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  background: var(--bg-surface-raised);
+  border-color: var(--border-panel);
+  color: var(--text-primary);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--bg-surface-hover);
+  border-color: var(--border-active);
+  color: #FFFFFF;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--accent-teal-subtle);
+  color: var(--accent-teal);
+}
+
+.btn-sm {
+  padding: 0.35rem 0.75rem;
+  min-height: 36px;
+  font-size: 0.8rem;
+}
+
+.btn-icon {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+}
+
+/* ==========================================================================
+   Inputs & Form Controls
+   ========================================================================== */
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.input-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.input-field,
+.textarea-field {
+  width: 100%;
+  background: var(--bg-workspace);
+  border: 1px solid var(--border-panel);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+  font-family: var(--font-sans);
+  font-size: 1rem; /* At least 16px to prevent iOS auto-zoom */
+  color: var(--text-primary);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.input-field:focus,
+.textarea-field:focus {
+  outline: none;
+  border-color: var(--accent-teal);
+  box-shadow: 0 0 0 3px rgba(114, 217, 204, 0.18);
+}
+
+.input-field::placeholder,
+.textarea-field::placeholder {
+  color: var(--text-muted);
+}
+
+.textarea-field {
+  min-height: 80px;
+  resize: vertical;
+}
+
+/* ==========================================================================
+   Badges, Pills & Indicators
+   ========================================================================== */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: var(--radius-full);
+  border: 1px solid transparent;
+  line-height: 1;
+}
+
+.badge-teal {
+  background: var(--accent-teal-subtle);
+  color: var(--accent-teal);
+  border-color: var(--accent-teal-border);
+}
+
+.badge-success {
+  background: var(--status-success-bg);
+  color: var(--status-success);
+  border-color: rgba(52, 211, 153, 0.3);
+}
+
+.badge-warning {
+  background: var(--status-warning-bg);
+  color: var(--status-warning);
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+.badge-danger {
+  background: var(--status-danger-bg);
+  color: var(--status-danger);
+  border-color: rgba(248, 113, 113, 0.3);
+}
+
+.badge-neutral {
+  background: var(--bg-surface-hover);
+  color: var(--text-secondary);
+  border-color: var(--border-subtle);
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: currentColor;
+}
+
+.status-dot-pulse {
+  animation: pulse-dot 2s infinite ease-in-out;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+/* ==========================================================================
+   Tutor Evidence Box & Simplification Callouts
+   ========================================================================== */
+
+.evidence-card {
+  margin-top: var(--space-sm);
+  background: rgba(11, 16, 21, 0.7);
+  border: 1px solid var(--accent-teal-border);
+  border-left: 3px solid var(--accent-teal);
+  border-radius: var(--radius-xs);
+  padding: var(--space-sm) var(--space-md);
+  font-size: 0.85rem;
+}
+
+.evidence-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2xs);
+}
+
+.evidence-citation {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--accent-teal);
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.evidence-quote {
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  font-style: italic;
+  line-height: 1.45;
+  border-left: 2px solid var(--border-panel);
+  padding-left: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.unsupported-banner {
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  border-left: 3px solid var(--status-danger);
+  border-radius: var(--radius-xs);
+  padding: var(--space-sm) var(--space-md);
+  margin-top: var(--space-sm);
+  color: #FFA5A5;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.simplify-card {
+  margin-top: var(--space-sm);
+  background: var(--bg-surface-raised);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: var(--radius-sm);
+  padding: var(--space-md);
+}
+
+.simplify-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #38BDF8;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-xs);
+}
+
+.simplify-analogy {
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  margin-bottom: var(--space-sm);
+}
+
+.simplify-points {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.simplify-points li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+}
+
+.simplify-points li::before {
+  content: "•";
+  color: var(--accent-teal);
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+/* ==========================================================================
+   Practice & Quiz Option Cards
+   ========================================================================== */
+
+.quiz-option-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: 0.85rem 1rem;
+  background: var(--bg-surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: left;
+  width: 100%;
+}
+
+.quiz-option-card:hover:not(.locked) {
+  background: var(--bg-surface-hover);
+  border-color: var(--accent-teal-border);
+}
+
+.quiz-option-card.selected {
+  background: var(--accent-teal-subtle);
+  border-color: var(--accent-teal);
+  box-shadow: 0 0 12px rgba(114, 217, 204, 0.2);
+}
+
+.quiz-option-indicator {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.quiz-option-card.selected .quiz-option-indicator {
+  border-color: var(--accent-teal);
+  background: var(--accent-teal);
+  color: var(--text-inverse);
+}
+
+.quiz-option-card.correct {
+  border-color: var(--status-success);
+  background: var(--status-success-bg);
+}
+
+.quiz-option-card.incorrect {
+  border-color: var(--status-danger);
+  background: var(--status-danger-bg);
+}
+
+.quiz-rationale-box {
+  margin-top: var(--space-xs);
+  padding: var(--space-sm);
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius-xs);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  border-left: 3px solid var(--accent-teal);
+}
+
+/* ==========================================================================
+   Assessment History Timeline Card
+   ========================================================================== */
+
+.history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--transition-fast);
+}
+
+.history-item:hover {
+  border-color: var(--border-panel);
+}
+
+.history-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.history-filename {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.history-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.history-score {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.history-score-val {
+  font-size: 1.15rem;
+  font-weight: 800;
+  font-family: var(--font-mono);
+}
+
+/* ==========================================================================
+   Empty, Loading & Unsupported States
+   ========================================================================== */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-xl) var(--space-md);
+  color: var(--text-secondary);
+  height: 100%;
+}
+
+.empty-state-icon {
+  width: 48px;
+  height: 48px;
+  margin-bottom: var(--space-sm);
+  color: var(--text-muted);
+}
+
+.empty-state-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: var(--space-2xs);
+}
+
+.empty-state-desc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  max-width: 320px;
+  line-height: 1.45;
+  margin-bottom: var(--space-md);
+}
+
+/* Accessible focus ring utility */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--accent-teal);
+  outline-offset: 2px;
+}

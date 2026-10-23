@@ -40,6 +40,18 @@ images_dir = BASE_DIR / "EduVerse_AI_Project_Report" / "images"
 if images_dir.exists():
     app.mount("/images", StaticFiles(directory=str(images_dir)), name="images")
 
+# Mount Modular Frontend Assets (Styles, JavaScript Modules)
+frontend_dir = BASE_DIR / "frontend"
+styles_dir = frontend_dir / "styles"
+js_dir = frontend_dir / "js"
+
+if styles_dir.exists():
+    app.mount("/styles", StaticFiles(directory=str(styles_dir)), name="styles")
+if js_dir.exists():
+    app.mount("/js", StaticFiles(directory=str(js_dir)), name="js")
+if frontend_dir.exists():
+    app.mount("/frontend", StaticFiles(directory=str(frontend_dir)), name="frontend")
+
 # Sample Document Endpoint for instant zero-setup demonstration
 SAMPLE_ML_NOTES = """
 COURSE SYLLABUS: ARTIFICIAL INTELLIGENCE & MACHINE LEARNING

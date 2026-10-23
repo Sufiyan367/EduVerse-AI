@@ -1,0 +1,81 @@
+/**
+ * EduVerse AI — Astra Design System Tokens
+ * Palette: Obsidian Midnight (#0B1015), Teal Accent (#72D9CC), Slate (#A2B3BF)
+ */
+
+:root {
+  /* Color Palette - Core Surfaces */
+  --bg-workspace: #0B1015;
+  --bg-panel: #111920;
+  --bg-surface-raised: #19242D;
+  --bg-surface-hover: #22313D;
+  --bg-surface-active: #2A3B49;
+
+  /* Text & Typography */
+  --text-primary: #E8F0F3;
+  --text-secondary: #A2B3BF;
+  --text-muted: #6B7C8A;
+  --text-inverse: #082724;
+
+  /* Accents & Highlights */
+  --accent-teal: #72D9CC;
+  --accent-teal-dark: #0D9488;
+  --accent-teal-bright: #2DD4BF;
+  --accent-teal-subtle: rgba(114, 217, 204, 0.12);
+  --accent-teal-border: rgba(114, 217, 204, 0.28);
+  --accent-teal-glow: rgba(114, 217, 204, 0.35);
+
+  /* Functional Status Colors */
+  --status-success: #34D399;
+  --status-success-bg: rgba(52, 211, 153, 0.12);
+  --status-warning: #FBBF24;
+  --status-warning-bg: rgba(251, 191, 36, 0.12);
+  --status-danger: #F87171;
+  --status-danger-bg: rgba(248, 113, 113, 0.12);
+  --status-info: #38BDF8;
+  --status-info-bg: rgba(56, 189, 248, 0.12);
+
+  /* Borders & Dividers */
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-panel: rgba(255, 255, 255, 0.12);
+  --border-active: var(--accent-teal);
+
+  /* Spacing Scale */
+  --space-2xs: 0.25rem; /* 4px */
+  --space-xs:  0.5rem;  /* 8px */
+  --space-sm:  0.75rem; /* 12px */
+  --space-md:  1rem;    /* 16px */
+  --space-lg:  1.5rem;  /* 24px */
+  --space-xl:  2rem;    /* 32px */
+  --space-2xl: 3rem;    /* 48px */
+
+  /* Border Radii */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.65);
+  --shadow-glow: 0 0 24px rgba(114, 217, 204, 0.22);
+
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 220ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Typography Families */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

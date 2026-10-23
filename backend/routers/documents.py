@@ -1,8 +1,9 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from backend.services.pdf_service import pdf_service, PDFProcessingError
 from backend.services.storage_service import storage
+from backend.services.llm_service import llm_service
 from backend.config import settings
-from backend.schemas import DocumentUploadResponse, DocumentInfo
+from backend.schemas import DocumentUploadResponse, DocumentInfo, DocumentPassage, ConstellationResponse
 from typing import List
 
 router = APIRouter(prefix="/api/documents", tags=["Documents"])
@@ -80,3 +81,55 @@ async def get_document_details(doc_id: str):
         "upload_timestamp": doc["upload_timestamp"],
         "preview": doc["raw_text"][:600]
     }
+
+@router.get("/{doc_id}/passage", response_model=DocumentPassage)
+async def get_document_passage(doc_id: str, page: int = 1):
+    """
+    Retrieves verified textbook/notes passage for a specific page with exact character counts.
+    """
+    passage = storage.get_document_passage(doc_id, page_number=page)
+    if not passage:
+        raise HTTPException(status_code=404, detail=f"Passage for document '{doc_id}' page {page} not found.")
+    return DocumentPassage(
+        doc_id=passage["doc_id"],
+        filename=passage["filename"],
+        page_number=passage["page_number"],
+        total_pages=passage["total_pages"],
+        passage_text=passage["passage_text"],
+        char_count=passage["char_count"]
+    )
+
+@router.get("/{doc_id}/concepts", response_model=ConstellationResponse)
+async def get_document_concepts(doc_id: str):
+    """
+    Retrieves or generates the Knowledge Constellation concept graph grounded in the document.
+    """
+    doc = storage.get_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail=f"Document '{doc_id}' not found.")
+
+    # Check if already cached in SQLite
+    cached = storage.get_concepts(doc_id)
+    if cached and "nodes" in cached and len(cached["nodes"]) > 0:
+        return ConstellationResponse(
+            doc_id=doc_id,
+            filename=doc["filename"],
+            nodes=cached["nodes"],
+            edges=cached.get("edges", []),
+            summary=cached.get("summary", "")
+        )
+
+    # Generate from document context
+    extracted = llm_service.extract_concepts(
+        document_context=doc["raw_text"],
+        filename=doc["filename"]
+    )
+    storage.store_concepts(doc_id, extracted)
+
+    return ConstellationResponse(
+        doc_id=doc_id,
+        filename=doc["filename"],
+        nodes=extracted.get("nodes", []),
+        edges=extracted.get("edges", []),
+        summary=extracted.get("summary", "")
+    )

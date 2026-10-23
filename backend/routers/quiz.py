@@ -5,11 +5,13 @@ from backend.schemas import (
     QuizEvaluateRequest,
     QuizEvaluationResponse,
     QuestionResult,
-    QuizQuestion
+    QuizQuestion,
+    AssessmentHistoryItem,
+    AssessmentHistoryResponse
 )
 from backend.services.storage_service import storage
 from backend.services.llm_service import llm_service
-from typing import List
+from typing import List, Optional
 
 router = APIRouter(prefix="/api/quiz", tags=["Quiz"])
 
@@ -98,6 +100,15 @@ async def evaluate_quiz(req: QuizEvaluateRequest):
     score_percentage = round((correct_count / total_questions) * 100, 1)
     passed = score_percentage >= 50.0
 
+    # Persist evaluation record to SQLite
+    storage.store_evaluation(
+        quiz_id=req.quiz_id,
+        score_percentage=score_percentage,
+        correct_count=correct_count,
+        total_questions=total_questions,
+        passed=passed
+    )
+
     if score_percentage >= 80:
         feedback = "Outstanding comprehension! You have demonstrated strong conceptual mastery of this unit."
     elif score_percentage >= 50:
@@ -113,4 +124,35 @@ async def evaluate_quiz(req: QuizEvaluateRequest):
         passed=passed,
         breakdown=breakdown,
         feedback_message=feedback
+    )
+
+@router.get("/history", response_model=AssessmentHistoryResponse)
+async def get_quiz_history(doc_id: Optional[str] = None):
+    """
+    Retrieves genuine persisted student assessment history directly from SQLite.
+    """
+    history_records = storage.get_assessment_history(doc_id=doc_id)
+    total_assessments = len(history_records)
+    avg_score = (
+        round(sum(h["score_percentage"] for h in history_records) / total_assessments, 1)
+        if total_assessments > 0
+        else 0.0
+    )
+    return AssessmentHistoryResponse(
+        history=[
+            AssessmentHistoryItem(
+                eval_id=h["eval_id"],
+                quiz_id=h["quiz_id"],
+                doc_id=h["doc_id"],
+                filename=h["filename"],
+                score_percentage=h["score_percentage"],
+                correct_count=h["correct_count"],
+                total_questions=h["total_questions"],
+                passed=h["passed"],
+                evaluated_at=h["evaluated_at"]
+            )
+            for h in history_records
+        ],
+        total_assessments=total_assessments,
+        average_score=avg_score
     )

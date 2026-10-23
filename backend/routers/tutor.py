@@ -35,7 +35,9 @@ async def query_tutor(req: TutorQueryRequest):
             query=req.query,
             answer=result["answer"],
             context_excerpt=result.get("context_excerpt"),
-            grounded=result.get("grounded", True)
+            grounded=result.get("grounded", True),
+            status=result.get("status", "supported"),
+            evidence=result.get("evidence", [])
         )
     except Exception as e:
         raise HTTPException(
