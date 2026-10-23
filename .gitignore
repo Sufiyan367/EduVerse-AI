@@ -41,12 +41,18 @@ out/
 dist/
 .cache/
 
-# Database
+# Database and runtime data
 *.sqlite
 *.sqlite3
 *.db
+*.db-shm
+*.db-wal
+.secret
+*.pid
+data/
+logs/
 
-# LaTeX build intermediates (keep .tex and final deliverable .pdf)
+# LaTeX build intermediates (keep .tex and deliverable .pdf)
 *.aux
 *.bbl
 *.blg
@@ -71,3 +77,33 @@ test_save.pptx
 Thumbs.db
 .vscode/
 .idea/
+
+# Isolated sub-workspaces and PoC sandboxes
+EduVerse-AI/
+EduVerse_Foundation_PoC/
+EduVerse_Web_Demo/
+
+# Report generation scratch scripts and browser automation captures
+EduVerse_AI_Project_Report/*.png
+!EduVerse_AI_Project_Report/images/
+EduVerse_AI_Project_Report/automate_*.py
+EduVerse_AI_Project_Report/capture_*.py
+EduVerse_AI_Project_Report/crop_*.py
+EduVerse_AI_Project_Report/inspect_*.py
+EduVerse_AI_Project_Report/walk_*.py
+EduVerse_AI_Project_Report/find_*.py
+EduVerse_AI_Project_Report/check_*.py
+EduVerse_AI_Project_Report/click_*.py
+EduVerse_AI_Project_Report/clone_*.py
+EduVerse_AI_Project_Report/copy_*.py
+EduVerse_AI_Project_Report/do_*.py
+EduVerse_AI_Project_Report/generate_report.py
+EduVerse_AI_Project_Report/build_restructured_report.py
+EduVerse_AI_Project_Report/keep_brave_open.py
+EduVerse_AI_Project_Report/open_overleaf_in_brave.py
+EduVerse_AI_Project_Report/overleaf_sync.py
+EduVerse_AI_Project_Report/overleaf_download/
+EduVerse_AI_Project_Report/preview/
+EduVerse_AI_Project_Report/run_ocr.ps1
+EduVerse_AI_Project_Report/test_*.py
+EduVerse_AI_Project_Report/upload_*.py
