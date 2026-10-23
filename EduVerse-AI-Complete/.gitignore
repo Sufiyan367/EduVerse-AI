@@ -1,0 +1,81 @@
+# ==============================================================================
+# EduVerse AI — Git Ignore Configuration
+# ==============================================================================
+
+# Environment and secrets
+.env
+*.env
+*.env.local
+*.env.*.local
+.secret
+
+# Python virtual environments & bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+.venv/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+
+# Node.js and frontend build artifacts
+node_modules/
+.pnp
+.pnp.js
+coverage/
+.next/
+out/
+.cache/
+apps/fullstack/frontend/dist/
+
+# Database and runtime data files
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+*.pid
+data/
+logs/
+
+# LaTeX build intermediates (keep .tex and deliverable .pdf)
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
+*.xdv
+
+# Large local binary archives & temp test files
+*.exe
+bin/*.zip
+*.zip
+test.pdf
+test.tex
+test_save.pptx
+
+# IDE and OS metadata
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

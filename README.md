@@ -6,15 +6,16 @@
 [![React: 18](https://img.shields.io/badge/React-18-61DAFB.svg?logo=react&logoColor=black)](frontend/)
 [![PyMuPDF: 1.24+](https://img.shields.io/badge/PyMuPDF-1.24+-0A9396.svg)](https://pymupdf.readthedocs.io/)
 [![Three.js: WebGL](https://img.shields.io/badge/Three.js-3D%20Avatar-0A192F.svg)](https://threejs.org)
-[![Tests: 123 Passed](https://img.shields.io/badge/Tests-123%2F123%20Web%20Demo%20Passed-brightgreen.svg)](EduVerse_Web_Demo/backend/tests/)
-[![Baseline Tests: 18 Passed](https://img.shields.io/badge/Baseline-18%2F18%20Passed-blue.svg)](tests/)
-[![Live Deployment](https://img.shields.io/badge/Render-Live%20Production-success?logo=render&logoColor=white)](https://eduverse-ai-hpns.onrender.com)
+[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Live%20Showcase-0E7490?logo=github&logoColor=white)](https://sufiyan367.github.io/EduVerse-AI/)
+[![Full-Stack Tests: 123 Passed](https://img.shields.io/badge/Tests-123%2F123%20Passed-brightgreen.svg)](EduVerse_Web_Demo/backend/tests/)
+[![Astra Remediation: 8 Passed](https://img.shields.io/badge/Security-8%2F8%20Remediation%20Passed-059669.svg)](EduVerse_Web_Demo/backend/tests/test_remediation_suite.py)
+[![Baseline Tests: 17 Passed](https://img.shields.io/badge/Baseline-17%2F18%20Passed-blue.svg)](tests/)
 [![CI](https://github.com/Sufiyan367/EduVerse-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/Sufiyan367/EduVerse-AI/actions/workflows/ci.yml)
 
-> **Live Production Service:** [https://eduverse-ai-hpns.onrender.com](https://eduverse-ai-hpns.onrender.com)
-> **Instance Plan:** Render Free Tier ($0/mo, auto-wake on request)
-> **Health Check:** [https://eduverse-ai-hpns.onrender.com/api/health](https://eduverse-ai-hpns.onrender.com/api/health)
-> **Local Web Demo Gateway:** [http://127.0.0.1:8080](http://127.0.0.1:8080) (FastAPI + React 18 SPA)
+> **Live Static Showcase (GitHub Pages):** [https://sufiyan367.github.io/EduVerse-AI/](https://sufiyan367.github.io/EduVerse-AI/)  
+> **Deployment Workflow:** [.github/workflows/deploy-pages.yml](.github/workflows/deploy-pages.yml)  
+> **Local Web Demo Gateway:** [http://127.0.0.1:8080](http://127.0.0.1:8080) (FastAPI + React 18 SPA)  
+> **Local Baseline Application:** [http://127.0.0.1:8000](http://127.0.0.1:8000) (FastAPI + Three.js WebGL Workstation)
 
 ---
 
@@ -235,12 +236,12 @@ This repository maintains transparent documentation of independent security and 
 ### Known Limitations
 - Machine-readable text extraction is optimized for digital PDFs; scanned physical pages require external OCR pre-processing.
 - Maximum recommended upload size is $25\text{ MB}$ per document for single-pass processing.
-- Render Free Tier instances enter standby after 15 minutes of idle time; initial cold-start takes ~50 seconds.
+- GitHub Pages Static Showcase operates in client-side preview mode; live AI tutor inference, custom PDF parsing, and user persistence require running the local Python backend.
 - Local high-capacity LLMs (e.g. 7B+ parameters via Ollama) require a compatible GPU with at least 8 GB VRAM.
 
 ### Educational Roadmap
 - [x] Phase 1: Core document extraction, grounded tutoring, and quiz evaluation.
-- [x] Phase 2: Live Render production deployment and 3D WebGL avatar feedback.
+- [x] Phase 2: GitHub Pages static showcase and 3D WebGL avatar feedback.
 - [x] Phase 3: FSRS-6 spaced repetition, knowledge gap tracking, and adaptive revision planning (`EduVerse_Web_Demo/`).
 - [x] Phase 4: Astra security hardening, JWT entropy enforcement, and multi-user isolation.
 - [ ] Phase 5: Multimodal voice interactions with speech-to-text (Whisper) and audio narration.
