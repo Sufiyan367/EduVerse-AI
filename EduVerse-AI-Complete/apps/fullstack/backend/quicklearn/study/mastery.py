@@ -59,6 +59,7 @@ def record_attempt(concept_id: int | None, *, correct: bool, score: float | None
         if concept is None:
             return 0.0
         concept.mastery = next_mastery(concept.mastery, correct=correct, score=score)
+        concept.learning_version += 1
         return concept.mastery
 
 
@@ -183,6 +184,7 @@ def reset_mastery(source_id: int) -> int:
         )
         for concept in concepts:
             concept.mastery = 0.0
+            concept.learning_version += 1
         return len(concepts)
 
 

@@ -185,144 +185,85 @@ def _finish_session(session_id: int) -> None:
 
 @router.post("/session/{session_id}/answer")
 async def submit_answer(session_id: int, payload: AnswerRequest) -> dict[str, Any]:
-    # 1. Scope, Session Status & Idempotency pre-check
-    def precheck() -> tuple[QuizItem, bool, float]:
+    from sqlalchemy import text
+    from ..db.models import GradingFailure
+
+    def validate(session):
+        row = session.get(QuizSession, session_id)
+        if row is None:
+            raise NotFoundError("Quiz session not found.")
+        if row.status is not QuizSessionStatus.ACTIVE:
+            raise ValidationError("This session has already finished.")
+        item = session.get(QuizItem, payload.item_id)
+        if item is None or not row.source_ids or item.source_id not in row.source_ids:
+            raise ValidationError("Question is outside the scope of this quiz session.")
+        return row, item
+
+    def response(session, row, item, attempt, duplicate=False):
+        concept = session.get(Concept, item.concept_id) if item.concept_id else None
+        result = {"item_id": item.id, "score": attempt.score, "is_graded": True,
+                  "mastery": round(concept.mastery, 3) if concept else 0.0, "duplicate": duplicate}
+        if row.mode is not QuizMode.TEST:
+            result.update(is_correct=attempt.is_correct, feedback=attempt.feedback,
+                          correct_answer=item.answer, explanation=item.explanation,
+                          segment_ids=list(item.segment_ids or []))
+        return result
+
+    def existing(session):
+        # Old imported data may contain duplicates. Preserve it, but never create another.
+        return session.scalars(select(QuizAttempt).where(
+            QuizAttempt.session_id == session_id,
+            QuizAttempt.quiz_item_id == payload.item_id).order_by(QuizAttempt.id)).first()
+
+    def precheck():
         with session_scope() as session:
-            row = session.get(QuizSession, session_id)
-            if row is None:
-                raise NotFoundError(f"Quiz session {session_id} not found.")
-            if row.status is not QuizSessionStatus.ACTIVE:
-                raise ValidationError("This session has already finished.")
-
-            item = session.get(QuizItem, payload.item_id)
-            if item is None:
-                raise NotFoundError(f"Question {payload.item_id} not found.")
-
-            # Scope enforcement: item must belong to session sources
-            if row.source_ids and item.source_id not in row.source_ids:
-                raise ValidationError(f"Question {payload.item_id} is outside the scope of this quiz session.")
-
-            concept = session.get(Concept, item.concept_id) if item.concept_id else None
-            current_mastery = concept.mastery if concept else 0.0
-
-            # Idempotency check: prevent duplicate submissions from inflating mastery
-            existing = session.execute(
-                select(QuizAttempt).where(
-                    QuizAttempt.session_id == session_id,
-                    QuizAttempt.quiz_item_id == payload.item_id,
-                )
-            ).scalar_one_or_none()
-
-            if existing is not None:
-                session.expunge(existing)
-                session.expunge(item)
-                return item, True, current_mastery
-
+            row, item = validate(session)
+            attempt = existing(session)
+            if attempt is not None:
+                return item, response(session, row, item, attempt, True)
             session.expunge(item)
-            return item, False, current_mastery
-
-    item, is_duplicate, current_mastery = await run_db(precheck)
-
-    if is_duplicate:
-        # Return existing attempt without creating duplicate or applying mastery update again
-        def fetch_existing() -> dict[str, Any]:
-            with session_scope() as session:
-                row = session.get(QuizSession, session_id)
-                is_test = row is not None and row.mode is QuizMode.TEST
-                att = session.execute(
-                    select(QuizAttempt).where(
-                        QuizAttempt.session_id == session_id,
-                        QuizAttempt.quiz_item_id == payload.item_id,
-                    )
-                ).scalar_one()
-                resp = {
-                    "item_id": payload.item_id,
-                    "score": round(att.score or 0.0, 3),
-                    "mastery": current_mastery,
-                    "duplicate": True,
-                }
-                if not is_test:
-                    resp["is_correct"] = att.is_correct
-                    resp["feedback"] = att.feedback
-                    resp["correct_answer"] = item.answer
-                    resp["explanation"] = item.explanation
-                    resp["segment_ids"] = list(item.segment_ids or [])
-                return resp
-        return await run_db(fetch_existing)
-
+            return item, None
+    item, duplicate = await run_db(precheck)
+    if duplicate is not None:
+        return duplicate
     grade = await quiz_gen.grade_answer(item, payload.response)
 
-    # 2. Defect 4 Fix: If grading failed due to provider outage, DO NOT penalize mastery!
-    if not grade.is_graded:
-        def persist_ungraded() -> dict[str, Any]:
-            with session_scope() as session:
-                row = session.get(QuizSession, session_id)
-                is_test = row is not None and row.mode is QuizMode.TEST
-                session.add(
-                    QuizAttempt(
-                        session_id=session_id,
-                        quiz_item_id=payload.item_id,
-                        response=payload.response,
-                        is_correct=False,
-                        score=0.0,
-                        feedback=grade.feedback,
-                    )
-                )
-                resp: dict[str, Any] = {
-                    "item_id": payload.item_id,
-                    "score": 0.0,
-                    "mastery": current_mastery,
-                    "is_graded": False,
-                    "error": grade.error,
-                }
-                if not is_test:
-                    resp["is_correct"] = False
-                    resp["feedback"] = grade.feedback
-                return resp
-        return await run_db(persist_ungraded)
-
-    # 3. Valid Grading: Persist attempt and update mastery in one atomic transaction
-    def persist_valid() -> dict[str, Any]:
+    def persist():
         with session_scope() as session:
-            row = session.get(QuizSession, session_id)
-            is_test = row is not None and row.mode is QuizMode.TEST
-            session.add(
-                QuizAttempt(
-                    session_id=session_id,
-                    quiz_item_id=payload.item_id,
-                    response=payload.response,
-                    is_correct=grade.is_correct,
-                    score=grade.score,
-                    feedback=grade.feedback,
-                )
-            )
-
-            # Atomic mastery update
-            new_mastery = current_mastery
-            if item.concept_id is not None:
-                concept = session.get(Concept, item.concept_id)
-                if concept is not None:
-                    if grade.is_correct:
-                        concept.mastery = min(1.0, concept.mastery + (1.0 - concept.mastery) * 0.3)
-                    else:
-                        weight = grade.score if grade.score > 0.0 else 0.5
-                        concept.mastery = max(0.0, concept.mastery * weight)
-                    new_mastery = round(concept.mastery, 3)
-
-            resp: dict[str, Any] = {
-                "item_id": payload.item_id,
-                "score": round(grade.score, 3),
-                "mastery": new_mastery,
-            }
-            if not is_test:
-                resp["is_correct"] = grade.is_correct
-                resp["feedback"] = grade.feedback
-                resp["correct_answer"] = item.answer
-                resp["explanation"] = item.explanation
-                resp["segment_ids"] = list(item.segment_ids or [])
-            return resp
-
-    return await run_db(persist_valid)
+            # SQLite serializes competing writers before the second idempotency check.
+            # No database transaction is held while awaiting the provider.
+            session.execute(text("BEGIN IMMEDIATE"))
+            row, current_item = validate(session)
+            attempt = existing(session)
+            if attempt is not None:
+                return response(session, row, current_item, attempt, True)
+            pending = session.scalars(select(GradingFailure).where(
+                GradingFailure.session_id == session_id,
+                GradingFailure.quiz_item_id == payload.item_id)).first()
+            concept = session.get(Concept, current_item.concept_id) if current_item.concept_id else None
+            if not grade.is_graded:
+                if pending is None:
+                    pending = GradingFailure(session_id=session_id, quiz_item_id=payload.item_id,
+                                             response=payload.response, resolved=False)
+                    session.add(pending)
+                else:
+                    pending.response = payload.response
+                    pending.resolved = False
+                return {"item_id": item.id, "score": None, "is_correct": None, "is_graded": False,
+                        "mastery": round(concept.mastery, 3) if concept else 0.0,
+                        "feedback": "Grading is temporarily unavailable. Your answer is saved without a score; please retry.",
+                        "error": "grading_unavailable"}
+            attempt = QuizAttempt(session_id=session_id, quiz_item_id=item.id,
+                                  response=payload.response, is_correct=grade.is_correct,
+                                  score=grade.score, feedback=grade.feedback)
+            session.add(attempt)
+            if pending is not None:
+                pending.resolved = True
+            if concept is not None:
+                concept.mastery = mastery.next_mastery(concept.mastery, correct=grade.is_correct, score=grade.score)
+                concept.learning_version += 1
+            return response(session, row, current_item, attempt)
+    return await run_db(persist)
 
 
 @router.get("/session/{session_id}/results")

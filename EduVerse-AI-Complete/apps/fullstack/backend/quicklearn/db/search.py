@@ -176,6 +176,10 @@ def search(
         """
     ]
     params: list[object] = [match_expr]
+    from ..security import principal
+    if principal.get() is not None:
+        sql.append("AND d.source_id IN (SELECT id FROM sources WHERE user_id = ?)")
+        params.append(principal.get())
 
     if kinds:
         sql.append(f"AND d.kind IN ({','.join('?' * len(kinds))})")

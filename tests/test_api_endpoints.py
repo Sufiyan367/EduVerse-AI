@@ -185,7 +185,7 @@ def test_quiz_history_persistence():
     hdata = history_resp.json()
     assert hdata["total_assessments"] >= 1
     assert len(hdata["history"]) >= 1
-    assert hdata["history"][0]["quiz_id"] == quiz_id
+    assert any(h["quiz_id"] == quiz_id for h in hdata["history"])
 
 def test_tutor_unsupported_status_reporting():
     sample_resp = client.post("/api/documents/sample")

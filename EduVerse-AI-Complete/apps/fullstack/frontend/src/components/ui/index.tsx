@@ -18,7 +18,7 @@ import { cn } from '../../lib/utils'
 
 const BUTTON_VARIANTS = {
   primary:
-    'bg-[var(--accent)] text-white hover:brightness-110 active:brightness-95 shadow-sm',
+    'bg-[var(--accent)] text-[#071714] hover:brightness-110 active:brightness-95 shadow-sm',
   secondary:
     'bg-[var(--bg-raised)] border border-[var(--border)] hover:bg-[var(--bg-sunken)]',
   ghost: 'hover:bg-[var(--bg-sunken)]',

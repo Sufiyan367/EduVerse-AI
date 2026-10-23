@@ -12,6 +12,8 @@ import hashlib
 import hmac
 import json
 import logging
+import math
+import threading
 import os
 import secrets
 from typing import Any
@@ -29,6 +31,7 @@ log = logging.getLogger(__name__)
 
 TOKEN_EXPIRE_HOURS = 72
 _MIN_SECRET_LENGTH = 32
+_secret_lock = threading.Lock()
 _INSECURE_SECRETS = {
     "eduverse-ai-secret-key-salt-2026-secure-token",
     "secret",
@@ -68,17 +71,24 @@ def get_jwt_secret() -> str:
         secret_file = get_config().data_dir / ".jwt_secret"
         if secret_file.exists():
             data = secret_file.read_text(encoding="utf-8").strip()
-            if len(data) >= _MIN_SECRET_LENGTH:
+            if len(data) >= _MIN_SECRET_LENGTH and data.lower() not in _INSECURE_SECRETS:
                 return data
         
         secret_file.parent.mkdir(parents=True, exist_ok=True)
         fresh_secret = secrets.token_urlsafe(64)
-        secret_file.write_text(fresh_secret, encoding="utf-8")
+        # Exclusive creation prevents concurrent first requests replacing a signing key.
+        try:
+            with secret_file.open('x', encoding='utf-8') as handle:
+                handle.write(fresh_secret)
+        except FileExistsError:
+            existing = secret_file.read_text(encoding='utf-8').strip()
+            if len(existing) < _MIN_SECRET_LENGTH or existing.lower() in _INSECURE_SECRETS:
+                raise RuntimeError('Invalid persisted signing key; configure EDUVERSE_JWT_SECRET.')
+            return existing
         _restrict_permissions(secret_file)
         return fresh_secret
     except Exception as exc:
-        log.warning("Could not persist local .jwt_secret (%s); using in-process ephemeral key", exc)
-        return secrets.token_urlsafe(64)
+        raise RuntimeError('Unable to load a secure persistent signing key.') from exc
 
 
 def hash_password(password: str) -> str:
@@ -165,16 +175,16 @@ def decode_access_token(token: str) -> dict[str, Any] | None:
         # Validate payload
         payload_data = json.loads(_b64url_decode(encoded_payload).decode("utf-8"))
         sub = payload_data.get("sub")
-        if not sub or not str(sub).isdigit():
+        if not isinstance(sub, str) or not sub.isdigit() or int(sub) <= 0:
             return None
 
         exp = payload_data.get("exp")
         # Strictly require expiration timestamp
-        if exp is None or not isinstance(exp, (int, float)):
+        if type(exp) not in (int, float) or not math.isfinite(exp):
             return None
 
         now_ts = dt.datetime.now(dt.timezone.utc).timestamp()
-        if now_ts > exp:
+        if now_ts >= exp:
             return None  # Token expired
 
         return payload_data

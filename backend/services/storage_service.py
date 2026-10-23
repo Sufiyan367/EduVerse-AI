@@ -311,7 +311,7 @@ class StorageService:
             if doc_id:
                 query += " WHERE q.doc_id = ?"
                 params.append(doc_id)
-            query += " ORDER BY qe.evaluated_at DESC LIMIT 50;"
+            query += " ORDER BY qe.evaluated_at DESC, qe.rowid DESC LIMIT 50;"
             cursor.execute(query, tuple(params))
             results = []
             for row in cursor.fetchall():

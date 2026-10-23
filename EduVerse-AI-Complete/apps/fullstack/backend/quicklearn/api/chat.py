@@ -182,11 +182,7 @@ def validate_answer(answer: str, excerpts: list[rag.Excerpt]) -> tuple[str, list
     valid_ids = {excerpt.id for excerpt in excerpts}
 
     if not excerpts:
-        lowered = answer.lower()
-        if not any(marker in lowered for marker in DISCLAIMER_MARKERS):
-            log.warning("model answered without retrieved context and no disclaimer; replacing")
-            return NO_CONTEXT_FALLBACK, []
-        return answer, []
+        return NO_CONTEXT_FALLBACK, []
 
     cited = {int(match) for match in CITATION_RE.findall(answer)}
     valid_cited = cited & valid_ids
@@ -194,7 +190,7 @@ def validate_answer(answer: str, excerpts: list[rag.Excerpt]) -> tuple[str, list
 
     # Fail closed on unsupported claims: if citations were provided but NONE match retrieved context,
     # or if all cited evidence is fabricated, abstain rather than presenting unsupported assertions.
-    if cited and not valid_cited:
+    if not valid_cited or hallucinated:
         log.warning("model hallucinated all citations %s; rejecting unsupported answer", cited)
         return (
             "I could not verify this claim in the provided course materials. "

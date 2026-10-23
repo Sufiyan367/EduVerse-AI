@@ -93,6 +93,7 @@ def remediation_client(store, config):
             answer="yes",
         )
         qs = QuizSession(
+            user_id=alice.id,
             mode=QuizMode.PRACTICE,
             source_ids=[src.id],
             length=1,
@@ -127,11 +128,11 @@ def test_remediation_ownership_enforced_on_sources_and_notes(remediation_client)
 
     # 1. Bob cannot read Alice's source -> 403 Forbidden
     r_bob = client.get(f"/api/v1/sources/{ids['source']}", headers=bob_hdr)
-    assert r_bob.status_code == 403, f"Bob could read Alice source: {r_bob.text}"
+    assert r_bob.status_code == 404, f"Bob could discover Alice source: {r_bob.text}"
 
     # 2. Anonymous cannot read Alice's source -> 403 Forbidden
     r_anon = client.get(f"/api/v1/sources/{ids['source']}")
-    assert r_anon.status_code == 403, f"Anonymous could read Alice source: {r_anon.text}"
+    assert r_anon.status_code == 401, f"Anonymous could read Alice source: {r_anon.text}"
 
     # 3. Invalid token is rejected -> 401 Unauthorized (NOT bypassed as anonymous!)
     r_invalid = client.get(f"/api/v1/sources/{ids['source']}", headers={"Authorization": "Bearer invalid-garbage-token"})
@@ -139,11 +140,11 @@ def test_remediation_ownership_enforced_on_sources_and_notes(remediation_client)
 
     # 4. Anonymous cannot read Alice's note -> 403 Forbidden
     r_anon_note = client.get(f"/api/v1/notes/{ids['note']}")
-    assert r_anon_note.status_code == 403, f"Anonymous could read Alice note: {r_anon_note.text}"
+    assert r_anon_note.status_code == 401, f"Anonymous could read Alice note: {r_anon_note.text}"
 
     # 5. Anonymous cannot edit Alice's source -> 403 Forbidden
     r_anon_edit = client.patch(f"/api/v1/sources/{ids['source']}", json={"title": "Hacked Title"})
-    assert r_anon_edit.status_code == 403, f"Anonymous could edit Alice source: {r_anon_edit.text}"
+    assert r_anon_edit.status_code == 401, f"Anonymous could edit Alice source: {r_anon_edit.text}"
 
     # 6. Alice can read her own source and notes -> 200 OK
     r_alice_src = client.get(f"/api/v1/sources/{ids['source']}", headers=alice_hdr)
@@ -163,15 +164,15 @@ def test_remediation_cards_settings_and_analytics_scoped(remediation_client):
 
     # 2. Anonymous cannot edit card -> 403 Forbidden
     r_anon_card_edit = client.patch(f"/api/v1/cards/{ids['card']}", json={"front": "Hacked front"})
-    assert r_anon_card_edit.status_code == 403, f"Anonymous could edit card: {r_anon_card_edit.status_code}"
+    assert r_anon_card_edit.status_code == 401, f"Anonymous could edit card: {r_anon_card_edit.status_code}"
 
     # 3. Anonymous cannot mutate settings -> 401 Unauthorized
     r_anon_settings = client.patch("/api/v1/settings", json={"values": {"onboarding.completed": True}})
     assert r_anon_settings.status_code == 401, f"Anonymous could mutate settings: {r_anon_settings.status_code}"
 
-    # 4. Authenticated user CAN update settings -> 200 OK
+    # 4. A regular student cannot update installation-wide provider settings.
     r_auth_settings = client.patch("/api/v1/settings", json={"values": {"onboarding.completed": True}}, headers=alice_hdr)
-    assert r_auth_settings.status_code == 200
+    assert r_auth_settings.status_code == 403
 
     # 5. Bob's dashboard stats do NOT count Alice's private sources
     r_bob_dash = client.get("/api/v1/dashboard/stats", headers=bob_hdr)
@@ -248,6 +249,7 @@ def test_remediation_insecure_default_key_and_unexpiring_tokens_rejected(remedia
 
 def test_remediation_quiz_idempotency_and_session_scope(remediation_client):
     client, ids, alice_hdr, bob_hdr = remediation_client
+    client.headers.update(alice_hdr)
     url = f"/api/v1/quiz/session/{ids['session']}/answer"
     body = {"item_id": ids["item"], "response": "yes"}
 
@@ -289,7 +291,7 @@ def test_remediation_quiz_idempotency_and_session_scope(remediation_client):
         outside_id = outside_item.id
 
         # Reopen a new session
-        qs2 = QuizSession(mode=QuizMode.PRACTICE, source_ids=[ids["source"]], length=2)
+        qs2 = QuizSession(user_id=ids["alice"], mode=QuizMode.PRACTICE, source_ids=[ids["source"]], length=2)
         session.add(qs2)
         session.flush()
         qs2_id = qs2.id
@@ -304,6 +306,7 @@ def test_remediation_quiz_idempotency_and_session_scope(remediation_client):
 
 def test_remediation_provider_failure_does_not_penalize_mastery(remediation_client):
     client, ids, alice_hdr, bob_hdr = remediation_client
+    client.headers.update(alice_hdr)
 
     # Prepare free-response question with student starting mastery = 0.8
     with session_scope() as session:
