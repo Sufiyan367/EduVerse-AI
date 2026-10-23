@@ -133,3 +133,71 @@ def test_quiz_generation_and_evaluation():
     assert eval_data["score_percentage"] == 100.0
     assert eval_data["passed"] is True
     assert len(eval_data["breakdown"]) == 3
+
+def test_document_passage_endpoint():
+    # 1. Load sample document
+    sample_resp = client.post("/api/documents/sample")
+    assert sample_resp.status_code == 200
+    doc_id = sample_resp.json()["doc_id"]
+
+    # 2. Get passage for page 1
+    passage_resp = client.get(f"/api/documents/{doc_id}/passage?page=1")
+    assert passage_resp.status_code == 200
+    pdata = passage_resp.json()
+    assert pdata["doc_id"] == doc_id
+    assert pdata["page_number"] == 1
+    assert pdata["total_pages"] >= 1
+    assert "SUPERVISED LEARNING" in pdata["passage_text"].upper()
+    assert pdata["char_count"] > 100
+
+def test_knowledge_constellation_endpoint():
+    # 1. Load sample document
+    sample_resp = client.post("/api/documents/sample")
+    doc_id = sample_resp.json()["doc_id"]
+
+    # 2. Get concepts
+    concepts_resp = client.get(f"/api/documents/{doc_id}/concepts")
+    assert concepts_resp.status_code == 200
+    cdata = concepts_resp.json()
+    assert cdata["doc_id"] == doc_id
+    assert len(cdata["nodes"]) >= 3
+    assert len(cdata["edges"]) >= 2
+    first_node = cdata["nodes"][0]
+    assert "id" in first_node
+    assert "label" in first_node
+    assert "definition" in first_node
+
+def test_quiz_history_persistence():
+    # 1. Load sample document
+    sample_resp = client.post("/api/documents/sample")
+    doc_id = sample_resp.json()["doc_id"]
+
+    # 2. Generate and evaluate quiz
+    gen_resp = client.post("/api/quiz/generate", json={"doc_id": doc_id, "count": 2})
+    quiz_id = gen_resp.json()["quiz_id"]
+    answers = [{"question_id": 1, "selected_option_index": 0}]
+    eval_resp = client.post("/api/quiz/evaluate", json={"quiz_id": quiz_id, "answers": answers})
+    assert eval_resp.status_code == 200
+
+    # 3. Retrieve assessment history
+    history_resp = client.get("/api/quiz/history")
+    assert history_resp.status_code == 200
+    hdata = history_resp.json()
+    assert hdata["total_assessments"] >= 1
+    assert len(hdata["history"]) >= 1
+    assert hdata["history"][0]["quiz_id"] == quiz_id
+
+def test_tutor_unsupported_status_reporting():
+    sample_resp = client.post("/api/documents/sample")
+    doc_id = sample_resp.json()["doc_id"]
+
+    # Ask off-topic doubt
+    query_resp = client.post(
+        "/api/tutor/query",
+        json={"doc_id": doc_id, "query": "Explain quantum gravity and string theory in detail."}
+    )
+    assert query_resp.status_code == 200
+    qdata = query_resp.json()
+    assert qdata["grounded"] is False
+    assert qdata["status"] == "unsupported"
+    assert "not covered in the text" in qdata["answer"].lower()

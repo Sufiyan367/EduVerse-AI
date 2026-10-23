@@ -70,6 +70,15 @@ class StorageService:
                     FOREIGN KEY (quiz_id) REFERENCES quizzes (quiz_id) ON DELETE CASCADE
                 );
             """)
+            # Knowledge Constellation Table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS document_concepts (
+                    doc_id TEXT PRIMARY KEY,
+                    concepts_json TEXT NOT NULL,
+                    created_at REAL NOT NULL,
+                    FOREIGN KEY (doc_id) REFERENCES documents (doc_id) ON DELETE CASCADE
+                );
+            """)
             conn.commit()
 
     def _load_cache(self):
@@ -224,6 +233,100 @@ class StorageService:
             """, (eval_id, quiz_id, score_percentage, correct_count, total_questions, 1 if passed else 0, timestamp))
             conn.commit()
         return eval_id
+
+    def store_concepts(self, doc_id: str, concepts_data: dict) -> None:
+        """Stores extracted Knowledge Constellation concepts and relationships into SQLite."""
+        created_at = time.time()
+        concepts_json = json.dumps(concepts_data)
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT OR REPLACE INTO document_concepts (doc_id, concepts_json, created_at)
+                VALUES (?, ?, ?);
+            """, (doc_id, concepts_json, created_at))
+            conn.commit()
+
+    def get_concepts(self, doc_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieves stored Knowledge Constellation concepts and relationships for a document."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT concepts_json FROM document_concepts WHERE doc_id = ?;", (doc_id,))
+            row = cursor.fetchone()
+            if row:
+                try:
+                    return json.loads(row["concepts_json"])
+                except Exception:
+                    return None
+        return None
+
+    def get_document_passage(self, doc_id: str, page_number: int = 1) -> Optional[Dict[str, Any]]:
+        """Retrieves specific page/passage text with validated metadata."""
+        doc = self.get_document(doc_id)
+        if not doc:
+            return None
+        pages = doc.get("pages", [])
+        total_pages = len(pages)
+        if not pages:
+            # Fallback for single raw text
+            return {
+                "doc_id": doc_id,
+                "filename": doc["filename"],
+                "page_number": 1,
+                "total_pages": 1,
+                "passage_text": doc.get("raw_text", ""),
+                "char_count": len(doc.get("raw_text", ""))
+            }
+        
+        target_idx = max(0, min(page_number - 1, total_pages - 1))
+        page_info = pages[target_idx]
+        return {
+            "doc_id": doc_id,
+            "filename": doc["filename"],
+            "page_number": page_info.get("page_number", target_idx + 1),
+            "total_pages": total_pages,
+            "passage_text": page_info.get("text", ""),
+            "char_count": len(page_info.get("text", ""))
+        }
+
+    def get_assessment_history(self, doc_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Retrieves persisted evaluation history joined with quizzes and documents."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            query = """
+                SELECT 
+                    qe.eval_id,
+                    qe.quiz_id,
+                    q.doc_id,
+                    COALESCE(d.filename, 'Unknown Document') AS filename,
+                    qe.score_percentage,
+                    qe.correct_count,
+                    qe.total_questions,
+                    qe.passed,
+                    qe.evaluated_at
+                FROM quiz_evaluations qe
+                JOIN quizzes q ON qe.quiz_id = q.quiz_id
+                LEFT JOIN documents d ON q.doc_id = d.doc_id
+            """
+            params = []
+            if doc_id:
+                query += " WHERE q.doc_id = ?"
+                params.append(doc_id)
+            query += " ORDER BY qe.evaluated_at DESC LIMIT 50;"
+            cursor.execute(query, tuple(params))
+            results = []
+            for row in cursor.fetchall():
+                results.append({
+                    "eval_id": row["eval_id"],
+                    "quiz_id": row["quiz_id"],
+                    "doc_id": row["doc_id"],
+                    "filename": row["filename"],
+                    "score_percentage": float(row["score_percentage"]),
+                    "correct_count": int(row["correct_count"]),
+                    "total_questions": int(row["total_questions"]),
+                    "passed": bool(row["passed"]),
+                    "evaluated_at": row["evaluated_at"]
+                })
+            return results
 
     @property
     def document_count(self) -> int:

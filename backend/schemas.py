@@ -18,7 +18,42 @@ class DocumentInfo(BaseModel):
     char_count: int
     upload_timestamp: str
 
+class DocumentPassage(BaseModel):
+    doc_id: str
+    filename: str
+    page_number: int
+    total_pages: int
+    passage_text: str
+    char_count: int
+
+# --- Knowledge Constellation Schemas ---
+class ConceptNode(BaseModel):
+    id: str
+    label: str
+    category: str = "Core Concept"
+    definition: str
+    page_reference: int = 1
+    excerpt: str = ""
+
+class ConceptEdge(BaseModel):
+    source: str
+    target: str
+    relationship: str
+    description: str = ""
+
+class ConstellationResponse(BaseModel):
+    doc_id: str
+    filename: str
+    nodes: List[ConceptNode]
+    edges: List[ConceptEdge]
+    summary: str = ""
+
 # --- Tutor Q&A Schemas ---
+class SourceEvidence(BaseModel):
+    page_number: int
+    source_quote: str
+    relevance_score: float = 1.0
+
 class TutorQueryRequest(BaseModel):
     doc_id: str
     query: str
@@ -30,6 +65,8 @@ class TutorQueryResponse(BaseModel):
     answer: str
     context_excerpt: Optional[str] = None
     grounded: bool = True
+    status: str = "supported"  # "supported" | "partially_supported" | "unsupported"
+    evidence: List[SourceEvidence] = []
     disclaimer: str = (
         "Notice: Explanations are synthesized from your uploaded syllabus notes. "
         "Review primary textbook sources for rigorous derivations."
@@ -89,6 +126,22 @@ class QuizEvaluationResponse(BaseModel):
     passed: bool
     breakdown: List[QuestionResult]
     feedback_message: str
+
+class AssessmentHistoryItem(BaseModel):
+    eval_id: str
+    quiz_id: str
+    doc_id: str
+    filename: str
+    score_percentage: float
+    correct_count: int
+    total_questions: int
+    passed: bool
+    evaluated_at: str
+
+class AssessmentHistoryResponse(BaseModel):
+    history: List[AssessmentHistoryItem]
+    total_assessments: int
+    average_score: float
 
 # --- Health Schema ---
 class HealthResponse(BaseModel):

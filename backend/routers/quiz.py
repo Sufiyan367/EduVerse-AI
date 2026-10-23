@@ -5,11 +5,13 @@ from backend.schemas import (
     QuizEvaluateRequest,
     QuizEvaluationResponse,
     QuestionResult,
-    QuizQuestion
+    QuizQuestion,
+    AssessmentHistoryItem,
+    AssessmentHistoryResponse
 )
 from backend.services.storage_service import storage
 from backend.services.llm_service import llm_service
-from typing import List
+from typing import List, Optional
 
 router = APIRouter(prefix="/api/quiz", tags=["Quiz"])
 
@@ -122,4 +124,35 @@ async def evaluate_quiz(req: QuizEvaluateRequest):
         passed=passed,
         breakdown=breakdown,
         feedback_message=feedback
+    )
+
+@router.get("/history", response_model=AssessmentHistoryResponse)
+async def get_quiz_history(doc_id: Optional[str] = None):
+    """
+    Retrieves genuine persisted student assessment history directly from SQLite.
+    """
+    history_records = storage.get_assessment_history(doc_id=doc_id)
+    total_assessments = len(history_records)
+    avg_score = (
+        round(sum(h["score_percentage"] for h in history_records) / total_assessments, 1)
+        if total_assessments > 0
+        else 0.0
+    )
+    return AssessmentHistoryResponse(
+        history=[
+            AssessmentHistoryItem(
+                eval_id=h["eval_id"],
+                quiz_id=h["quiz_id"],
+                doc_id=h["doc_id"],
+                filename=h["filename"],
+                score_percentage=h["score_percentage"],
+                correct_count=h["correct_count"],
+                total_questions=h["total_questions"],
+                passed=h["passed"],
+                evaluated_at=h["evaluated_at"]
+            )
+            for h in history_records
+        ],
+        total_assessments=total_assessments,
+        average_score=avg_score
     )

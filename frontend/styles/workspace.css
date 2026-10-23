@@ -1,0 +1,707 @@
+/**
+ * EduVerse AI — Astra Workspace Layout & Responsive Structure
+ * Coordinates the 3-panel learning workstation, Knowledge Constellation canvas, and mobile views.
+ */
+
+/* ==========================================================================
+   Base Layout Shell
+   ========================================================================== */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-workspace);
+  color: var(--text-primary);
+  line-height: 1.5;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-panel);
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-teal);
+}
+
+/* ==========================================================================
+   Top Navigation Header
+   ========================================================================== */
+
+.app-header {
+  height: 64px;
+  background: rgba(17, 25, 32, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-lg);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.brand-wrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.brand-logo-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--accent-teal-dark) 0%, var(--accent-teal) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-inverse);
+  box-shadow: 0 0 16px rgba(114, 217, 204, 0.3);
+}
+
+.brand-titles {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-name {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.brand-name span.accent-text {
+  color: var(--accent-teal);
+}
+
+.brand-subtext {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.header-center-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* ==========================================================================
+   Main 3-Column Workstation Grid
+   ========================================================================== */
+
+.workspace-grid {
+  display: grid;
+  grid-template-columns: 300px minmax(480px, 1fr) 380px;
+  height: calc(100vh - 64px);
+  overflow: hidden;
+  background-color: var(--bg-workspace);
+}
+
+/* ==========================================================================
+   Panel Common Styling
+   ========================================================================== */
+
+.panel {
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.panel-last {
+  border-right: none;
+  border-left: 1px solid var(--border-subtle);
+}
+
+.panel-header {
+  padding: 0.85rem var(--space-md);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(17, 25, 32, 0.6);
+  min-height: 52px;
+}
+
+.panel-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* ==========================================================================
+   Left Column: Document Library & Upload
+   ========================================================================== */
+
+.upload-dropzone {
+  border: 2px dashed var(--border-panel);
+  border-radius: var(--radius-sm);
+  padding: var(--space-lg) var(--space-md);
+  text-align: center;
+  cursor: pointer;
+  background: var(--bg-surface-raised);
+  transition: all var(--transition-fast);
+}
+
+.upload-dropzone:hover,
+.upload-dropzone.drag-active {
+  border-color: var(--accent-teal);
+  background: var(--accent-teal-subtle);
+}
+
+.upload-dropzone-icon {
+  width: 32px;
+  height: 32px;
+  color: var(--accent-teal);
+  margin-bottom: var(--space-xs);
+}
+
+.upload-dropzone-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.upload-dropzone-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.doc-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.doc-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.85rem;
+  background: var(--bg-surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.doc-item:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--border-panel);
+}
+
+.doc-item.active {
+  background: var(--accent-teal-subtle);
+  border-color: var(--accent-teal);
+}
+
+.doc-item-title {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 170px;
+}
+
+.doc-item-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
+   Center Column: Knowledge Constellation & Evidence-First Tutor
+   ========================================================================== */
+
+.center-stage {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-workspace);
+}
+
+/* Constellation Top Viewport */
+.constellation-wrapper {
+  height: 48%;
+  min-height: 280px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: radial-gradient(circle at 50% 50%, #131F2A 0%, #0B1015 85%);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.constellation-toolbar {
+  padding: 0.65rem var(--space-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(17, 25, 32, 0.7);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border-subtle);
+  z-index: 10;
+}
+
+.constellation-canvas-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.constellation-svg {
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+
+.constellation-svg:active {
+  cursor: grabbing;
+}
+
+/* Interactive SVG Node Styling */
+.constellation-node {
+  cursor: pointer;
+  transition: transform var(--transition-fast), filter var(--transition-fast);
+  outline: none;
+}
+
+.constellation-node circle.node-bg {
+  fill: var(--bg-surface-raised);
+  stroke: var(--accent-teal);
+  stroke-width: 2px;
+  transition: all var(--transition-fast);
+}
+
+.constellation-node:hover circle.node-bg,
+.constellation-node:focus-visible circle.node-bg {
+  stroke-width: 3.5px;
+  filter: drop-shadow(0 0 10px rgba(114, 217, 204, 0.6));
+}
+
+.constellation-node.active circle.node-bg {
+  fill: var(--accent-teal);
+  stroke: #FFFFFF;
+  stroke-width: 3px;
+  filter: drop-shadow(0 0 14px rgba(114, 217, 204, 0.8));
+}
+
+.constellation-node text.node-label {
+  fill: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  text-anchor: middle;
+  pointer-events: none;
+  user-select: none;
+}
+
+.constellation-node.active text.node-label {
+  fill: var(--text-inverse);
+  font-weight: 700;
+}
+
+.constellation-edge {
+  stroke: rgba(114, 217, 204, 0.28);
+  stroke-width: 1.5px;
+  stroke-dasharray: 4, 3;
+  transition: stroke var(--transition-fast), stroke-width var(--transition-fast);
+}
+
+.constellation-edge.highlighted {
+  stroke: var(--accent-teal);
+  stroke-width: 2.5px;
+  stroke-dasharray: none;
+  filter: drop-shadow(0 0 6px rgba(114, 217, 204, 0.5));
+}
+
+.edge-label-text {
+  fill: var(--text-muted);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* Node Inspector Slide-up Card */
+.node-inspector-drawer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(17, 25, 32, 0.95);
+  backdrop-filter: blur(16px);
+  border-top: 1px solid var(--accent-teal-border);
+  padding: var(--space-sm) var(--space-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  z-index: 20;
+  transform: translateY(100%);
+  transition: transform var(--transition-normal);
+}
+
+.node-inspector-drawer.open {
+  transform: translateY(0);
+}
+
+.inspector-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 70%;
+}
+
+.inspector-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.inspector-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.inspector-desc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+/* Accessible List Alternative */
+.constellation-list-view {
+  display: none;
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--space-md);
+  background: var(--bg-panel);
+}
+
+.constellation-list-view.active {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* Tutor Bottom Section */
+.tutor-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-panel);
+}
+
+.tutor-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.chat-bubble {
+  max-width: 86%;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.chat-bubble-user {
+  align-self: flex-end;
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.3) 0%, rgba(2, 132, 199, 0.25) 100%);
+  border: 1px solid var(--accent-teal-border);
+  color: var(--text-primary);
+}
+
+.chat-bubble-tutor {
+  align-self: flex-start;
+  background: var(--bg-surface-raised);
+  border: 1px solid var(--border-panel);
+  color: var(--text-primary);
+}
+
+.chat-sender-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-xs);
+}
+
+.chat-sender-name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent-teal);
+}
+
+.tutor-input-bar {
+  padding: var(--space-sm) var(--space-md);
+  background: rgba(17, 25, 32, 0.85);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* ==========================================================================
+   Right Column: Document-Level Practice & Assessment
+   ========================================================================== */
+
+.practice-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-panel);
+}
+
+.practice-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-subtle);
+  background: rgba(17, 25, 32, 0.5);
+}
+
+.practice-tab-btn {
+  flex: 1;
+  padding: 0.75rem 0.5rem;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.practice-tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.practice-tab-btn.active {
+  color: var(--accent-teal);
+  border-bottom-color: var(--accent-teal);
+  background: var(--accent-teal-subtle);
+}
+
+.practice-view-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.quiz-card {
+  background: var(--bg-surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.quiz-question-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.45;
+}
+
+.quiz-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.assessment-score-banner {
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.25) 0%, rgba(2, 132, 199, 0.2) 100%);
+  border: 1px solid var(--accent-teal-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-md);
+  text-align: center;
+}
+
+.score-big-number {
+  font-size: 2.2rem;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  color: var(--accent-teal);
+  line-height: 1;
+  margin-bottom: var(--space-2xs);
+}
+
+/* Mobile Bottom Navigation Bar (Hidden by default on Desktop) */
+.mobile-nav-bar {
+  display: none;
+}
+
+/* ==========================================================================
+   Responsive Viewport Adaptations
+   ========================================================================== */
+
+/* 1024px Viewport */
+@media (max-width: 1024px) {
+  .workspace-grid {
+    grid-template-columns: 240px 1fr 320px;
+  }
+  .app-header {
+    padding: 0 var(--space-md);
+  }
+}
+
+/* 768px Viewport (Tablet Portrait) */
+@media (max-width: 768px) {
+  .workspace-grid {
+    grid-template-columns: 1fr;
+    height: calc(100vh - 64px - 56px); /* minus header & mobile nav */
+  }
+
+  .panel-left,
+  .practice-panel {
+    display: none;
+  }
+
+  .workspace-grid.active-tab-library .panel-left {
+    display: flex;
+    grid-column: 1 / -1;
+  }
+  .workspace-grid.active-tab-library .center-stage,
+  .workspace-grid.active-tab-library .practice-panel {
+    display: none;
+  }
+
+  .workspace-grid.active-tab-practice .practice-panel {
+    display: flex;
+    grid-column: 1 / -1;
+  }
+  .workspace-grid.active-tab-practice .center-stage,
+  .workspace-grid.active-tab-practice .panel-left {
+    display: none;
+  }
+
+  .constellation-wrapper {
+    height: 42%;
+  }
+
+  /* Mobile Navigation Bottom Bar */
+  .mobile-nav-bar {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    background: rgba(17, 25, 32, 0.96);
+    border-top: 1px solid var(--border-panel);
+    z-index: 60;
+  }
+
+  .mobile-nav-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    min-height: 44px;
+  }
+
+  .mobile-nav-btn.active {
+    color: var(--accent-teal);
+  }
+
+  .mobile-nav-btn svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* 390px & 320px Viewport (Mobile Phones) */
+@media (max-width: 480px) {
+  .app-header {
+    padding: 0 var(--space-sm);
+  }
+  .brand-subtext {
+    display: none;
+  }
+  .header-center-info {
+    display: none;
+  }
+  .chat-bubble {
+    max-width: 95%;
+  }
+  .node-inspector-drawer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .inspector-info {
+    max-width: 100%;
+  }
+}
