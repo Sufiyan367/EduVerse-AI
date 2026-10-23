@@ -3,15 +3,18 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-teal.svg)](LICENSE)
 [![Python: 3.11+](https://img.shields.io/badge/Python-3.11+-0A2540.svg)](https://python.org)
 [![FastAPI: 0.110+](https://img.shields.io/badge/FastAPI-0.110+-005F73.svg)](https://fastapi.tiangolo.com)
+[![React: 18](https://img.shields.io/badge/React-18-61DAFB.svg?logo=react&logoColor=black)](frontend/)
 [![PyMuPDF: 1.24+](https://img.shields.io/badge/PyMuPDF-1.24+-0A9396.svg)](https://pymupdf.readthedocs.io/)
 [![Three.js: WebGL](https://img.shields.io/badge/Three.js-3D%20Avatar-0A192F.svg)](https://threejs.org)
-[![Tests: 17 Passed](https://img.shields.io/badge/Tests-17%2F17%20Passed%20(1%20Live%20Skipped)-brightgreen.svg)](tests/)
+[![Tests: 123 Passed](https://img.shields.io/badge/Tests-123%2F123%20Web%20Demo%20Passed-brightgreen.svg)](EduVerse_Web_Demo/backend/tests/)
+[![Baseline Tests: 18 Passed](https://img.shields.io/badge/Baseline-18%2F18%20Passed-blue.svg)](tests/)
 [![Live Deployment](https://img.shields.io/badge/Render-Live%20Production-success?logo=render&logoColor=white)](https://eduverse-ai-hpns.onrender.com)
 [![CI](https://github.com/Sufiyan367/EduVerse-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/Sufiyan367/EduVerse-AI/actions/workflows/ci.yml)
 
-> **Live Production Service:** [https://eduverse-ai-hpns.onrender.com](https://eduverse-ai-hpns.onrender.com)  
-> **Instance Plan:** Render Free Tier ($0/mo, auto-wake on request)  
+> **Live Production Service:** [https://eduverse-ai-hpns.onrender.com](https://eduverse-ai-hpns.onrender.com)
+> **Instance Plan:** Render Free Tier ($0/mo, auto-wake on request)
 > **Health Check:** [https://eduverse-ai-hpns.onrender.com/api/health](https://eduverse-ai-hpns.onrender.com/api/health)
+> **Local Web Demo Gateway:** [http://127.0.0.1:8080](http://127.0.0.1:8080) (FastAPI + React 18 SPA)
 
 ---
 
@@ -34,183 +37,177 @@
 **EduVerse AI** is an interactive, evidence-grounded virtual tutor designed to eliminate the forgetting curve and resolve student doubt paralysis. In traditional self-study, students are overwhelmed by dense, fragmented PDF syllabi and turn to unconstrained public chatbots that risk hallucination and syllabus mismatch.
 
 EduVerse AI guarantees **strict syllabus grounding**:
-$$\text{Student Syllabus (PDF)} \longrightarrow \text{Fast Extraction (PyMuPDF)} \longrightarrow \text{Evidence Q\&A with Excerpt Citations} \longrightarrow \text{Active Recall Quiz} \longrightarrow \text{Instant Evaluation}$$
+$$\text{Student Syllabus (PDF)} \longrightarrow \text{Fast Extraction (PyMuPDF)} \longrightarrow \text{Dense Vector Memory (sqlite-vec)} \longrightarrow \text{Evidence Q\&A with Bracketed Citations} \longrightarrow \text{Adaptive Active Recall} \longrightarrow \text{FSRS Spaced Review}$$
 
 ---
 
-## 2. Two Synchronized Architectural Implementations
+## 2. Project Ecosystem & Component Architecture
 
-This repository maintains two complementary, verified implementations:
+This repository encompasses a comprehensive multi-tier ecosystem developed across the engineering lifecycle:
 
 ```mermaid
 graph TD
-    subgraph RepoRoot ["1. Baseline Production Engine (Repository Root)"]
-        RootAPI["FastAPI 0.110+ Core (main.py)"]
-        RootUI["Modular UI + Three.js WebGL 3D Avatar"]
-        RootStore["In-Memory Document & Quiz Session Cache"]
-        RootRAG["Fast PyMuPDF Segmentation + Grounded Prompting"]
-        RootDeploy["Live Continuous Deployment on Render (render.yaml)"]
-        RootTests["Pytest Test Suite: 17 Passed, 1 Live Integration"]
+    subgraph RootEngine ["1. Baseline Cloud Engine (Root)"]
+        RootAPI["FastAPI Core (backend/main.py)"]
+        RootUI["Interactive UI + Three.js 3D Avatar"]
+        RootRAG["PyMuPDF Segmentation + Grounded Prompting"]
+        RootDeploy["Live Cloud Deployment on Render (render.yaml)"]
+        RootTests["Pytest Suite: 18/18 Passed"]
     end
 
-    subgraph WebDemo ["2. Extended EduVerse Platform (EduVerse_Web_Demo/)"]
-        DemoSPA["React 19 + TypeScript + Vite + Tailwind CSS"]
-        DemoAPI["FastAPI Modular Router Gateway (Port 8080)"]
-        DemoDB[("SQLite 3 + WAL + sqlite-vec Dense Vector Memory")]
-        DemoModules["FSRS-6 Spaced Repetition | Knowledge Gap Detector | Revision Planner"]
-        DemoTests["Pytest Test Suite: 115 Passed, 0 Errors Typecheck"]
+    subgraph WebDemoApp ["2. Extended Full-Stack Web Platform (EduVerse_Web_Demo/)"]
+        DemoSPA["React 18 SPA + Vite + Tailwind CSS + Radix UI"]
+        DemoGateway["FastAPI Gateway (Port 8080)"]
+        DemoDB[("SQLite 3 + WAL + sqlite-vec Vector Memory")]
+        DemoCognitive["FSRS-6 Flashcards | Knowledge Gap Detector | Revision Planner"]
+        DemoAuth["PBKDF2 Password Hashing + High-Entropy JWT"]
+        DemoTests["Pytest Suite: 123 Passed | 0 TypeScript Errors"]
     end
 
-    RepoRoot -.->|"Foundation & Concepts"| WebDemo
+    subgraph PoCArch ["3. Foundation PoC (EduVerse_Foundation_PoC/)"]
+        PoCBase["Upstream QuickLearn Architecture"]
+        PoCProviders["Ollama + LM Studio + Mock Provider Adapters"]
+        PoCQueue["Async SQLite Background Worker Pool"]
+    end
+
+    subgraph AcademicDocs ["4. Academic Deliverables & Reports (EduVerse_AI_Project_Report/ & docs/)"]
+        LatexReport["25-Page ICEM Academic Project Report (PDF/TeX)"]
+        ExecReport["2-Page Executive Summary Report"]
+        SlideDecks["Final Review Presentation (.pptx)"]
+        AuditReports["Astra Independent Audit & Acceptance Reports (docs/)"]
+    end
+
+    PoCArch -.->|"Architecture & Workers"| WebDemoApp
+    RootEngine -.->|"Syllabus Grounding & Core RAG"| WebDemoApp
+    WebDemoApp -.->|"Empirical Evaluation & Telemetry"| AcademicDocs
 ```
 
-1. **Baseline Production Engine (Root):**
-   - High-speed, dependency-minimal Python/FastAPI service deployed on Render.
-   - Real-time interactive WebGL 3D avatar that changes state dynamically (`Idle`, `Thinking`, `Explaining`).
-   - Verified with 17 passed local unit/API tests + 1 live cloud deployment integration test.
-2. **Extended Web Platform (`EduVerse_Web_Demo/`):**
-   - Dedicated standalone full-stack application for local examination demonstrations.
-   - Includes React 19 SPA, SQLite-vec vector memory, FSRS-6 spaced repetition flashcards, automated 16-concept extraction, dynamic adaptive quiz minting, algorithmic knowledge-gap analysis, and revision planning.
-   - Verified with 115 passing tests and 0 TypeScript errors.
+### Component Overview & Directory Map
+
+| Component | Directory Location | Primary Stack | Core Capabilities & Purpose | Verified Status |
+| :--- | :--- | :--- | :--- | :--- |
+| **Baseline Production Cloud Engine** | `.` (Root) | Python 3.11, FastAPI, PyMuPDF, Three.js WebGL | Lightweight cloud tutor service with interactive 3D WebGL avatar, fast PDF parser, and live Render deployment. | **18/18 Tests Passed** • Live on Render |
+| **Extended Full-Stack Web Platform** | `EduVerse_Web_Demo/` | React 18, TypeScript, Vite, FastAPI, SQLite-vec, FSRS-6 | Complete desktop demonstration platform: multi-user auth, RAG chat with slide citations, flashcards, adaptive quiz, knowledge gaps, and revision planner. | **123/123 Tests Passed** • Clean Build |
+| **Foundation PoC** | `EduVerse_Foundation_PoC/` | Python 3.11, FastEmbed, PyTorch/ONNX, SQLite WAL | Architectural proof-of-concept for offline local LLM adapters (Ollama, LM Studio), async job queue, and vector memory. | Architecture Verified • Offline PoC |
+| **Academic Reports & Presentations** | `EduVerse_AI_Project_Report/` | LaTeX (Tectonic engine), PowerPoint, Markdown | Official 25-page ICEM department project report, 2-page executive summary, evaluation slides, and architectural schematics. | **Strict 25 Pages Compiled** |
+| **Security & Integrity Remediation** | `docs/` & `EduVerse_Web_Demo/backend/tests/` | Pytest, JWT, Cryptography, AST | Independent audit reproduction and root-cause fixes for all 6 Astra Priority 0/1 findings (ownership, JWT entropy, quiz idempotency, grading safety, undo, citations). | **8/8 Remediation Tests Passed** |
 
 ---
 
 ## 3. Verified Core Features & Implementation Matrix
 
-| Module | Status | Verification & Evidence |
+| Module | Implementation Scope | Verification & Evidence |
 | :--- | :--- | :--- |
-| **PDF Ingestion & Extraction** | **Verified** | PyMuPDF pipeline parses multi-page PDFs in $<1.5\text{s}$ with Unicode normalization. |
-| **Input Validation** | **Verified** | Empty files, non-PDF streams, corrupt headers, and $>25\text{ MB}$ limits safely rejected. |
-| **Grounded AI Tutoring** | **Verified** | Strict document-bounded answers with explicit slide/page citations (e.g. `[10]`, `[12]`). |
-| **Out-of-Scope Handling** | **Verified** | Polite refusal when student queries unmentioned topics (e.g. quantum gravity in an SQL note). |
-| **Concept Simplification** | **Verified** | Translates complex definitions into relatable real-world analogies and key takeaways. |
-| **Automated Active Recall Quiz** | **Verified** | Dynamically synthesizes multiple-choice questions with 4 distinct options and answer rationales. |
-| **Persistent Evaluation** | **Verified** | Scores calculated instantaneously, recorded to historical assessment logs, and tracked per student. |
-| **3D WebGL Avatar** | **Verified** | Three.js cybernetic tutor avatar reactive to conversational state changes. |
-| **Academic LaTeX Report** | **Verified** | Strict 25-page project report compiled via Tectonic (`EduVerse_AI_Project_Report.pdf`). |
+| **PDF Ingestion & Segmentation** | PyMuPDF pipeline | Multi-page documents parsed and segmented in $<1.5\text{s}$ with Unicode normalization. |
+| **Dense Vector Indexing** | `sqlite-vec` + FastEmbed (384-d) | Local embeddings (`BAAI/bge-small-en-v1.5`) stored in SQLite with cosine similarity search. |
+| **Grounded AI Tutoring** | FastAPI + RAG prompt engine | Strict document-bounded answers with verified bracketed citations (e.g. `[10]`, `[12]`). Fail-closed when unsupported. |
+| **3D WebGL Avatar** | Three.js canvas in root engine | Interactive avatar reacting dynamically to conversational states (`Idle`, `Thinking`, `Explaining`). |
+| **Spaced Repetition Flashcards** | FSRS-6 scheduler | Card repetition scheduling based on memory stability and difficulty. Atomic undo restores concept mastery cleanly. |
+| **Dynamic Active Recall Quiz** | AI Question Generator | Synthesizes 4-option MCQs with rationales; session scope and attempt idempotency prevent score inflation. |
+| **Grading Outage Protection** | Non-penalizing fault handler | Provider timeouts or 429 errors leave student mastery untouched and record responses as ungraded. |
+| **Knowledge Gap Detector** | Statistical mistake aggregator | Flags concept weaknesses from quiz attempt patterns and categorizes gaps (`CRITICAL`, `MODERATE`). |
+| **Adaptive Revision Planner** | Spaced scheduling optimizer | Auto-schedules revision sessions prioritized by gap severity and card due dates. |
+| **Multi-User Isolation** | PBKDF2 + HMAC-SHA256 JWT | Enforced server-side ownership: cross-user read/write/delete attempts strictly return `403 Forbidden`. |
+| **Academic LaTeX Report** | Tectonic PDF compiler | 25-page formatted report conforming to university B.Tech guidelines (`EduVerse_AI_Project_Report.pdf`). |
 
 ---
 
-## 4. System Architecture
+## 4. Running the Applications
 
-```
-[ Student Web Browser ] (HTML5 / Modern CSS / Three.js WebGL 3D Canvas)
-            |
-            | RESTful HTTP / Multipart Form-Data
-            v
-[ FastAPI Application Gateway ] (Port 8000 / 8080)
-      |                         |                        |
-      v                         v                        v
-[ PyMuPDF Text Extractor ]   [ Session / SQLite DB ]   [ Multi-Provider LLM Gateway ]
-  - Byte stream validation     - Document chunks         - Google Gemini (gemini-1.5-flash)
-  - Layout & page mapping      - Assessment history      - OpenRouter (nvidia/nemotron-3)
-  - Excerpt generation         - Knowledge gaps          - Deterministic Offline Mock
-```
+### Option A: Baseline Cloud Engine (Root Application)
 
----
+The root application is a lightweight, zero-configuration Python/FastAPI service with a Three.js WebGL avatar:
 
-## 5. Quick Start & Local Setup
-
-### Prerequisites
-- Python 3.11+
-- Git 2.40+
-- Modern Web Browser with WebGL enabled (Chrome, Edge, Firefox, Safari)
-
-### Installation
 ```powershell
-# 1. Clone repository
-git clone https://github.com/Sufiyan367/EduVerse-AI.git
-cd EduVerse-AI
-
-# 2. Set up virtual environment
-python -m venv .venv
+# 1. Activate virtual environment
 .\.venv\Scripts\Activate.ps1    # On Windows (or source .venv/bin/activate on Linux/macOS)
 
-# 3. Install dependencies
+# 2. Install dependencies
 pip install -r requirements.txt
 
-# 4. Configure environment template
-copy .env.example .env
-```
-
-### Configure Credentials (`.env`)
-```ini
-LLM_PROVIDER=gemini              # gemini, openai, openrouter, or mock
-GEMINI_API_KEY=your_key_here     # required only for live cloud LLM calls
-PORT=8000
-ENVIRONMENT=development
-```
-
-### Run the Application
-```powershell
+# 3. Launch with Uvicorn
 python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
 ```
-Open **`http://127.0.0.1:8000`** in your browser.  
-Interactive OpenAPI documentation is available at **`http://127.0.0.1:8000/docs`**.
+- Open **`http://127.0.0.1:8000`** in your browser.
+- Interactive OpenAPI docs: **`http://127.0.0.1:8000/docs`**.
 
 ---
 
-## 6. Automated Testing & Verification
+### Option B: Extended Full-Stack Web Platform (`EduVerse_Web_Demo/`)
 
-### Running the Test Suite
+The web demo is a comprehensive application for local college evaluations, featuring the React 18 SPA, SQLite-vec vector memory, FSRS flashcards, and student analytics:
+
+```powershell
+# 1. Navigate to Web Demo directory
+cd EduVerse_Web_Demo
+
+# 2. Start using the automated launcher script
+.\run_eduverse.ps1
+```
+- Starts the FastAPI backend daemon on **`http://127.0.0.1:8080`** and serves the compiled React 18 SPA.
+- Automatically opens your default browser.
+- **Demo Student Login:** Click the one-click **"Demo Student"** button (`student@eduverse.ai` / `demo123`).
+- To shut down safely:
+  ```powershell
+  .\stop_eduverse.ps1
+  ```
+
+---
+
+## 5. Automated Testing & Quality Assurance
+
+### 5.1 Extended Web Platform Test Suite (123 Tests)
+```powershell
+cd EduVerse_Web_Demo\backend
+.\.venv\Scripts\python.exe -m pytest -v
+```
+```text
+======================== 123 passed, 1 warning in 143.57s ========================
+```
+- `tests/test_api.py`: 34 passed
+- `tests/test_remediation_suite.py`: 8 passed (Astra P0/P1 security and learning integrity)
+- `tests/test_user_isolation.py`: 3 passed (Alice/Bob multi-user clean-room isolation)
+- `tests/test_local_providers.py`: 20 passed (Ollama, LM Studio, Mock adapters)
+- `tests/test_providers.py`: 28 passed (Rate limit, quota, and error translations)
+- `tests/test_learning_workflows.py`: 6 passed (FSRS, RAG, concept extraction)
+- `tests/test_jobs.py`: 17 passed (Background job worker pool)
+- `tests/test_eduverse_features.py`: 7 passed (Auth, gap detection, revision planner)
+
+### 5.2 13-Step End-to-End Workflow Verification
+```powershell
+cd EduVerse_Web_Demo\backend
+.\.venv\Scripts\python.exe tests/verify_full_demo_workflow.py
+```
+```text
+======================================================================
+ALL 13 END-TO-END WORKFLOW STEPS PASSED WITH 100% SUCCESS!
+======================================================================
+```
+
+### 5.3 Baseline Root Engine Test Suite (18 Tests)
 ```powershell
 python -m pytest tests -v
 ```
-
-### Verified Test Suite Execution Output
 ```text
-============================= test session starts =============================
-platform win32 -- Python 3.11.9, pytest-8.4.2, pluggy-1.6.0
-rootdir: S:\SY\SEM 3\MP
-plugins: anyio-4.12.1, asyncio-1.4.0
-collected 18 items
-
-tests/test_api_endpoints.py::test_health_endpoint PASSED                 [  5%]
-tests/test_api_endpoints.py::test_frontend_root_served PASSED            [ 11%]
-tests/test_api_endpoints.py::test_document_upload_and_extraction PASSED  [ 16%]
-tests/test_api_endpoints.py::test_invalid_file_extension_rejected PASSED [ 22%]
-tests/test_api_endpoints.py::test_sample_document_loader PASSED          [ 27%]
-tests/test_api_endpoints.py::test_tutor_query_grounded_workflow PASSED   [ 33%]
-tests/test_api_endpoints.py::test_tutor_query_non_contextual_handling PASSED [ 38%]
-tests/test_api_endpoints.py::test_concept_simplification_endpoint PASSED [ 44%]
-tests/test_api_endpoints.py::test_quiz_generation_and_evaluation PASSED  [ 50%]
-tests/test_api_endpoints.py::test_document_passage_endpoint PASSED       [ 55%]
-tests/test_api_endpoints.py::test_knowledge_constellation_endpoint PASSED [ 61%]
-tests/test_api_endpoints.py::test_quiz_history_persistence PASSED        [ 66%]
-tests/test_api_endpoints.py::test_tutor_unsupported_status_reporting PASSED [ 72%]
-tests/test_live_render.py::test_live_render_service SKIPPED               [ 77%]
-tests/test_pdf_service.py::test_valid_pdf_extraction PASSED              [ 83%]
-tests/test_pdf_service.py::test_empty_bytes_rejected PASSED              [ 88%]
-tests/test_pdf_service.py::test_corrupt_file_rejected PASSED             [ 94%]
-tests/test_pdf_service.py::test_size_limit_enforced PASSED               [100%]
-
 ======================= 17 passed, 1 skipped in 46.95s ========================
 ```
-*(To include the live Render test, set `$env:RUN_LIVE_RENDER_TESTS="1"` $\rightarrow$ **18/18 passed**)*.
+*(Enable live cloud verification: `$env:RUN_LIVE_RENDER_TESTS="1"` $\rightarrow$ **18/18 passed**)*.
+
+### 5.4 Frontend TypeScript Typecheck & Build
+```powershell
+cd EduVerse_Web_Demo\frontend
+npm run typecheck    # tsc --noEmit -> 0 errors
+npm run build        # vite build -> 4,223 modules compiled cleanly to dist/
+```
 
 ---
 
-## 7. Live Production Deployment on Render
-
-EduVerse AI is deployed as a live cloud service on **Render**:
-- **Production URL:** [https://eduverse-ai-hpns.onrender.com](https://eduverse-ai-hpns.onrender.com)
-- **Deployment Spec:** [`render.yaml`](render.yaml) Blueprint (Python 3.11 Runtime, Free Tier)
-- **Service Verification Command:**
-  ```powershell
-  $env:RUN_LIVE_RENDER_TESTS="1"; python -m pytest tests/test_live_render.py -v
-  ```
-- **Live Output:**
-  ```text
-  tests/test_live_render.py::test_live_render_service PASSED [100%]
-  ============================== 1 passed in 5.09s ==============================
-  ```
-
----
-
-## 8. Academic Deliverables & Report Compilation
+## 6. Academic Deliverables & Report Compilation
 
 The project repository includes the complete 25-page academic project report authored in LaTeX:
 - **Report Document:** [`EduVerse_AI_Project_Report/EduVerse_AI_Project_Report.pdf`](EduVerse_AI_Project_Report/EduVerse_AI_Project_Report.pdf) (Strictly 25 pages conforming to ICEM AI&DS department format).
+- **Executive Summary:** [`EduVerse_AI_Project_Report/EduVerse_AI_Two_Page_Report.pdf`](EduVerse_AI_Project_Report/EduVerse_AI_Two_Page_Report.pdf) (Condensed 2-page brief).
+- **Presentation Deck:** [`EduVerse_AI_Review_2_FINAL.pptx`](EduVerse_AI_Review_2_FINAL.pptx) (Final viva examination slides).
 - **Compilation Command:**
   ```powershell
   & "bin\tectonic.exe" "EduVerse_AI_Project_Report\EduVerse_AI_Project_Report.tex"
@@ -223,30 +220,35 @@ The project repository includes the complete 25-page academic project report aut
 
 ---
 
-## 9. Known Limitations & Roadmap
+## 7. Security & Integrity Audit History
+
+This repository maintains transparent documentation of independent security and learning-integrity audits:
+- [`docs/ASTRA_INDEPENDENT_AUDIT.md`](docs/ASTRA_INDEPENDENT_AUDIT.md): Original external audit report identifying 6 Priority 0/1 defect areas.
+- [`docs/ASTRA_REMEDIATION_BACKLOG.md`](docs/ASTRA_REMEDIATION_BACKLOG.md): Remediation logs with verification commands and evidence for all findings.
+- [`docs/FINAL_ACCEPTANCE_REPORT.md`](docs/FINAL_ACCEPTANCE_REPORT.md): Comprehensive final audit covering reproduction, root-cause fixes, and regression test suites.
+- [`docs/GITHUB_POLISH_REPORT.md`](docs/GITHUB_POLISH_REPORT.md): Independent verification report distinguishing local readiness from remote deployment state.
+
+---
+
+## 8. Known Limitations & Roadmap
 
 ### Known Limitations
 - Machine-readable text extraction is optimized for digital PDFs; scanned physical pages require external OCR pre-processing.
-- Maximum recommended upload size is $25\text{ MB}$ per document.
+- Maximum recommended upload size is $25\text{ MB}$ per document for single-pass processing.
 - Render Free Tier instances enter standby after 15 minutes of idle time; initial cold-start takes ~50 seconds.
+- Local high-capacity LLMs (e.g. 7B+ parameters via Ollama) require a compatible GPU with at least 8 GB VRAM.
 
 ### Educational Roadmap
 - [x] Phase 1: Core document extraction, grounded tutoring, and quiz evaluation.
 - [x] Phase 2: Live Render production deployment and 3D WebGL avatar feedback.
 - [x] Phase 3: FSRS-6 spaced repetition, knowledge gap tracking, and adaptive revision planning (`EduVerse_Web_Demo/`).
-- [ ] Phase 4: Multimodal voice interactions with speech-to-text (Whisper) and audio narration.
-- [ ] Phase 5: Multi-document cross-syllabus synthesis for full semester course packs.
+- [x] Phase 4: Astra security hardening, JWT entropy enforcement, and multi-user isolation.
+- [ ] Phase 5: Multimodal voice interactions with speech-to-text (Whisper) and audio narration.
+- [ ] Phase 6: Multi-document cross-syllabus synthesis for full semester course packs.
 
 ---
 
-## 10. Repository Topics
-
-Suggested GitHub Repository Topics:
-`ai-tutor` • `education` • `learning-platform` • `fastapi` • `python` • `threejs` • `rag` • `pymupdf` • `quiz-generator` • `spaced-repetition` • `college-project` • `render-deployment`
-
----
-
-## 11. License & Attribution
+## 9. License & Attribution
 
 - **License:** Open-source under the [MIT License](LICENSE) — Copyright (c) 2026 Aryan Shinde, Huzaifa Sheikh, Sufiyan Surve (ICEM Pune).
 - **Third-Party Component Notices:** Detailed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
