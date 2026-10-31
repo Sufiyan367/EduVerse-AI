@@ -152,10 +152,24 @@ async def retrieve(
     rerank_to = rerank_to or settings.get_int("rag.rerank_to", 6)
     source_ids = _scope_source_ids(scope_type, scope_id)
 
+    log.info(
+        "RAG retrieve initiated: query='%s', scope_type=%s, scope_id=%s, top_k=%d, rerank_to=%d",
+        query,
+        scope_type,
+        scope_id,
+        top_k,
+        rerank_to,
+    )
+
     async def vector_leg() -> list[int]:
         try:
             hits = await vector_index.search_vectors(query, k=top_k, source_ids=source_ids)
-            return [hit.segment_id for hit in hits]
+            v_ids = [hit.segment_id for hit in hits]
+            if not v_ids:
+                total_vecs = vector_index.get_index().count()
+                if total_vecs == 0:
+                    log.warning("Vector index contains 0 vectors; embeddings may be missing or unindexed.")
+            return v_ids
         except Exception as exc:
             # Embeddings may be unconfigured or the model still downloading. BM25 alone still
             # produces a usable answer, so degrade rather than fail.
@@ -171,6 +185,7 @@ async def retrieve(
 
     fused = reciprocal_rank_fusion({"vector": vector_ids, "keyword": keyword_ids})
     if not fused:
+        log.info("RAG search returned 0 candidates across vector and keyword retrievers.")
         return []
 
     candidate_ids = [item_id for item_id, _, _ in fused[:top_k]]
@@ -185,8 +200,25 @@ async def retrieve(
         excerpt.matched_by = origins
         ordered.append(excerpt)
 
+    log.info(
+        "RAG hybrid fusion: %d vector hits, %d keyword hits -> %d fused candidates (IDs: %s, pages: %s)",
+        len(vector_ids),
+        len(keyword_ids),
+        len(ordered),
+        [e.id for e in ordered],
+        [e.page_no for e in ordered],
+    )
+
     if not use_rerank or len(ordered) <= rerank_to:
-        return ordered[:rerank_to]
+        final = ordered[:rerank_to]
+        log.info(
+            "RAG selected %d excerpts without rerank (IDs: %s, sources: %s, pages: %s)",
+            len(final),
+            [e.id for e in final],
+            [e.source_id for e in final],
+            [e.page_no for e in final],
+        )
+        return final
 
     return await rerank(query, ordered, limit=rerank_to)
 
@@ -209,8 +241,15 @@ async def rerank(query: str, excerpts: list[Excerpt], *, limit: int) -> list[Exc
         )
     except Exception as exc:
         # Fusion order is already reasonable; reranking is an improvement, not a requirement.
-        log.warning("rerank failed, keeping fusion order: %s", exc)
-        return excerpts[:limit]
+        log.warning("rerank failed (%s), keeping reciprocal rank fusion order", exc)
+        final = excerpts[:limit]
+        log.info(
+            "RAG selected %d excerpts from fusion fallback (IDs: %s, pages: %s)",
+            len(final),
+            [e.id for e in final],
+            [e.page_no for e in final],
+        )
+        return final
 
     scored = {item.id: item.score for item in result.scores}
     ranked = sorted(
@@ -221,7 +260,16 @@ async def rerank(query: str, excerpts: list[Excerpt], *, limit: int) -> list[Exc
     # Drop anything the reranker judged actively irrelevant, but never return nothing —
     # an empty context turns into "your notes don't cover this", which would be wrong here.
     kept = [e for e in ranked if scored.get(e.id, 0.0) > 0.05][:limit]
-    return kept or ranked[:limit]
+    final = kept or ranked[:limit]
+    log.info(
+        "RAG rerank outcome: scored %d items -> selected %d excerpts (IDs: %s, sources: %s, pages: %s)",
+        len(scored),
+        len(final),
+        [e.id for e in final],
+        [e.source_id for e in final],
+        [e.page_no for e in final],
+    )
+    return final
 
 
 def scope_description(scope_type: str, scope_id: int | None) -> str:

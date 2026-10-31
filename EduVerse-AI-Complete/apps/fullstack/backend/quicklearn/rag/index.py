@@ -25,7 +25,7 @@ from typing import Protocol
 from sqlalchemy import select, update
 
 from ..db.models import Segment
-from ..db.session import raw_sqlite, session_scope, vec_available
+from ..db.session import get_engine, raw_sqlite, session_scope, vec_available
 from ..settings import get_settings
 
 log = logging.getLogger(__name__)
@@ -222,6 +222,11 @@ _index: VectorIndex | None = None
 def get_index() -> VectorIndex:
     global _index
     if _index is None:
+        try:
+            with get_engine().connect():
+                pass
+        except Exception:
+            pass
         _index = Vec0Index() if vec_available() else NumpyIndex()
         log.info("vector index backend: %s", _index.name)
     return _index

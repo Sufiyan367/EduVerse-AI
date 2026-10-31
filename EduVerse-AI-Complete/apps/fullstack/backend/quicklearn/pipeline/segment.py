@@ -99,15 +99,22 @@ def merge_timed(
 
 
 def merge_document(units: list[RawUnit]) -> list[PendingSegment]:
-    """Merge document units, never crossing a page boundary.
+    """Merge document units, strictly preserving page boundaries and logical structure.
 
-    Keeping segments within a page means the bbox stays meaningful and click-to-source can
-    highlight an actual region rather than gesturing at two pages at once.
+    Rules enforced:
+    - Never cross page boundaries: chunks always stay strictly within one page so
+      page numbers and bounding boxes remain 100% accurate.
+    - Preserve headings with their following content: headings initiate a new chunk.
+    - Preserve tables: consecutive markdown/tabular rows are kept intact.
+    - Retain boundary overlap on the same page: when a long single page is split
+      into multiple chunks, the trailing unit (context window) is retained as an
+      overlap so concepts spanning chunk boundaries are not lost.
     """
     segments: list[PendingSegment] = []
     buffer: list[RawUnit] = []
 
-    def flush() -> None:
+    def flush(*, retain_overlap: bool = False) -> None:
+        nonlocal length
         if not buffer:
             return
         boxes = [u.bbox for u in buffer if u.bbox]
@@ -119,17 +126,30 @@ def merge_document(units: list[RawUnit]) -> list[PendingSegment]:
                 max(b[2] for b in boxes),
                 max(b[3] for b in boxes),
             ]
-        segments.append(
-            PendingSegment(
-                text="\n".join(u.text.strip() for u in buffer if u.text.strip()).strip(),
-                page_no=buffer[0].page_no,
-                bbox=union,
+        joined_text = "\n".join(u.text.strip() for u in buffer if u.text.strip()).strip()
+        if joined_text:
+            segments.append(
+                PendingSegment(
+                    text=joined_text,
+                    page_no=buffer[0].page_no,
+                    bbox=union,
+                )
             )
-        )
-        buffer.clear()
+
+        if retain_overlap and len(buffer) > 1 and len(buffer[-1].text.strip()) < 350:
+            last_unit = buffer[-1]
+            buffer.clear()
+            buffer.append(last_unit)
+            length = len(last_unit.text.strip())
+        else:
+            buffer.clear()
+            length = 0
 
     current_page: int | None = None
     length = 0
+
+    def is_table_row(t: str) -> bool:
+        return "|" in t or "\t" in t
 
     for unit in units:
         text = unit.text.strip()
@@ -137,20 +157,25 @@ def merge_document(units: list[RawUnit]) -> list[PendingSegment]:
             continue
 
         page_changed = current_page is not None and unit.page_no != current_page
-        # A markdown heading marks a new topic; break before it rather than after.
-        is_heading = text.startswith("#")
+        is_heading = text.startswith("#") or (len(text) < 80 and text.isupper() and not is_table_row(text))
+        in_table = is_table_row(text) and buffer and is_table_row(buffer[-1].text)
 
-        if buffer and (
-            page_changed or length >= MAX_DOC_CHARS or (is_heading and length >= MIN_DOC_CHARS)
-        ):
-            flush()
-            length = 0
+        if buffer:
+            if page_changed:
+                # Page changed: NEVER overlap across pages to protect citation accuracy
+                flush(retain_overlap=False)
+            elif is_heading and length >= MIN_DOC_CHARS:
+                # Heading marks new topic: start fresh chunk with heading
+                flush(retain_overlap=False)
+            elif length >= MAX_DOC_CHARS and not in_table:
+                # Max length reached on the same page: retain overlap unit for boundary continuity
+                flush(retain_overlap=True)
 
         buffer.append(unit)
         current_page = unit.page_no
         length += len(text)
 
-    flush()
+    flush(retain_overlap=False)
     return [s for s in segments if s.text]
 
 

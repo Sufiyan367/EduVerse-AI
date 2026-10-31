@@ -30,6 +30,51 @@ RASTER_SCALE = 2.0
 MAX_OCR_PAGES = 40
 
 
+
+def _sort_page_blocks(blocks: list[Any], page_width: float) -> list[Any]:
+    """Sort blocks preserving reading order in both single-column and multi-column pages."""
+    text_blocks = [b for b in blocks if len(b) > 4 and str(b[4]).strip()]
+    if len(text_blocks) <= 1:
+        return text_blocks
+
+    midpoint = page_width / 2.0
+    left_blocks = []
+    right_blocks = []
+    full_blocks = []
+
+    for b in text_blocks:
+        x0, y0, x1, y1 = float(b[0]), float(b[1]), float(b[2]), float(b[3])
+        block_width = x1 - x0
+        is_full = block_width > (page_width * 0.65)
+        if is_full:
+            full_blocks.append(b)
+        elif x1 <= (midpoint + 0.1 * page_width):
+            left_blocks.append(b)
+        elif x0 >= (midpoint - 0.1 * page_width):
+            right_blocks.append(b)
+        else:
+            center_x = (x0 + x1) / 2.0
+            if center_x < midpoint:
+                left_blocks.append(b)
+            else:
+                right_blocks.append(b)
+
+    is_two_column = len(left_blocks) >= 2 and len(right_blocks) >= 2
+    if not is_two_column:
+        return sorted(text_blocks, key=lambda b: (round(float(b[1]), 1), round(float(b[0]), 1)))
+
+    min_col_y = min([float(b[1]) for b in left_blocks + right_blocks])
+    top_full = [b for b in full_blocks if float(b[1]) <= min_col_y]
+    bottom_full = [b for b in full_blocks if float(b[1]) > min_col_y]
+
+    sorted_top = sorted(top_full, key=lambda b: float(b[1]))
+    sorted_left = sorted(left_blocks, key=lambda b: float(b[1]))
+    sorted_right = sorted(right_blocks, key=lambda b: float(b[1]))
+    sorted_bottom = sorted(bottom_full, key=lambda b: float(b[1]))
+
+    return sorted_top + sorted_left + sorted_right + sorted_bottom
+
+
 def _extract_pdf_sync(path: Path) -> tuple[list[RawUnit], int, list[int]]:
     """Text layer per page. Returns units, page count, and pages that look scanned."""
     import fitz
@@ -42,12 +87,12 @@ def _extract_pdf_sync(path: Path) -> tuple[list[RawUnit], int, list[int]]:
         for page_index in range(page_count):
             page = doc.load_page(page_index)
             page_no = page_index + 1
+            page_width = float(page.rect.width)
 
-            # Block-level extraction keeps paragraph boundaries and gives a bbox per block,
-            # which is what document click-to-source anchors to.
             blocks = page.get_text("blocks")
+            sorted_blocks = _sort_page_blocks(blocks, page_width)
             page_chars = 0
-            for block in sorted(blocks, key=lambda b: (round(b[1], 1), round(b[0], 1))):
+            for block in sorted_blocks:
                 text = str(block[4]).strip() if len(block) > 4 else ""
                 if not text:
                     continue
@@ -82,29 +127,48 @@ async def extract_pdf(
     path: Path, *, source_id: int | None = None, job_id: int | None = None
 ) -> ExtractResult:
     units, page_count, scanned = await asyncio.to_thread(_extract_pdf_sync, path)
+    unreadable_pages: list[int] = []
 
-    # Only treat it as a scan if most of the document is empty. A single image-only page in an
-    # otherwise text-bearing PDF is a figure, not a scan, and OCRing it is wasted money.
-    if scanned and page_count and len(scanned) > page_count * 0.5:
+    # Identify sparse/image-based pages individually and OCR eligible pages even in mixed PDFs
+    if scanned:
         log.info(
-            "%s looks scanned (%d/%d sparse pages); using the vision fallback",
+            "%s identified %d sparse/scanned page(s) out of %d: %s",
             path.name,
             len(scanned),
             page_count,
+            scanned,
         )
-        ocr_units = await _ocr_pages(path, scanned[:MAX_OCR_PAGES], source_id, job_id)
+        eligible_pages = scanned[:MAX_OCR_PAGES]
+        ocr_units = await _ocr_pages(path, eligible_pages, source_id, job_id)
         if ocr_units:
-            # Keep whatever real text layer existed, and add the OCR output.
-            units = [u for u in units if u.page_no not in set(scanned)] + ocr_units
+            ocred_pages = {u.page_no for u in ocr_units if u.page_no is not None}
+            # Keep selectable text from text-bearing pages, replace sparse pages with OCR output
+            units = [u for u in units if u.page_no not in ocred_pages] + ocr_units
             units.sort(key=lambda u: u.page_no or 0)
+            unreadable_pages = [p for p in scanned if p not in ocred_pages]
+        else:
+            unreadable_pages = list(scanned)
+
+    if unreadable_pages:
+        log.warning(
+            "Document '%s' contains %d page(s) that could not be OCR-processed: %s",
+            path.name,
+            len(unreadable_pages),
+            unreadable_pages,
+        )
 
     if not units:
         raise PipelineError(
-            f"No readable text found in '{path.name}'. If it is a scan, configure a "
-            "vision-capable model (OpenAI, Anthropic or Gemini) in Settings → Model routing."
+            f"No readable text found in '{path.name}'. Scanned pages ({unreadable_pages}) require "
+            "a configured vision-capable model (Google Gemini, OpenAI, or Anthropic) in Settings → Model routing."
         )
 
-    return ExtractResult(units=units, page_count=page_count, provider="pymupdf")
+    return ExtractResult(
+        units=units,
+        page_count=page_count,
+        provider="pymupdf",
+        raw={"scanned_pages": scanned, "unreadable_pages": unreadable_pages},
+    )
 
 
 async def _ocr_pages(
@@ -120,13 +184,18 @@ async def _ocr_pages(
         log.warning("no LLM configured for the scanned-PDF fallback: %s", exc)
         return []
 
-    if not resolved.provider.supports_vision:
-        log.warning("model %s cannot read images; scanned pages will be skipped", resolved.model)
+    if resolved.provider_name == "mock" or not resolved.provider.supports_vision:
+        log.warning(
+            "model %s (%s) cannot perform vision OCR; scanned pages %s require a real vision model",
+            resolved.model,
+            resolved.provider_name,
+            pages,
+        )
         return []
 
     images = await asyncio.to_thread(_rasterise_pages_sync, path, pages)
     instruction = prompts.render("image_describe", hint=f"Page from {path.name}")
-    semaphore = asyncio.Semaphore(3)
+    semaphore = asyncio.Semaphore(2)
 
     async def run(page_no: int, data: bytes) -> RawUnit | None:
         image_part: ImagePart = {
@@ -148,7 +217,13 @@ async def _ocr_pages(
                 return None
         return RawUnit(text=text.strip(), page_no=page_no) if text.strip() else None
 
-    results = await asyncio.gather(*(run(p, d) for p, d in images))
+    # Process scanned pages in batches of 4 to manage memory and API quotas
+    results = []
+    batch_size = 4
+    for i in range(0, len(images), batch_size):
+        batch = images[i : i + batch_size]
+        batch_results = await asyncio.gather(*(run(p, d) for p, d in batch))
+        results.extend(batch_results)
     return [unit for unit in results if unit is not None]
 
 

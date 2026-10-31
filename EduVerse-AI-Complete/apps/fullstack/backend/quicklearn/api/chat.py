@@ -171,13 +171,14 @@ def _store(
 
 
 def validate_answer(answer: str, excerpts: list[rag.Excerpt]) -> tuple[str, list[int]]:
-    """Enforce the citation contract from PRD §7.5.
+    """Enforce the citation contract from PRD §7.5 and rigorous evidence grounding.
 
-    Two checks. When retrieval found nothing, the answer *must* say so — if the model answered
-    anyway, it did so from parametric knowledge, which is precisely the failure this feature
-    exists to avoid, and the answer is replaced. When retrieval did find something, citation
-    markers are resolved against the excerpts actually supplied so a fabricated ``[99]`` cannot
-    render as a real link.
+    Rules enforced:
+    1. Empty retrieval -> explicit fallback disclaimer.
+    2. Honest model abstention -> accept abstention without forcing citations.
+    3. Ungrounded claims (no valid citations) -> fail closed with verified abstention.
+    4. Hallucinated citation markers -> strip invalid citations with note.
+    5. Multi-paragraph grounding -> a single citation does NOT validate unrelated claims.
     """
     valid_ids = {excerpt.id for excerpt in excerpts}
 
@@ -188,22 +189,51 @@ def validate_answer(answer: str, excerpts: list[rag.Excerpt]) -> tuple[str, list
     valid_cited = cited & valid_ids
     hallucinated = cited - valid_ids
 
-    # Fail closed on unsupported claims: if citations were provided but NONE match retrieved context,
-    # or if all cited evidence is fabricated, abstain rather than presenting unsupported assertions.
-    if not valid_cited or hallucinated:
-        log.warning("model hallucinated all citations %s; rejecting unsupported answer", cited)
+    # 1. Honest model abstention:
+    lower_ans = answer.lower()
+    has_disclaimer = any(marker in lower_ans for marker in DISCLAIMER_MARKERS)
+    if has_disclaimer and not valid_cited:
+        return answer, []
+
+    # 2. Fail closed on unsupported assertions:
+    if not valid_cited:
+        log.warning(
+            "model made claims without valid citations (cited=%s, valid_set=%s); rejecting unsupported answer",
+            cited,
+            valid_ids,
+        )
         return (
             "I could not verify this claim in the provided course materials. "
             "The retrieved passages do not contain evidence supporting this statement.",
             [],
         )
 
-    if hallucinated:
-        log.info("dropping %d citation marker(s) not in the retrieved set", len(hallucinated))
+    # 3. Clean up hallucinated citation markers
+    has_hallucinated = bool(hallucinated)
+    if has_hallucinated:
+        log.info("dropping %d citation marker(s) not in retrieved set: %s", len(hallucinated), hallucinated)
         answer = CITATION_RE.sub(
             lambda m: "" if int(m.group(1)) in hallucinated else m.group(0), answer
         ).strip()
-        answer = answer + "\n\n*(Note: Some referenced citations were not found in the verified course material.)*"
+
+    # 4. Multi-paragraph validation:
+    # A single valid citation must not be treated as proof that every unrelated claim is supported.
+    paragraphs = [p.strip() for p in answer.split("\n\n") if p.strip()]
+    uncited_substantive_paras = 0
+    for p in paragraphs:
+        p_cited = {int(m) for m in CITATION_RE.findall(p)} & valid_ids
+        p_has_disclaimer = any(m in p.lower() for m in DISCLAIMER_MARKERS)
+        if len(p) > 60 and not p_cited and not p_has_disclaimer and not p.startswith("#"):
+            uncited_substantive_paras += 1
+
+    notes: list[str] = []
+    if has_hallucinated:
+        notes.append("Some referenced citation markers were not found in the verified course material.")
+    if uncited_substantive_paras > 0 and len(paragraphs) > 1:
+        notes.append("Portions of this answer lack direct citation markers in the retrieved passages.")
+
+    if notes:
+        answer = answer + "\n\n*(Note: " + " ".join(notes) + ")*"
 
     return answer, sorted(valid_cited)
 

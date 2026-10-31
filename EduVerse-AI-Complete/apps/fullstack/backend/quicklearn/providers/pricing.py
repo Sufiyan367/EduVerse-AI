@@ -45,6 +45,7 @@ LLM_PRICES: dict[str, dict[str, tuple[float, float]]] = {
         "claude-3-opus": (15.00, 75.00),
     },
     "google": {
+        "gemini-3.8-flash": (0.15, 0.60),
         "gemini-2.5-pro": (1.25, 10.00),
         "gemini-2.5-flash": (0.30, 2.50),
         "gemini-2.0-flash-lite": (0.075, 0.30),
