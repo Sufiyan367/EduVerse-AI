@@ -56,9 +56,9 @@ def tenant_writes(session, context, instances):
                   'session_id': m.QuizSession, 'chat_id': m.Chat}
     for obj in list(session.new) + list(session.dirty) + list(session.deleted):
         if isinstance(obj, OWNED):
-            if obj in session.new and obj.user_id is None:
+            if obj.user_id is None:
                 obj.user_id = uid
-            if obj.user_id != uid:
+            elif obj.user_id != uid:
                 raise ForbiddenError('This resource belongs to another account.')
         for field, model in references.items():
             value = getattr(obj, field, None)

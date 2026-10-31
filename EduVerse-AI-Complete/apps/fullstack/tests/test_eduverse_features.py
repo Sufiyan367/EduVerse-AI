@@ -41,6 +41,12 @@ def client(config: Config) -> TestClient:
     app = create_app(config)
     return TestClient(app)
 
+@pytest.fixture
+def auth_headers(config: Config) -> dict[str, str]:
+    from quicklearn.auth import create_access_token
+    token = create_access_token(1, 'demo_student', 'student@eduverse.ai')
+    return {'Authorization': f'Bearer {token}'}
+
 
 # =========================================================================
 # 1. AUTHENTICATION & SECURITY TESTS
@@ -132,9 +138,9 @@ def test_default_demo_user_seeded(client: TestClient):
 # 2. KNOWLEDGE GAP DETECTOR TESTS
 # =========================================================================
 
-def test_knowledge_gap_identification(client: TestClient):
+def test_knowledge_gap_identification(client: TestClient, auth_headers: dict[str, str]):
     with session_scope() as session:
-        src = Source(title="Algorithms 101", kind=SourceKind.PDF, origin=SourceOrigin.UPLOAD)
+        src = Source(title="Algorithms 101", user_id=1, kind=SourceKind.PDF, origin=SourceOrigin.UPLOAD)
         session.add(src)
         session.flush()
 
@@ -182,7 +188,7 @@ def test_knowledge_gap_identification(client: TestClient):
         session.add_all([att1, att2, att3])
 
     # Call API endpoint
-    res = client.get("/api/v1/knowledge-gap/summary")
+    res = client.get("/api/v1/knowledge-gap/summary", headers=auth_headers)
     assert res.status_code == 200
     data = res.json()
     assert data["total_evaluated_topics"] >= 2
@@ -207,9 +213,9 @@ def test_knowledge_gap_identification(client: TestClient):
 # 3. ADAPTIVE REVISION PLANNER TESTS
 # =========================================================================
 
-def test_revision_planner_workflow(client: TestClient):
+def test_revision_planner_workflow(client: TestClient, auth_headers: dict[str, str]):
     with session_scope() as session:
-        src = Source(title="Operating Systems", kind=SourceKind.PDF, origin=SourceOrigin.UPLOAD)
+        src = Source(title="Operating Systems", user_id=1, kind=SourceKind.PDF, origin=SourceOrigin.UPLOAD)
         session.add(src)
         session.flush()
 
@@ -223,14 +229,14 @@ def test_revision_planner_workflow(client: TestClient):
         session.add(card)
 
     # 1. Fetch recommendations
-    rec_res = client.get("/api/v1/revision-planner/recommendations")
+    rec_res = client.get("/api/v1/revision-planner/recommendations", headers=auth_headers)
     assert rec_res.status_code == 200
     recs = rec_res.json()
     assert len(recs) > 0
 
     # 2. Schedule a session
     sched_res = client.post(
-        "/api/v1/revision-planner/schedule",
+        "/api/v1/revision-planner/schedule", headers=auth_headers,
         json={
             "topic": "Concurrency & Mutex Review",
             "priority": "HIGH",
@@ -245,13 +251,13 @@ def test_revision_planner_workflow(client: TestClient):
     session_id = session_data["id"]
 
     # 3. List sessions
-    list_res = client.get("/api/v1/revision-planner/sessions")
+    list_res = client.get("/api/v1/revision-planner/sessions", headers=auth_headers)
     assert list_res.status_code == 200
     assert any(s["id"] == session_id for s in list_res.json())
 
     # 4. Complete the session
     patch_res = client.patch(
-        f"/api/v1/revision-planner/sessions/{session_id}",
+        f"/api/v1/revision-planner/sessions/{session_id}", headers=auth_headers,
         json={"status": "COMPLETED", "notes": "Reviewed race conditions and deadlock conditions."},
     )
     assert patch_res.status_code == 200
@@ -259,7 +265,7 @@ def test_revision_planner_workflow(client: TestClient):
     assert patch_res.json()["completed_at"] is not None
 
     # 5. Delete session
-    del_res = client.delete(f"/api/v1/revision-planner/sessions/{session_id}")
+    del_res = client.delete(f"/api/v1/revision-planner/sessions/{session_id}", headers=auth_headers)
     assert del_res.status_code == 200
 
 
@@ -267,8 +273,8 @@ def test_revision_planner_workflow(client: TestClient):
 # 4. STUDENT DASHBOARD ANALYTICS TESTS
 # =========================================================================
 
-def test_dashboard_stats_endpoint(client: TestClient):
-    res = client.get("/api/v1/dashboard/stats")
+def test_dashboard_stats_endpoint(client: TestClient, auth_headers: dict[str, str]):
+    res = client.get("/api/v1/dashboard/stats", headers=auth_headers)
     assert res.status_code == 200
     stats = res.json()
     assert "total_sources" in stats

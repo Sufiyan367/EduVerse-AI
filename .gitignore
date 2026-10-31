@@ -20,8 +20,9 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
+!**/src/lib/**
 parts/
 sdist/
 var/
@@ -107,3 +108,6 @@ EduVerse_AI_Project_Report/preview/
 EduVerse_AI_Project_Report/run_ocr.ps1
 EduVerse_AI_Project_Report/test_*.py
 EduVerse_AI_Project_Report/upload_*.py
+
+*.tsbuildinfo
+
