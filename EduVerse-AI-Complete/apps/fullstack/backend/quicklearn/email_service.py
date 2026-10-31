@@ -11,28 +11,24 @@ log = logging.getLogger(__name__)
 
 
 def is_email_configured() -> bool:
-    """Check whether email delivery is configured via SMTP or development provider."""
+    """Check whether email delivery is configured via SMTP or explicit development provider."""
     # Explicit provider override
     provider = os.getenv("EDUVERSE_EMAIL_PROVIDER", "").strip().lower()
     if provider == "none":
         return False
-    if provider == "console" or provider == "dev":
+    if provider in {"console", "dev", "local"}:
         return True
 
-    # In production, require actual SMTP host configuration
-    is_prod = os.getenv("EDUVERSE_ENV", "development").strip().lower() in {"production", "prod"}
+    # Real SMTP host configuration
     smtp_host = os.getenv("EDUVERSE_SMTP_HOST", "").strip()
-    if smtp_host:
-        return True
-
-    # If in local development and not explicitly disabled, console/logger delivery is available
-    return not is_prod
+    return bool(smtp_host)
 
 
 def send_password_reset_email(to_email: str, reset_token: str) -> None:
-    """Send a secure password reset email containing single-use token or link."""
+    """Send a secure password reset email containing single-use token or fragment link."""
     base_url = os.getenv("EDUVERSE_BASE_URL", "http://127.0.0.1:8080").rstrip("/")
-    reset_url = f"{base_url}/?reset_token={reset_token}"
+    # Move reset token from URL query parameter to URL fragment for security
+    reset_url = f"{base_url}/#reset_token={reset_token}"
 
     provider = os.getenv("EDUVERSE_EMAIL_PROVIDER", "").strip().lower()
     smtp_host = os.getenv("EDUVERSE_SMTP_HOST", "").strip()
@@ -78,10 +74,5 @@ This link and token will expire in 1 hour. If you did not make this request, you
             log.error("SMTP delivery failed for %s: %s", to_email, exc)
             raise RuntimeError(f"Failed to dispatch password reset email: {exc}") from exc
     else:
-        # Development / local testing delivery via secure audit log
-        log.info("=================================================================")
-        log.info("PASSWORD RESET DISPATCH [DEV MODE]")
-        log.info("Recipient: %s", to_email)
-        log.info("Reset Token: %s", reset_token)
-        log.info("Reset URL: %s", reset_url)
-        log.info("=================================================================")
+        # Development / local console mode: scrub raw tokens from logs for security
+        log.info("PASSWORD_RESET_DISPATCH [%s] to recipient=%s (raw token redacted from logs)", provider or "console", to_email)

@@ -223,6 +223,10 @@ def test_password_change_invalidates_all_sessions(config: Config):
 # --------------------------------------------------------------------------- 7. Production Demo Suppression
 def test_production_demo_suppression(data_dir: Path):
     """Verify demo account seeding is suppressed in production environment."""
+    # Verify demo seeding is disabled by default (opt-in requirement)
+    default_cfg = Config(data_dir=data_dir / "default_test")
+    assert default_cfg.seed_demo is False
+
     prod_cfg = Config(data_dir=data_dir / "prod_test")
 
     with patch.dict(os.environ, {"EDUVERSE_ENV": "production"}):

@@ -23,12 +23,29 @@ def client(config: Config) -> TestClient:
     return TestClient(create_app(config))
 
 
+@pytest.fixture(autouse=True)
+def default_console_email(monkeypatch):
+    """Enable explicit console provider by default for tests exercising reset logic."""
+    monkeypatch.setenv("EDUVERSE_EMAIL_PROVIDER", "console")
+
+
 def test_forgot_password_generic_response_for_both_existing_and_missing_email(client: TestClient):
     """Ensure the endpoint returns the exact same message to prevent user enumeration."""
+    # 1. Register a test user
+    client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "existing_student@eduverse.ai",
+            "username": "existing_student",
+            "password": "ValidPassword123!",
+            "full_name": "Existing Student",
+        },
+    )
+
     # 1. Existing student
     r_existing = client.post(
         "/api/v1/auth/forgot-password",
-        json={"email": "student@eduverse.ai"},
+        json={"email": "existing_student@eduverse.ai"},
     )
     assert r_existing.status_code == 200
     msg_existing = r_existing.json()["message"]
@@ -121,12 +138,37 @@ def test_password_reset_token_hashed_in_db_and_validates(client: TestClient):
     assert r_login.json()["user"]["email"] == "reset_test@example.com"
 
 
-def test_forgot_password_unavailable_when_unconfigured_in_production(client: TestClient):
-    """In production mode without SMTP configured, returns 503 instead of false simulation."""
-    with patch.dict(os.environ, {"EDUVERSE_ENV": "production", "EDUVERSE_SMTP_HOST": ""}):
+def test_forgot_password_unavailable_when_unconfigured(client: TestClient):
+    """When SMTP is not configured and email provider is unconfigured, returns 503."""
+    with patch.dict(os.environ, {"EDUVERSE_EMAIL_PROVIDER": "", "EDUVERSE_SMTP_HOST": ""}):
         r = client.post(
             "/api/v1/auth/forgot-password",
             json={"email": "student@eduverse.ai"},
         )
         assert r.status_code == 503
         assert "not configured" in r.json().get("detail", "")
+
+
+def test_delivery_failure_leaves_no_active_reset_token(client: TestClient):
+    """If email dispatch throws an exception, rollback ensures no active token is left in DB."""
+    client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "fail_delivery@example.com",
+            "username": "fail_user",
+            "password": "Password123!",
+            "full_name": "Fail Delivery User",
+        },
+    )
+
+    with patch("quicklearn.api.auth.send_password_reset_email", side_effect=RuntimeError("SMTP down")):
+        r = client.post(
+            "/api/v1/auth/forgot-password",
+            json={"email": "fail_delivery@example.com"},
+        )
+        assert r.status_code == 500
+
+    with session_scope() as session:
+        tokens = session.scalars(select(m.PasswordResetToken)).all()
+        # Verify no token was committed for this user
+        assert len(tokens) == 0, "No reset token must be persisted if email delivery fails"

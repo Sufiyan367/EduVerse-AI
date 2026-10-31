@@ -37,6 +37,7 @@ async def client(config: Config, store: Any, monkeypatch) -> AsyncIterator[httpx
     # This suite exercises installation configuration as well as study workflows.
     # Separate multi-user/security tests use ordinary students without this permission.
     monkeypatch.setenv('EDUVERSE_ADMIN_EMAILS', 'student@eduverse.ai')
+    monkeypatch.setenv('EDUVERSE_SEED_DEMO', 'true')
 
     app = create_app(config)
     transport = httpx.ASGITransport(app=app)

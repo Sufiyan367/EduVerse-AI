@@ -79,7 +79,7 @@ class Config:
         explicit = os.environ.get("EDUVERSE_SEED_DEMO")
         if explicit is not None:
             return explicit.strip().lower() in {"1", "true", "yes", "on"}
-        return not self.is_production
+        return False
 
     # --- derived paths ---
     @property

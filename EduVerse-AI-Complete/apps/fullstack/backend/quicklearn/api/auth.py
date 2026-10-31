@@ -235,7 +235,7 @@ def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = 
     if not is_email_configured():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Email delivery service is not configured on this server. Please contact an administrator.",
+            detail="Password reset email delivery is not configured. Please contact the project administrator.",
         )
 
     email_clean = req.email.strip().lower()
@@ -252,13 +252,18 @@ def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = 
             expires_at=expires_at,
             used_at=None,
         )
-        db.add(reset_record)
-        db.commit()
 
         try:
             send_password_reset_email(user.email, raw_token)
+            db.add(reset_record)
+            db.commit()
         except Exception as exc:
-            log.error("Failed to send password reset email to %s: %s", user.email, exc)
+            db.rollback()
+            log.error("Failed to deliver password reset email to %s: %s", user.email, exc)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to deliver password reset email. Please contact the project administrator.",
+            )
 
     log.info("SECURITY_EVENT: Password reset requested for email=%s from ip=%s", req.email, client_ip)
     return {"message": "If an account matches that email address, password reset instructions have been sent."}

@@ -26,14 +26,30 @@ export function AuthScreen({ onSuccess }: AuthScreenProps) {
   const [error, setError] = useState<string | null>(null)
   const [infoMessage, setInfoMessage] = useState<string | null>(null)
 
-  // Check URL query parameters for reset token
+  // Check URL fragment (#reset_token=... or #token=...) for reset token
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search)
-      const token = params.get('reset_token')
+      let token: string | null = null
+
+      // Check URL fragment first (secure, not sent to servers or logged by proxies)
+      const hash = window.location.hash.replace(/^#/, '')
+      if (hash) {
+        const hashParams = new URLSearchParams(hash)
+        token = hashParams.get('reset_token') || hashParams.get('token')
+      }
+
+      // Fallback check for query params if arrived via legacy link
+      if (!token && window.location.search) {
+        const params = new URLSearchParams(window.location.search)
+        token = params.get('reset_token') || params.get('token')
+      }
+
       if (token) {
         setResetToken(token)
         setMode('reset')
+        // Immediately cleanse token from browser URL address bar and history
+        const cleanUrl = window.location.pathname
+        window.history.replaceState(null, document.title, cleanUrl)
       }
     }
   }, [])

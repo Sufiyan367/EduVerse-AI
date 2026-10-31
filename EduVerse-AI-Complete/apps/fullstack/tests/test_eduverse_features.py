@@ -43,8 +43,26 @@ def client(config: Config) -> TestClient:
 
 @pytest.fixture
 def auth_headers(config: Config) -> dict[str, str]:
-    from quicklearn.auth import create_access_token
-    token = create_access_token(1, 'demo_student', 'student@eduverse.ai')
+    from quicklearn.auth import create_access_token, hash_password
+    from quicklearn.db.models import User
+    with session_scope() as session:
+        user = session.query(User).filter_by(id=1).first()
+        if not user:
+            user = User(
+                id=1,
+                email="student@eduverse.ai",
+                username="demo_student",
+                hashed_password=hash_password("Password123!"),
+                full_name="EduVerse Scholar",
+                is_active=True,
+                token_version=1,
+            )
+            session.add(user)
+            session.commit()
+        user_id = user.id
+        email = user.email
+        username = user.username
+    token = create_access_token(user_id, username, email)
     return {'Authorization': f'Bearer {token}'}
 
 
@@ -124,14 +142,20 @@ def test_auth_registration_and_login_flow(client: TestClient):
     assert dup_res.status_code == 400
 
 
-def test_default_demo_user_seeded(client: TestClient):
-    # The default student@eduverse.ai user should exist and be able to log in
-    res = client.post(
-        "/api/v1/auth/login",
-        json={"username": "student@eduverse.ai", "password": "demo123"},
-    )
-    assert res.status_code == 200
-    assert res.json()["user"]["email"] == "student@eduverse.ai"
+def test_default_demo_user_seeded(config: Config):
+    # The default student@eduverse.ai user should be seeded when EDUVERSE_SEED_DEMO is explicitly enabled
+    from unittest.mock import patch
+    from quicklearn.db.bootstrap import init_database
+    with patch.dict("os.environ", {"EDUVERSE_SEED_DEMO": "true"}):
+        init_database(config)
+        app = create_app(config)
+        client = TestClient(app)
+        res = client.post(
+            "/api/v1/auth/login",
+            json={"username": "student@eduverse.ai", "password": "demo123"},
+        )
+        assert res.status_code == 200
+        assert res.json()["user"]["email"] == "student@eduverse.ai"
 
 
 # =========================================================================
