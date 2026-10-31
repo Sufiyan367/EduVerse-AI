@@ -6,13 +6,14 @@ import logging
 import re
 from typing import Any, Literal
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 
 from .. import prompts
+from ..auth import User, get_optional_user
 from ..db.enums import ChatScope, MessageRole
-from ..db.models import Chat, Message, Segment
+from ..db.models import Chat, Message, Segment, Source
 from ..db.session import session_scope
 from ..errors import NotFoundError, QuicklearnError
 from ..pipeline.schemas import FollowupQuestions
@@ -49,6 +50,12 @@ NO_CONTEXT_FALLBACK = (
     "scope to your whole library, or adding the source material first."
 )
 
+FOLLOWUP_PRONOUNS = {
+    "it", "its", "they", "them", "their", "theirs", "this", "that", "these", "those",
+    "the former", "the latter", "the first", "the second", "the third", "above", "mentioned",
+    "previous", "explain further", "elaborate", "tell me more", "what about", "why", "how so"
+}
+
 
 class CreateChatRequest(BaseModel):
     scope_type: Literal["source", "folder", "global"] = "global"
@@ -61,9 +68,12 @@ class SendMessageRequest(BaseModel):
 
 
 @router.post("")
-def create_chat(payload: CreateChatRequest) -> dict[str, Any]:
+def create_chat(
+    payload: CreateChatRequest, user: User | None = Depends(get_optional_user)
+) -> dict[str, Any]:
     with session_scope() as session:
         chat = Chat(
+            user_id=user.id if user else None,
             scope_type=ChatScope(payload.scope_type),
             scope_id=payload.scope_id,
             title=payload.title.strip() or "New chat",
@@ -74,11 +84,16 @@ def create_chat(payload: CreateChatRequest) -> dict[str, Any]:
 
 
 @router.get("")
-def list_chats(limit: int = 50) -> dict[str, Any]:
+def list_chats(
+    limit: int = 50, user: User | None = Depends(get_optional_user)
+) -> dict[str, Any]:
     with session_scope() as session:
-        rows = list(
-            session.execute(select(Chat).order_by(Chat.created_at.desc()).limit(limit)).scalars()
-        )
+        stmt = select(Chat).order_by(Chat.created_at.desc())
+        if user is not None:
+            stmt = stmt.where(or_(Chat.user_id == user.id, Chat.user_id.is_(None)))
+        else:
+            stmt = stmt.where(Chat.user_id.is_(None))
+        rows = list(session.execute(stmt.limit(limit)).scalars())
         counts = dict(
             session.execute(
                 select(Message.chat_id, func.count(Message.id)).group_by(Message.chat_id)
@@ -90,10 +105,14 @@ def list_chats(limit: int = 50) -> dict[str, Any]:
 
 
 @router.get("/{chat_id}/messages")
-def get_messages(chat_id: int) -> dict[str, Any]:
+def get_messages(
+    chat_id: int, user: User | None = Depends(get_optional_user)
+) -> dict[str, Any]:
     with session_scope() as session:
         chat = session.get(Chat, chat_id)
         if chat is None:
+            raise NotFoundError(f"Chat {chat_id} not found.")
+        if user is not None and chat.user_id is not None and chat.user_id != user.id:
             raise NotFoundError(f"Chat {chat_id} not found.")
         rows = list(
             session.execute(
@@ -104,17 +123,23 @@ def get_messages(chat_id: int) -> dict[str, Any]:
 
 
 @router.delete("/{chat_id}")
-def delete_chat(chat_id: int) -> dict[str, Any]:
+def delete_chat(
+    chat_id: int, user: User | None = Depends(get_optional_user)
+) -> dict[str, Any]:
     with session_scope() as session:
         chat = session.get(Chat, chat_id)
         if chat is None:
+            raise NotFoundError(f"Chat {chat_id} not found.")
+        if user is not None and chat.user_id is not None and chat.user_id != user.id:
             raise NotFoundError(f"Chat {chat_id} not found.")
         session.delete(chat)
     return {"deleted": True}
 
 
 @router.get("/citations")
-def resolve_citations(ids: str) -> dict[str, Any]:
+def resolve_citations(
+    ids: str, user: User | None = Depends(get_optional_user)
+) -> dict[str, Any]:
     """Resolve citation markers to segments, for click-through from an answer."""
     try:
         wanted = [int(part) for part in ids.split(",") if part.strip()]
@@ -122,18 +147,29 @@ def resolve_citations(ids: str) -> dict[str, Any]:
         raise NotFoundError("Invalid citation ids.") from exc
 
     with session_scope() as session:
-        rows = list(session.execute(select(Segment).where(Segment.id.in_(wanted))).scalars())
+        stmt = (
+            select(Segment)
+            .join(Source, Source.id == Segment.source_id)
+            .where(Segment.id.in_(wanted))
+        )
+        if user is not None:
+            stmt = stmt.where(or_(Source.user_id == user.id, Source.user_id.is_(None)))
+        rows = list(session.execute(stmt).scalars())
     return {"segments": [segment_dict(segment) for segment in rows]}
 
 
 # --------------------------------------------------------------------------- answering
 
 
-def _load_chat(chat_id: int) -> tuple[str, int | None, list[ProviderMessage]]:
+def _load_chat(
+    chat_id: int, user_id: int | None = None
+) -> tuple[str, int | None, list[ProviderMessage], int | None]:
     """Chat scope plus recent turns, for conversational context."""
     with session_scope() as session:
         chat = session.get(Chat, chat_id)
         if chat is None:
+            raise NotFoundError(f"Chat {chat_id} not found.")
+        if user_id is not None and chat.user_id is not None and chat.user_id != user_id:
             raise NotFoundError(f"Chat {chat_id} not found.")
         history = list(
             session.execute(
@@ -147,7 +183,7 @@ def _load_chat(chat_id: int) -> tuple[str, int | None, list[ProviderMessage]]:
             text_message("assistant" if m.role is MessageRole.ASSISTANT else "user", m.content)
             for m in reversed(history)
         ]
-        return str(chat.scope_type), chat.scope_id, turns
+        return str(chat.scope_type), chat.scope_id, turns, chat.user_id
 
 
 def _store(
@@ -223,7 +259,7 @@ def validate_answer(answer: str, excerpts: list[rag.Excerpt]) -> tuple[str, list
     for p in paragraphs:
         p_cited = {int(m) for m in CITATION_RE.findall(p)} & valid_ids
         p_has_disclaimer = any(m in p.lower() for m in DISCLAIMER_MARKERS)
-        if len(p) > 60 and not p_cited and not p_has_disclaimer and not p.startswith("#"):
+        if len(p) > 60 and not p_cited and not p_has_disclaimer and not p.startswith("#") and not p.startswith("*"):
             uncited_substantive_paras += 1
 
     notes: list[str] = []
@@ -236,6 +272,90 @@ def validate_answer(answer: str, excerpts: list[rag.Excerpt]) -> tuple[str, list
         answer = answer + "\n\n*(Note: " + " ".join(notes) + ")*"
 
     return answer, sorted(valid_cited)
+
+
+def assess_evidence_support(
+    answer: str,
+    citations: list[int],
+    excerpts: list[rag.Excerpt],
+) -> Literal["strong", "partial", "insufficient"]:
+    """Assess evidence support status for the generated response."""
+    if not citations or not excerpts:
+        return "insufficient"
+
+    paragraphs = [p.strip() for p in answer.split("\n\n") if p.strip()]
+    valid_ids = {e.id for e in excerpts}
+    uncited = 0
+    for p in paragraphs:
+        p_cited = {int(m) for m in CITATION_RE.findall(p)} & valid_ids
+        p_has_disclaimer = any(m in p.lower() for m in DISCLAIMER_MARKERS)
+        if len(p) > 60 and not p_cited and not p_has_disclaimer and not p.startswith("#") and not p.startswith("*"):
+            uncited += 1
+
+    if len(citations) >= 2 and uncited == 0:
+        return "strong"
+    return "partial"
+
+
+def _msg_role(m: Any) -> str:
+    return m.get("role", "") if isinstance(m, dict) else str(getattr(m, "role", ""))
+
+
+def _msg_content(m: Any) -> str:
+    c = m.get("content", "") if isinstance(m, dict) else getattr(m, "content", "")
+    if isinstance(c, list):
+        return " ".join(str(p.get("text", "")) if isinstance(p, dict) else str(p) for p in c)
+    return str(c or "")
+
+
+async def _contextualize_query(question: str, history: list[ProviderMessage]) -> str:
+    """Rewrite follow-up questions containing anaphora or elliptical references into standalone queries."""
+    if not history:
+        return question
+
+    q_lower = question.lower().strip()
+    words = set(re.findall(r"\b\w+\b", q_lower))
+    is_followup = bool(words & FOLLOWUP_PRONOUNS) or len(words) <= 5 or q_lower.startswith(("why?", "how?", "what about", "elaborate"))
+
+    if not is_followup:
+        return question
+
+    # Extract the last 2-3 turns for context
+    recent_turns = [f"{_msg_role(m)}: {_msg_content(m)}" for m in history[-4:]]
+    history_str = "\n".join(recent_turns)
+
+    prompt = (
+        "Given the following conversation history and a follow-up question, rewrite the follow-up question "
+        "into a standalone search query that preserves the specific topic and entities being discussed. "
+        "Output ONLY the standalone query with no explanation or punctuation around it.\n\n"
+        f"Conversation History:\n{history_str}\n\n"
+        f"Follow-up question: {question}\n\n"
+        "Standalone query:"
+    )
+
+    try:
+        rewritten = await gateway.complete_text(
+            "contextualize query",
+            [text_message("user", prompt)],
+            task_class="fast",
+            temperature=0.0,
+            max_tokens=60,
+        )
+        cleaned = rewritten.strip().strip('"').strip("'")
+        if cleaned and len(cleaned) > 3:
+            log.info("Contextualized query from '%s' to '%s'", question, cleaned)
+            return cleaned
+    except Exception as exc:
+        log.debug("Query contextualization LLM call skipped/failed: %s", exc)
+
+    # Fallback heuristic: find the latest user message topic
+    for m in reversed(history):
+        if _msg_role(m) == "user" and _msg_content(m).strip():
+            fallback_query = f"{_msg_content(m).strip()[:60]} {question}"
+            log.info("Heuristic contextualized query fallback: '%s'", fallback_query)
+            return fallback_query
+
+    return question
 
 
 async def _followups(query: str, answer: str) -> list[str]:
@@ -259,10 +379,20 @@ async def _followups(query: str, answer: str) -> list[str]:
 
 
 async def _build_prompt(
-    chat_id: int, question: str
-) -> tuple[list[ProviderMessage], list[rag.Excerpt]]:
-    scope_type, scope_id, history = await run_db(_load_chat, chat_id)
-    excerpts = await rag.retrieve(question, scope_type=scope_type, scope_id=scope_id)
+    chat_id: int, question: str, user_id: int | None = None
+) -> tuple[list[ProviderMessage], list[rag.Excerpt], str]:
+    scope_type, scope_id, history, chat_user_id = await run_db(_load_chat, chat_id, user_id)
+    effective_user_id = user_id if user_id is not None else chat_user_id
+
+    # Contextualize follow-up question for retrieval
+    retrieval_query = await _contextualize_query(question, history)
+
+    excerpts = await rag.retrieve(
+        retrieval_query,
+        scope_type=scope_type,
+        scope_id=scope_id,
+        user_id=effective_user_id,
+    )
 
     system = prompts.render(
         "chat_system",
@@ -280,22 +410,28 @@ async def _build_prompt(
     messages: list[ProviderMessage] = [text_message("system", system)]
     messages.extend(history)
     messages.append(text_message("user", question))
-    return messages, excerpts
+    return messages, excerpts, retrieval_query
 
 
 @router.post("/{chat_id}/message")
-async def send_message(chat_id: int, payload: SendMessageRequest) -> dict[str, Any]:
+async def send_message(
+    chat_id: int, payload: SendMessageRequest, user: User | None = Depends(get_optional_user)
+) -> dict[str, Any]:
     """Non-streaming answer. The WebSocket route is preferred, this is the fallback."""
     question = payload.content.strip()
+    user_id = user.id if user else None
     await run_db(_store, chat_id, MessageRole.USER, question, [], [])
 
-    messages, excerpts = await _build_prompt(chat_id, question)
+    messages, excerpts, retrieval_query = await _build_prompt(chat_id, question, user_id=user_id)
     raw = await gateway.complete_text("chat", messages, temperature=0.3, max_tokens=2000)
     answer, citations = validate_answer(raw, excerpts)
+    evidence_support = assess_evidence_support(answer, citations, excerpts)
     followups = await _followups(question, answer) if excerpts else []
 
     stored = await run_db(_store, chat_id, MessageRole.ASSISTANT, answer, citations, followups)
     stored["excerpts"] = [excerpt.to_dict() for excerpt in excerpts]
+    stored["evidence_support"] = evidence_support
+    stored["retrieval_query"] = retrieval_query
     try:
         resolved = gateway.registry.get_llm("standard")
         stored["provider"] = resolved.provider_name
@@ -308,13 +444,24 @@ async def send_message(chat_id: int, payload: SendMessageRequest) -> dict[str, A
 
 @router.websocket("/ws/{chat_id}")
 async def chat_socket(websocket: WebSocket, chat_id: int) -> None:
-    """Streaming chat.
-
-    Tokens stream as they arrive, but the *stored* answer is the validated one. Streaming raw
-    output and validating afterwards means the user may briefly see a citation that is then
-    corrected — acceptable, and far better than withholding the answer until it is complete.
-    """
+    """Streaming chat with query contextualization and evidence grounding."""
     await websocket.accept()
+
+    # Resolve optional user identity from query param or auth header
+    user = None
+    token = websocket.query_params.get("token")
+    if not token and "authorization" in websocket.headers:
+        auth_h = websocket.headers.get("authorization", "")
+        if auth_h.startswith("Bearer "):
+            token = auth_h[7:].strip()
+    if token:
+        try:
+            user = get_optional_user(token)
+        except Exception:
+            user = None
+
+    user_id = user.id if user else None
+
     try:
         while True:
             payload = await websocket.receive_json()
@@ -325,12 +472,13 @@ async def chat_socket(websocket: WebSocket, chat_id: int) -> None:
 
             try:
                 await run_db(_store, chat_id, MessageRole.USER, question, [], [])
-                messages, excerpts = await _build_prompt(chat_id, question)
+                messages, excerpts, retrieval_query = await _build_prompt(chat_id, question, user_id=user_id)
 
                 await websocket.send_json(
                     {
                         "type": "excerpts",
                         "excerpts": [excerpt.to_dict() for excerpt in excerpts],
+                        "retrieval_query": retrieval_query,
                     }
                 )
 
@@ -342,6 +490,7 @@ async def chat_socket(websocket: WebSocket, chat_id: int) -> None:
                     await websocket.send_json({"type": "token", "text": delta})
 
                 answer, citations = validate_answer("".join(collected), excerpts)
+                evidence_support = assess_evidence_support(answer, citations, excerpts)
                 followups = await _followups(question, answer) if excerpts else []
                 stored = await run_db(
                     _store, chat_id, MessageRole.ASSISTANT, answer, citations, followups
@@ -362,8 +511,8 @@ async def chat_socket(websocket: WebSocket, chat_id: int) -> None:
                         "type": "done",
                         "message": stored,
                         "citations": citations,
+                        "evidence_support": evidence_support,
                         "followups": followups,
-                        # Set when validation replaced the answer, so the UI can re-render.
                         "corrected": answer != "".join(collected),
                         "provider": provider_name,
                         "model": model_name,

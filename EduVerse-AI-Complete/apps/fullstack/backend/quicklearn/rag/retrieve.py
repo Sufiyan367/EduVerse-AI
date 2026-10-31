@@ -82,16 +82,33 @@ def reciprocal_rank_fusion(
     )
 
 
-def _scope_source_ids(scope_type: str, scope_id: int | None) -> list[int] | None:
-    """Resolve a chat scope to source ids. ``None`` means the whole library."""
-    if scope_type == "source" and scope_id is not None:
-        return [scope_id]
-    if scope_type == "folder" and scope_id is not None:
-        from ..db.models import Folder
+def _scope_source_ids(
+    scope_type: str, scope_id: int | None, user_id: int | None = None
+) -> list[int] | None:
+    """Resolve a chat scope to source ids with strict authenticated-user boundary enforcement.
 
-        with session_scope() as session:
-            # Folders nest, so a folder scope must include descendants or a user who filed
-            # lectures into subfolders would get nothing.
+    If user_id is provided, only sources owned by that user (or public unowned demo sources)
+    can ever be returned. A student can NEVER retrieve or leak another student's materials.
+    """
+    from sqlalchemy import or_
+
+    with session_scope() as session:
+        user_filter = (
+            or_(Source.user_id == user_id, Source.user_id.is_(None))
+            if user_id is not None
+            else None
+        )
+
+        if scope_type == "source" and scope_id is not None:
+            stmt = select(Source.id).where(Source.id == scope_id)
+            if user_filter is not None:
+                stmt = stmt.where(user_filter)
+            found = session.execute(stmt).scalar_one_or_none()
+            return [found] if found is not None else [-1]
+
+        if scope_type == "folder" and scope_id is not None:
+            from ..db.models import Folder
+
             wanted = {scope_id}
             frontier = [scope_id]
             while frontier:
@@ -103,23 +120,35 @@ def _scope_source_ids(scope_type: str, scope_id: int | None) -> list[int] | None
                 children = [c for c in children if c not in wanted]
                 wanted.update(children)
                 frontier = children
-            return list(
-                session.execute(
-                    select(Source.id).where(Source.folder_id.in_(list(wanted)))
-                ).scalars()
-            ) or [-1]  # a sentinel that matches nothing, rather than silently going global
+
+            stmt = select(Source.id).where(Source.folder_id.in_(list(wanted)))
+            if user_filter is not None:
+                stmt = stmt.where(user_filter)
+            return list(session.execute(stmt).scalars()) or [-1]
+
+        # Global library scope:
+        if user_id is not None:
+            stmt = select(Source.id).where(user_filter)
+            sources = list(session.execute(stmt).scalars())
+            return sources if sources else [-1]
+
     return None
 
 
-def _load_excerpts(segment_ids: list[int]) -> dict[int, Excerpt]:
+def _load_excerpts(segment_ids: list[int], user_id: int | None = None) -> dict[int, Excerpt]:
     if not segment_ids:
         return {}
+    from sqlalchemy import or_
+
     with session_scope() as session:
-        rows = session.execute(
+        stmt = (
             select(Segment, Source.title)
             .join(Source, Source.id == Segment.source_id)
             .where(Segment.id.in_(segment_ids))
-        ).all()
+        )
+        if user_id is not None:
+            stmt = stmt.where(or_(Source.user_id == user_id, Source.user_id.is_(None)))
+        rows = session.execute(stmt).all()
 
     return {
         segment.id: Excerpt(
@@ -142,6 +171,7 @@ async def retrieve(
     *,
     scope_type: str = "global",
     scope_id: int | None = None,
+    user_id: int | None = None,
     top_k: int | None = None,
     rerank_to: int | None = None,
     use_rerank: bool = True,
@@ -150,7 +180,7 @@ async def retrieve(
     settings = get_settings()
     top_k = top_k or settings.get_int("rag.top_k", 12)
     rerank_to = rerank_to or settings.get_int("rag.rerank_to", 6)
-    source_ids = _scope_source_ids(scope_type, scope_id)
+    source_ids = _scope_source_ids(scope_type, scope_id, user_id=user_id)
 
     log.info(
         "RAG retrieve initiated: query='%s', scope_type=%s, scope_id=%s, top_k=%d, rerank_to=%d",
@@ -189,7 +219,7 @@ async def retrieve(
         return []
 
     candidate_ids = [item_id for item_id, _, _ in fused[:top_k]]
-    excerpts = _load_excerpts(candidate_ids)
+    excerpts = _load_excerpts(candidate_ids, user_id=user_id)
 
     ordered: list[Excerpt] = []
     for item_id, score, origins in fused[:top_k]:
@@ -257,19 +287,25 @@ async def rerank(query: str, excerpts: list[Excerpt], *, limit: int) -> list[Exc
         key=lambda e: (scored.get(e.id, 0.0), e.score),
         reverse=True,
     )
-    # Drop anything the reranker judged actively irrelevant, but never return nothing —
-    # an empty context turns into "your notes don't cover this", which would be wrong here.
-    kept = [e for e in ranked if scored.get(e.id, 0.0) > 0.05][:limit]
-    final = kept or ranked[:limit]
+    # Relevance threshold: passages scored <= 0.15 by the reranker are actively irrelevant.
+    # Never return irrelevant passages as confident context.
+    kept = [e for e in ranked if scored.get(e.id, 0.0) > 0.15][:limit]
+    if not kept:
+        log.info(
+            "Reranker judged all %d candidates below threshold (0.15); returning empty context for honest abstention",
+            len(excerpts),
+        )
+        return []
+
     log.info(
-        "RAG rerank outcome: scored %d items -> selected %d excerpts (IDs: %s, sources: %s, pages: %s)",
+        "RAG rerank outcome: scored %d items -> selected %d relevant excerpts (IDs: %s, sources: %s, pages: %s)",
         len(scored),
-        len(final),
-        [e.id for e in final],
-        [e.source_id for e in final],
-        [e.page_no for e in final],
+        len(kept),
+        [e.id for e in kept],
+        [e.source_id for e in kept],
+        [e.page_no for e in kept],
     )
-    return final
+    return kept
 
 
 def scope_description(scope_type: str, scope_id: int | None) -> str:
