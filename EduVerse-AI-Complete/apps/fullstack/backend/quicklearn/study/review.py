@@ -6,13 +6,13 @@ import datetime as dt
 import logging
 from typing import Any
 
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, select, text
 
 from ..db.enums import CardState
 from ..db.models import Card, Concept, Review, Source
 from ..db.session import session_scope
 from ..db.types import utcnow
-from ..errors import NotFoundError
+from ..errors import NotFoundError, ValidationError
 from . import fsrs as fsrs_module
 from . import mastery
 
@@ -127,6 +127,7 @@ def due_counts(*, folder_id: int | None = None) -> dict[str, int]:
 def apply_rating(card_id: int, rating: int, duration_ms: int | None = None) -> dict[str, Any]:
     """Record a review, reschedule the card, and nudge its concept's mastery atomically."""
     with session_scope() as session:
+        session.execute(text("BEGIN IMMEDIATE"))
         card = session.get(Card, card_id)
         if card is None:
             raise NotFoundError(f"Card {card_id} not found.")
@@ -150,6 +151,8 @@ def apply_rating(card_id: int, rating: int, duration_ms: int | None = None) -> d
             else:
                 concept.mastery = max(0.0, concept.mastery * 0.5)
             new_mastery = round(concept.mastery, 3)
+            concept.learning_version += 1
+            review.state_before = {**review.state_before, "learning_version_after": concept.learning_version}
 
         payload = {
             "card_id": card.id,
@@ -167,6 +170,7 @@ def apply_rating(card_id: int, rating: int, duration_ms: int | None = None) -> d
 def undo_review(card_id: int) -> bool:
     """Roll back the most recent rating for a card and restore concept mastery atomically."""
     with session_scope() as session:
+        session.execute(text("BEGIN IMMEDIATE"))
         review = session.execute(
             select(Review).where(Review.card_id == card_id).order_by(Review.id.desc()).limit(1)
         ).scalar_one_or_none()
@@ -176,11 +180,15 @@ def undo_review(card_id: int) -> bool:
         if card is None:
             return False
 
-        fsrs_module.restore(card, review.state_before or {})
         if "concept_mastery" in (review.state_before or {}) and card.concept_id:
             concept = session.get(Concept, card.concept_id)
             if concept:
+                if review.state_before.get("learning_version_after") != concept.learning_version:
+                    raise ValidationError("Cannot undo this review after newer learning activity. Your newer progress is preserved.")
                 concept.mastery = float(review.state_before["concept_mastery"])
+                concept.learning_version += 1
+
+        fsrs_module.restore(card, review.state_before or {})
 
         session.delete(review)
         return True

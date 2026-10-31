@@ -1,5 +1,5 @@
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router'
-import { AppShell } from './components/layout/AppShell'
+import { StudyShell as AppShell } from './components/layout/StudyShell'
 import { DashboardPage } from './routes/Dashboard'
 import { LibraryPage } from './routes/Library'
 import { SourcePage } from './routes/Source'

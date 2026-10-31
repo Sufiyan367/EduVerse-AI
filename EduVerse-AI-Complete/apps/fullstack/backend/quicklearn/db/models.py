@@ -75,6 +75,7 @@ source_tags = Table(
 
 
 class Folder(Base):
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     __tablename__ = "folders"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -94,6 +95,7 @@ class Folder(Base):
 
 
 class Tag(Base):
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     __tablename__ = "tags"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -251,6 +253,7 @@ class NoteBlock(Base):
 
 
 class Concept(Base):
+    learning_version: Mapped[int] = mapped_column(Integer, default=0)
     """Extracted knowledge unit — the spine of the study engine.
 
     Cards and quiz items generate from concepts rather than raw transcript, which is what
@@ -356,6 +359,7 @@ class QuizItem(Base):
 
 
 class QuizSession(Base):
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     """Not in PRD §5, but the ``/quiz/session/*`` endpoints in §8 require server-side state."""
 
     __tablename__ = "quiz_sessions"
@@ -397,7 +401,18 @@ class QuizAttempt(Base):
     item: Mapped[QuizItem] = relationship()
 
 
+class GradingFailure(Base):
+    __tablename__ = "grading_failures"
+    __table_args__ = (UniqueConstraint("session_id", "quiz_item_id", name="uq_grading_failure"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("quiz_sessions.id", ondelete="CASCADE"))
+    quiz_item_id: Mapped[int] = mapped_column(ForeignKey("quiz_items.id", ondelete="CASCADE"))
+    response: Mapped[str] = mapped_column(Text)
+    resolved: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
 class Podcast(Base):
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     __tablename__ = "podcasts"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -419,6 +434,7 @@ class Podcast(Base):
 
 
 class Chat(Base):
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     __tablename__ = "chats"
 
     id: Mapped[int] = mapped_column(primary_key=True)

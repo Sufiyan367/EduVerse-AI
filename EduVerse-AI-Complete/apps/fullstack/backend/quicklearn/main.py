@@ -78,6 +78,8 @@ def create_app(config: Config | None = None) -> FastAPI:
         )
 
     _install_error_handlers(app)
+    from .security import SecurityMiddleware
+    app.add_middleware(SecurityMiddleware)
     app.include_router(api_router)
     _mount_frontend(app, config)
     return app

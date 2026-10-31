@@ -26,7 +26,7 @@ from .conftest import HAVE_FFMPEG
 
 
 @pytest_asyncio.fixture
-async def client(config: Config, store: Any) -> AsyncIterator[httpx.AsyncClient]:
+async def client(config: Config, store: Any, monkeypatch) -> AsyncIterator[httpx.AsyncClient]:
     """API client with the mock provider configured and authenticated demo session.
 
     The worker pool is deliberately not started — tests drain jobs explicitly with
@@ -34,6 +34,9 @@ async def client(config: Config, store: Any) -> AsyncIterator[httpx.AsyncClient]
     """
     from quicklearn import auth
     from quicklearn.db.session import session_scope
+    # This suite exercises installation configuration as well as study workflows.
+    # Separate multi-user/security tests use ordinary students without this permission.
+    monkeypatch.setenv('EDUVERSE_ADMIN_EMAILS', 'student@eduverse.ai')
 
     app = create_app(config)
     transport = httpx.ASGITransport(app=app)

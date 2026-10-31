@@ -250,6 +250,10 @@ function QuizRunner({
     setLoading(true)
     try {
       const outcome = await api.answerQuestion(sessionId, question.id, answer)
+      if (outcome.is_graded === false) {
+        toast.error(outcome.feedback || 'Grading is unavailable. Your answer is saved without a score. Retry when the service returns.')
+        return
+      }
       setResult(outcome)
       setCount((c) => c + 1)
       // Test mode withholds feedback, so there is nothing to pause on — move straight on.
