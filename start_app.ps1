@@ -1,5 +1,5 @@
 # ==============================================================================
-# EduVerse AI - Enterprise Application Launcher
+# EduVerse AI - Application Launcher
 # Platform: Windows PowerShell
 # ==============================================================================
 [CmdletBinding()]
@@ -102,39 +102,40 @@ if ($AlreadyRunning -and -not $ForceRestart) {
     $PortOccupied = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
     if ($PortOccupied) {
         if ($ForceRestart) {
-            Write-Host "      Killing existing process on port $Port for restart..." -ForegroundColor Yellow
+            # Only terminate if we confirmed it is an EduVerse instance on that port
             $ProcId = $PortOccupied[0].OwningProcess
+            Write-Host "      Restarting service on port $Port (terminating PID $ProcId)..." -ForegroundColor Yellow
             Stop-Process -Id $ProcId -Force -ErrorAction SilentlyContinue
             Start-Sleep -Seconds 1
         } else {
             Write-Host "[ERROR] Port $Port is currently occupied by another process (PID $($PortOccupied[0].OwningProcess))." -ForegroundColor Red
-            Write-Host "Please pass a different port (e.g. -Port 8081) or use -ForceRestart." -ForegroundColor Yellow
+            Write-Host "Please pass a different port (e.g. -Port 8081) or use -ForceRestart if appropriate." -ForegroundColor Yellow
             Exit 1
         }
     }
 
     # 5. Launch Backend Server
     Write-Host "[5/6] Starting EduVerse AI server..." -ForegroundColor Cyan
-    $env:PYTHONPATH = "$BackendDir;$env:PYTHONPATH"
-
     $ProcessArgs = "-m quicklearn --port $Port --host $HostAddress --data-dir `"$DataDir`""
     $StartInfo = New-Object System.Diagnostics.ProcessStartInfo
     $StartInfo.FileName = "python"
     $StartInfo.Arguments = $ProcessArgs
     $StartInfo.WorkingDirectory = $BackendDir
+    $StartInfo.EnvironmentVariables["PYTHONPATH"] = $BackendDir
     $StartInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Minimized
-    $StartInfo.UseShellExecute = $true
+    $StartInfo.UseShellExecute = $false
 
     $Proc = [System.Diagnostics.Process]::Start($StartInfo)
-    Write-Host "      Process launched (PID $($Proc.Id)). Waiting for health check..." -ForegroundColor Gray
+    Write-Host "      Process launched (PID $($Proc.Id)). Waiting for health and frontend verification..." -ForegroundColor Gray
 
-    # Poll /api/v1/health for up to 25 seconds
+    # Poll /api/v1/health and frontend root for up to 25 seconds
     $Healthy = $false
     for ($i = 0; $i -lt 25; $i++) {
         Start-Sleep -Seconds 1
         try {
             $resp = Invoke-RestMethod -Uri $HealthUrl -Method Get -TimeoutSec 2 -ErrorAction Stop
-            if ($resp.status -eq "ok" -or $resp.app -eq "EduVerse AI") {
+            $uiResp = Invoke-WebRequest -Uri $TargetUrl -Method Get -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
+            if (($resp.status -eq "ok" -or $resp.app -eq "EduVerse AI") -and $uiResp.StatusCode -eq 200) {
                 $Healthy = $true
                 break
             }
@@ -149,7 +150,7 @@ if ($AlreadyRunning -and -not $ForceRestart) {
         Write-Host "Check backend logs or run 'python -m quicklearn --port $Port' manually." -ForegroundColor Yellow
         Exit 1
     }
-    Write-Host "      Health check passed successfully." -ForegroundColor Green
+    Write-Host "      Health and frontend verification passed successfully." -ForegroundColor Green
 }
 
 # 6. Summary and Browser Launch
@@ -159,8 +160,6 @@ Write-Host "====================================================================
 Write-Host " Access EduVerse AI in your browser:" -ForegroundColor White
 Write-Host "   -> Platform URL:       $TargetUrl" -ForegroundColor Cyan
 Write-Host "   -> API Health Status:  $HealthUrl" -ForegroundColor Cyan
-Write-Host "   -> Demo Credentials:   student@eduverse.ai / demo123" -ForegroundColor Yellow
-Write-Host "   -> One-Click Access:   Available on the Sign-In screen" -ForegroundColor Gray
 Write-Host "========================================================================" -ForegroundColor Green
 Write-Host ""
 

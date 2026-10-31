@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
+import secrets
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -22,8 +25,9 @@ from ..auth import (
     validate_password,
     verify_password,
 )
-from ..db.models import User
+from ..db.models import PasswordResetToken, User
 from ..db.session import get_db
+from ..email_service import is_email_configured, send_password_reset_email
 
 log = logging.getLogger(__name__)
 
@@ -53,6 +57,16 @@ class LoginRequest(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str = Field(min_length=8, max_length=128)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str = Field(description="Account email address")
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=16, description="Cryptographic password reset token")
+    new_password: str = Field(min_length=8, max_length=128)
+
 
 
 class UserOut(BaseModel):
@@ -210,3 +224,82 @@ def change_password(
 
     log.info("SECURITY_EVENT: Password changed and all sessions revoked for user=%s", user.email)
     return {"message": "Password changed successfully. All previous sessions have been invalidated."}
+
+
+@router.post("/forgot-password")
+def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = Depends(get_db)) -> dict[str, str]:
+    """Request a password reset token. Never reveals whether the email exists."""
+    client_ip = _client_ip(request)
+    throttler.check_login_allowed(req.email, client_ip)
+
+    if not is_email_configured():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Email delivery service is not configured on this server. Please contact an administrator.",
+        )
+
+    email_clean = req.email.strip().lower()
+    user = db.scalar(select(User).where(User.email == email_clean))
+
+    if user and user.is_active:
+        raw_token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+
+        reset_record = PasswordResetToken(
+            user_id=user.id,
+            token_hash=token_hash,
+            expires_at=expires_at,
+            used_at=None,
+        )
+        db.add(reset_record)
+        db.commit()
+
+        try:
+            send_password_reset_email(user.email, raw_token)
+        except Exception as exc:
+            log.error("Failed to send password reset email to %s: %s", user.email, exc)
+
+    log.info("SECURITY_EVENT: Password reset requested for email=%s from ip=%s", req.email, client_ip)
+    return {"message": "If an account matches that email address, password reset instructions have been sent."}
+
+
+@router.post("/reset-password")
+def reset_password(req: ResetPasswordRequest, request: Request, db: Session = Depends(get_db)) -> dict[str, str]:
+    """Reset account password using single-use cryptographic token, revoking all active sessions."""
+    client_ip = _client_ip(request)
+    validate_password(req.new_password)
+
+    token_hash = hashlib.sha256(req.token.strip().encode("utf-8")).hexdigest()
+    now = datetime.now(timezone.utc)
+
+    reset_record = db.scalar(
+        select(PasswordResetToken).where(
+            PasswordResetToken.token_hash == token_hash,
+            PasswordResetToken.used_at.is_(None),
+            PasswordResetToken.expires_at > now,
+        )
+    )
+
+    if not reset_record:
+        log.warning("SECURITY_EVENT: Invalid or expired reset token attempt from ip=%s", client_ip)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired password reset token.",
+        )
+
+    user = db.get(User, reset_record.user_id)
+    if not user:
+        raise HTTPException(status_code=400, detail="Associated account not found.")
+
+    # Invalidate token so it cannot be reused
+    reset_record.used_at = now
+
+    # Update password and bump token_version to invalidate all existing sessions
+    user.hashed_password = hash_password(req.new_password)
+    user.token_version = (user.token_version or 1) + 1
+    db.commit()
+
+    log.info("SECURITY_EVENT: Password successfully reset and all sessions invalidated for user=%s", user.email)
+    return {"message": "Password has been successfully reset. You may now sign in with your new password."}
+

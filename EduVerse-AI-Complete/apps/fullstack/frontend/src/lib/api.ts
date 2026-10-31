@@ -274,6 +274,9 @@ export const api = {
   logout: () => post<{ message: string }>('/auth/logout', {}),
   changePassword: (body: { current_password: string; new_password: string }) =>
     post<{ message: string }>('/auth/change-password', body),
+  forgotPassword: (email: string) => post<{ message: string }>('/auth/forgot-password', { email }),
+  resetPassword: (body: { token: string; new_password: string }) =>
+    post<{ message: string }>('/auth/reset-password', body),
   me: () => get<User>('/auth/me'),
   dashboardStats: () => get<DashboardStats>('/dashboard/stats'),
   knowledgeGapSummary: () => get<KnowledgeGapSummary>('/knowledge-gap/summary'),

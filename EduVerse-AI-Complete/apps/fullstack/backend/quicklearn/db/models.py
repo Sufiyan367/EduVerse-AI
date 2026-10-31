@@ -617,3 +617,17 @@ class RevokedToken(Base):
     user_id: Mapped[int] = mapped_column(Integer, index=True)
     revoked_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow)
     expires_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, index=True)
+
+
+class PasswordResetToken(Base):
+    """Tracks cryptographically secure, single-use password reset tokens."""
+
+    __tablename__ = "password_reset_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    expires_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, index=True)
+    used_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow)
+

@@ -78,10 +78,29 @@ class SecurityMiddleware:
 
     async def __call__(self, scope, receive, send):
         path = scope.get('path', '')
-        if scope['type'] not in ('http', 'websocket') or not path.startswith('/api/v1'):
+        if scope['type'] not in ('http', 'websocket'):
             return await self.app(scope, receive, send)
-        if path in ('/api/v1/health', '/api/v1/auth/login', '/api/v1/auth/register'):
-            return await self.app(scope, receive, send)
+
+        async def secure_send(message):
+            if message['type'] == 'http.response.start':
+                h = list(message.get('headers', []))
+                h.append((b'content-security-policy', b"default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ws: wss:; frame-ancestors 'none';"))
+                h.append((b'x-content-type-options', b'nosniff'))
+                h.append((b'x-frame-options', b'DENY'))
+                h.append((b'referrer-policy', b'strict-origin-when-cross-origin'))
+                message['headers'] = h
+            await send(message)
+
+        if not path.startswith('/api/v1'):
+            return await self.app(scope, receive, secure_send)
+        if path in (
+            '/api/v1/health',
+            '/api/v1/auth/login',
+            '/api/v1/auth/register',
+            '/api/v1/auth/forgot-password',
+            '/api/v1/auth/reset-password',
+        ):
+            return await self.app(scope, receive, secure_send)
         headers = dict(scope.get('headers', []))
         header = headers.get(b'authorization', b'').decode()
         token = header[7:] if header.startswith('Bearer ') else None
@@ -112,6 +131,6 @@ class SecurityMiddleware:
                                     return
                     await send(message)
                 return await self.app(scope, receive, filtered_send)
-            return await self.app(scope, receive, send)
+            return await self.app(scope, receive, secure_send if scope['type'] == 'http' else send)
         finally:
             principal.reset(marker)
