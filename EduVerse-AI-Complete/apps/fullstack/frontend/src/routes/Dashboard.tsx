@@ -57,7 +57,7 @@ export function DashboardPage() {
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-[var(--text)]">Student Dashboard</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-[var(--text)]">{typeof localStorage !== 'undefined' && localStorage.getItem('eduverse_user') ? ('Welcome back, ' + (JSON.parse(localStorage.getItem('eduverse_user') || '{}').full_name || JSON.parse(localStorage.getItem('eduverse_user') || '{}').username || 'Student')) : 'Student Dashboard'}</h1>
             <Badge tone="accent" className="text-xs">EduVerse AI</Badge>
           </div>
           <p className="text-sm text-[var(--text-muted)]">

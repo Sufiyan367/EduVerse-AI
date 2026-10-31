@@ -271,6 +271,9 @@ export const api = {
   login: (body: { username: string; password: string }) => post<AuthResponse>('/auth/login', body),
   register: (body: { email: string; username: string; password: string; full_name?: string }) =>
     post<AuthResponse>('/auth/register', body),
+  logout: () => post<{ message: string }>('/auth/logout', {}),
+  changePassword: (body: { current_password: string; new_password: string }) =>
+    post<{ message: string }>('/auth/change-password', body),
   me: () => get<User>('/auth/me'),
   dashboardStats: () => get<DashboardStats>('/dashboard/stats'),
   knowledgeGapSummary: () => get<KnowledgeGapSummary>('/knowledge-gap/summary'),
