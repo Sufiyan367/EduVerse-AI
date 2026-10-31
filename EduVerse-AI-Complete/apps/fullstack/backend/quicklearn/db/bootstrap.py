@@ -55,14 +55,17 @@ def init_database(config: Config | None = None) -> None:
     run_migrations()
     create_virtual_tables()
 
-    # Seed default EduVerse demo student
-    try:
-        from ..auth import seed_default_demo_user
-        from .session import session_scope
+    # Seed default EduVerse demo student if enabled
+    if cfg.seed_demo:
+        try:
+            from ..auth import seed_default_demo_user
+            from .session import session_scope
 
-        with session_scope() as session:
-            seed_default_demo_user(session)
-    except Exception as exc:
-        log.warning("Could not seed default demo user: %s", exc)
+            with session_scope() as session:
+                seed_default_demo_user(session)
+        except Exception as exc:
+            log.warning("Could not seed default demo user: %s", exc)
+    else:
+        log.info("Demo account seeding suppressed (production or EDUVERSE_SEED_DEMO=false).")
 
     log.info("database ready at %s", cfg.db_path)

@@ -104,12 +104,10 @@ export const api = {
   ) => post<{ job_ids: number[]; note_was_edited: boolean }>(`/sources/${id}/regenerate`, body),
   reprocess: (id: number) => post<{ job_id: number }>(`/sources/${id}/reprocess`),
   mediaUrl: (id: number) => {
-    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('eduverse_token') : null
-    return `${BASE}/sources/${id}/media${token ? `?token=${encodeURIComponent(token)}` : ''}`
+    return `${BASE}/sources/${id}/media`
   },
   audioUrl: (id: number) => {
-    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('eduverse_token') : null
-    return `${BASE}/sources/${id}/audio${token ? `?token=${encodeURIComponent(token)}` : ''}`
+    return `${BASE}/sources/${id}/audio`
   },
 
   /** Upload with progress. Uses XHR because fetch cannot report upload progress. */
@@ -307,10 +305,11 @@ export const api = {
   startRecording: (title = '', folderId?: number) =>
     post<{ source_id: number; upload_token: string; warning?: string }>('/sources/record/start', { title, folder_id: folderId }),
   sendRecordingChunk: (token: string, chunk: Blob) => {
-    return fetch(`/api/v1/sources/record/chunk?token=${encodeURIComponent(token)}`, {
+    return fetch('/api/v1/sources/record/chunk', {
       method: 'POST',
       body: chunk,
       headers: {
+        'X-Upload-Token': token,
         ...(localStorage.getItem('eduverse_token') ? { Authorization: `Bearer ${localStorage.getItem('eduverse_token')}` } : {})
       }
     }).then(async r => {

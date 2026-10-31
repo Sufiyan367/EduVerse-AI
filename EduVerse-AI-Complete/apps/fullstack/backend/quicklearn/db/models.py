@@ -568,6 +568,7 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(255), default="")
     avatar_color: Mapped[str] = mapped_column(String(32), default="#7C3AED")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    token_version: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
@@ -604,3 +605,15 @@ class ActivityLog(Base):
     title: Mapped[str] = mapped_column(String(255))
     details: Mapped[JSONDict] = mapped_column(JSON, default=dict)
     created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow, index=True)
+
+
+class RevokedToken(Base):
+    """Tracks revoked JWT token IDs (jti) to enforce server-side logout and session invalidation."""
+
+    __tablename__ = "revoked_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    jti: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, index=True)
+    revoked_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow)
+    expires_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, index=True)

@@ -266,6 +266,13 @@ async def send_message(chat_id: int, payload: SendMessageRequest) -> dict[str, A
 
     stored = await run_db(_store, chat_id, MessageRole.ASSISTANT, answer, citations, followups)
     stored["excerpts"] = [excerpt.to_dict() for excerpt in excerpts]
+    try:
+        resolved = gateway.registry.get_llm("standard")
+        stored["provider"] = resolved.provider_name
+        stored["model"] = resolved.model
+        stored["is_mock"] = (resolved.provider_name == "mock")
+    except Exception:
+        stored["is_mock"] = False
     return stored
 
 
@@ -309,6 +316,17 @@ async def chat_socket(websocket: WebSocket, chat_id: int) -> None:
                 stored = await run_db(
                     _store, chat_id, MessageRole.ASSISTANT, answer, citations, followups
                 )
+                is_mock_provider = False
+                provider_name = ""
+                model_name = ""
+                try:
+                    resolved = gateway.registry.get_llm("standard")
+                    provider_name = resolved.provider_name
+                    model_name = resolved.model
+                    is_mock_provider = (resolved.provider_name == "mock")
+                except Exception:
+                    pass
+
                 await websocket.send_json(
                     {
                         "type": "done",
@@ -317,14 +335,17 @@ async def chat_socket(websocket: WebSocket, chat_id: int) -> None:
                         "followups": followups,
                         # Set when validation replaced the answer, so the UI can re-render.
                         "corrected": answer != "".join(collected),
+                        "provider": provider_name,
+                        "model": model_name,
+                        "is_mock": is_mock_provider,
                     }
                 )
             except QuicklearnError as exc:
                 await websocket.send_json({"type": "error", "message": exc.message})
             except Exception as exc:
-                log.exception("chat stream failed")
+                log.exception("chat stream failed: %s", exc)
                 await websocket.send_json(
-                    {"type": "error", "message": f"{type(exc).__name__}: {exc}"}
+                    {"type": "error", "message": "An error occurred while generating the response. Please try again."}
                 )
     except WebSocketDisconnect:
         return

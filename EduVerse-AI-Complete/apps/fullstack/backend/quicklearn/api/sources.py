@@ -233,11 +233,18 @@ async def record_start(payload: RecordStartRequest) -> dict[str, Any]:
 
 
 @router.post("/record/chunk")
-async def record_chunk(request: Request, token: Annotated[str, Query()]) -> dict[str, Any]:
+async def record_chunk(
+    request: Request,
+    token: Annotated[str | None, Query()] = None,
+    x_upload_token: Annotated[str | None, Header(alias="X-Upload-Token")] = None,
+) -> dict[str, Any]:
+    upload_token = x_upload_token or token
+    if not upload_token:
+        raise ValidationError("Missing recording upload token.")
     data = await request.body()
     if not data:
         return {"received_bytes": 0}
-    received = await run_db(acquire.append_chunk, token, data)
+    received = await run_db(acquire.append_chunk, upload_token, data)
     return {"received_bytes": received}
 
 

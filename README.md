@@ -7,7 +7,7 @@
 [![PyMuPDF: 1.24+](https://img.shields.io/badge/PyMuPDF-1.24+-0A9396.svg)](https://pymupdf.readthedocs.io/)
 [![Three.js: WebGL](https://img.shields.io/badge/Three.js-3D%20Avatar-0A192F.svg)](https://threejs.org)
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Live%20Showcase-0E7490?logo=github&logoColor=white)](https://sufiyan367.github.io/EduVerse-AI/)
-[![Full-Stack Tests: 123 Passed](https://img.shields.io/badge/Tests-123%2F123%20Passed-brightgreen.svg)](EduVerse_Web_Demo/backend/tests/)
+[![Full-Stack Tests: 133 Passed](https://img.shields.io/badge/Tests-133%2F133%20Passed-brightgreen.svg)](EduVerse-AI-Complete/apps/fullstack/tests/)
 [![Astra Remediation: 8 Passed](https://img.shields.io/badge/Security-8%2F8%20Remediation%20Passed-059669.svg)](EduVerse_Web_Demo/backend/tests/test_remediation_suite.py)
 [![Baseline Tests: 17 Passed](https://img.shields.io/badge/Baseline-17%2F18%20Passed-blue.svg)](tests/)
 [![CI](https://github.com/Sufiyan367/EduVerse-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/Sufiyan367/EduVerse-AI/actions/workflows/ci.yml)
@@ -61,8 +61,8 @@ graph TD
         DemoGateway["FastAPI Gateway (Port 8080)"]
         DemoDB[("SQLite 3 + WAL + sqlite-vec Vector Memory")]
         DemoCognitive["FSRS-6 Flashcards | Knowledge Gap Detector | Revision Planner"]
-        DemoAuth["PBKDF2 Password Hashing + High-Entropy JWT"]
-        DemoTests["Pytest Suite: 123 Passed | 0 TypeScript Errors"]
+        DemoAuth["Argon2id Password Hashing + JTI Session Revocation"]
+        DemoTests["Pytest Suite: 133 Passed | 0 TypeScript Errors"]
     end
 
     subgraph PoCArch ["3. Foundation PoC (EduVerse_Foundation_PoC/)"]
@@ -108,7 +108,7 @@ graph TD
 | **Grading Outage Protection** | Non-penalizing fault handler | Provider timeouts or 429 errors leave student mastery untouched and record responses as ungraded. |
 | **Knowledge Gap Detector** | Statistical mistake aggregator | Flags concept weaknesses from quiz attempt patterns and categorizes gaps (`CRITICAL`, `MODERATE`). |
 | **Adaptive Revision Planner** | Spaced scheduling optimizer | Auto-schedules revision sessions prioritized by gap severity and card due dates. |
-| **Multi-User Isolation** | PBKDF2 + HMAC-SHA256 JWT | Enforced server-side ownership: cross-user read/write/delete attempts strictly return `403 Forbidden`. |
+| **Multi-User Isolation & Security** | Argon2id + HMAC-SHA256 JWT with JTI Revocation | Multi-tenant tenant boundaries, Argon2id with PBKDF2 backward compatibility, server-side session invalidation on logout and password change, abuse throttling. |
 | **Academic LaTeX Report** | Tectonic PDF compiler | 25-page formatted report conforming to university B.Tech guidelines (`EduVerse_AI_Project_Report.pdf`). |
 
 ---

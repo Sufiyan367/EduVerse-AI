@@ -249,10 +249,17 @@ async def submit_answer(session_id: int, payload: AnswerRequest) -> dict[str, An
                 else:
                     pending.response = payload.response
                     pending.resolved = False
-                return {"item_id": item.id, "score": None, "is_correct": None, "is_graded": False,
-                        "mastery": round(concept.mastery, 3) if concept else 0.0,
-                        "feedback": "Grading is temporarily unavailable. Your answer is saved without a score; please retry.",
-                        "error": "grading_unavailable"}
+                res: dict[str, Any] = {
+                    "item_id": item.id,
+                    "score": None,
+                    "is_correct": None,
+                    "is_graded": False,
+                    "mastery": round(concept.mastery, 3) if concept else 0.0,
+                    "error": "grading_unavailable",
+                }
+                if row.mode is not QuizMode.TEST:
+                    res["feedback"] = "Grading is temporarily unavailable. Your answer is saved without a score; please retry."
+                return res
             attempt = QuizAttempt(session_id=session_id, quiz_item_id=item.id,
                                   response=payload.response, is_correct=grade.is_correct,
                                   score=grade.score, feedback=grade.feedback)
