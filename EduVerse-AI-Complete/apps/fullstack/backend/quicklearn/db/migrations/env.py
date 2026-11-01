@@ -19,12 +19,14 @@ target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
+    url = get_config().db_url
+    is_sqlite = "sqlite" in str(url).lower()
     context.configure(
-        url=get_config().db_url,
+        url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        render_as_batch=True,
+        render_as_batch=is_sqlite,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -56,11 +58,14 @@ def _render_item(type_: str, obj: object, autogen_context: object) -> str | bool
 
 
 def _run(connection: object) -> None:
+    is_sqlite = False
+    if hasattr(connection, "dialect"):
+        is_sqlite = (connection.dialect.name == "sqlite")
     context.configure(
         connection=connection,  # type: ignore[arg-type]
         target_metadata=target_metadata,
         # SQLite cannot ALTER most things in place; batch mode recreates-and-copies instead.
-        render_as_batch=True,
+        render_as_batch=is_sqlite,
         compare_type=True,
         render_item=_render_item,
     )

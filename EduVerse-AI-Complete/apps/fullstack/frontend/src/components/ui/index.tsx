@@ -432,3 +432,26 @@ export function Field({
     </div>
   )
 }
+
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  className,
+}: {
+  open: boolean
+  onClose: () => void
+  title?: string
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className={className}>
+        {title && <DialogTitle className="mb-3">{title}</DialogTitle>}
+        {children}
+      </DialogContent>
+    </Dialog>
+  )
+}

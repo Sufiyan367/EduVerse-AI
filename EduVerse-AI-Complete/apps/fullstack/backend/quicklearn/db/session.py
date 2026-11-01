@@ -67,17 +67,32 @@ def _configure_connection(dbapi_conn: Any, _record: Any) -> None:
         cur.close()
 
 
+def is_postgres(engine: Engine | None = None) -> bool:
+    eng = engine or get_engine()
+    return eng.dialect.name in ("postgresql", "postgres")
+
+
 def create_db_engine(config: Config | None = None, *, echo: bool = False) -> Engine:
     cfg = config or get_config()
-    engine = create_engine(
-        cfg.db_url,
-        echo=echo,
-        future=True,
-        # Connections cross threads because DB work runs in the threadpool.
-        connect_args={"check_same_thread": False, "timeout": 15.0},
-        pool_pre_ping=True,
-    )
-    event.listen(engine, "connect", _configure_connection)
+    db_url = cfg.db_url
+    if db_url.startswith("postgresql") or db_url.startswith("postgres"):
+        engine = create_engine(
+            db_url,
+            echo=echo,
+            future=True,
+            pool_size=10,
+            max_overflow=20,
+            pool_pre_ping=True,
+        )
+    else:
+        engine = create_engine(
+            db_url,
+            echo=echo,
+            future=True,
+            connect_args={"check_same_thread": False, "timeout": 15.0},
+            pool_pre_ping=True,
+        )
+        event.listen(engine, "connect", _configure_connection)
     return engine
 
 
@@ -154,3 +169,5 @@ def get_db() -> Iterator[Session]:
     """FastAPI dependency yielding a transactional database session."""
     with session_scope() as session:
         yield session
+
+raw_connection = raw_sqlite

@@ -333,4 +333,48 @@ export const api = {
     post<{ source_id: number; job_id: number }>(`/sources/${sourceId}/process-unfinished`, {}),
   discardUnfinished: (sourceId: number) =>
     del<{ deleted: boolean }>(`/sources/recordings/unfinished/${sourceId}`),
+
+  // ---------------------------------------------------------------- academic intelligence
+  listCourses: () => get<any[]>('/courses'),
+  createCourse: (data: { code: string; name: string; semester?: string; academic_year?: string; description?: string; target_exam_date?: string }) =>
+    post<any>('/courses', data),
+  getCourse: (courseId: number) => get<any>(`/courses/${courseId}`),
+  deleteCourse: (courseId: number) => del<any>(`/courses/${courseId}`),
+  linkCourseMaterial: (courseId: number, data: { source_id: number; unit_id?: number }) =>
+    post<any>(`/courses/${courseId}/materials`, data),
+
+  getSyllabus: (courseId: number) => get<any>(`/courses/${courseId}/syllabus`),
+  addUnit: (courseId: number, data: { unit_number: number; title: string; description?: string; weightage_percent?: number }) =>
+    post<any>(`/courses/${courseId}/syllabus/units`, data),
+  addTopic: (courseId: number, data: { unit_id: number; name: string; bloom_level?: string; importance_score?: number }) =>
+    post<any>(`/courses/${courseId}/syllabus/topics`, data),
+  deleteTopic: (courseId: number, topicId: number) =>
+    del<any>(`/courses/${courseId}/syllabus/topics/${topicId}`),
+  extractSyllabus: (courseId: number, data: { source_id?: number; raw_text?: string }) =>
+    post<any>(`/courses/${courseId}/syllabus/extract`, data),
+
+  listPapers: (courseId: number) => get<any[]>(`/courses/${courseId}/papers`),
+  createPaper: (courseId: number, data: { title: string; exam_term?: string; exam_year?: number; total_marks?: number; duration_minutes?: number; source_id?: number }) =>
+    post<any>(`/courses/${courseId}/papers`, data),
+  getPaper: (courseId: number, paperId: number) => get<any>(`/courses/${courseId}/papers/${paperId}`),
+  deletePaper: (courseId: number, paperId: number) => del<any>(`/courses/${courseId}/papers/${paperId}`),
+  extractPaperQuestions: (courseId: number, data: { paper_id: number; source_id?: number; raw_text?: string }) =>
+    post<any>(`/courses/${courseId}/papers/extract`, data),
+  getPaperAnalytics: (courseId: number) => get<any>(`/courses/${courseId}/papers/analytics/overview`),
+
+  generateSimulation: (courseId: number, data: { title?: string; max_score?: number; question_count?: number }) =>
+    post<any>(`/simulator/courses/${courseId}/generate`, data),
+  getSimulationSession: (sessionId: number) => get<any>(`/simulator/sessions/${sessionId}`),
+  submitExam: (sessionId: number, answers: Array<{ question_id: number; student_answer: string }>) =>
+    post<any>(`/simulator/sessions/${sessionId}/submit`, { answers }),
+  gradeExam: (sessionId: number) => post<any>(`/simulator/sessions/${sessionId}/grade`, {}),
+  getExamHistory: () => get<any[]>('/simulator/history'),
+
+  getMasteryProfile: (courseId: number) => get<any>(`/adaptive/courses/${courseId}/mastery`),
+  generateAdaptivePlan: (courseId: number, data: { title?: string; target_date?: string }) =>
+    post<any>(`/adaptive/courses/${courseId}/plan`, data),
+  getCurrentPlan: (courseId: number) => get<any>(`/adaptive/courses/${courseId}/plan`),
+  toggleTask: (taskId: number) => post<any>(`/adaptive/tasks/${taskId}/toggle`, {}),
+  remediateTask: (taskId: number, data: { action_type?: string; delta?: number }) =>
+    post<any>(`/adaptive/tasks/${taskId}/remediate`, data),
 }

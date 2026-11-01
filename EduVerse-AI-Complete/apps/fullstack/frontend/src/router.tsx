@@ -1,6 +1,12 @@
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router'
 import { AppShell } from './components/layout/AppShell'
 import { DashboardPage } from './routes/Dashboard'
+import { CoursesPage } from './routes/Courses'
+import { SyllabusMapPage } from './routes/SyllabusMap'
+import { PaperAnalyticsPage } from './routes/PaperAnalytics'
+import { ExamSimulatorPage } from './routes/ExamSimulator'
+import { PerformancePage } from './routes/Performance'
+import { AdaptiveRevisionPage } from './routes/AdaptiveRevision'
 import { LibraryPage } from './routes/Library'
 import { SourcePage } from './routes/Source'
 import { ReviewPage } from './routes/Review'
@@ -13,9 +19,6 @@ import { RecordPage } from './routes/Record'
 import { SettingsPage } from './routes/Settings'
 import { NotFound } from './routes/NotFound'
 
-// Code-based routing rather than the file-based plugin: it removes a codegen step and a
-// generated file that can drift, with no user-visible difference.
-
 const rootRoute = createRootRoute({
   component: AppShell,
   notFoundComponent: NotFound,
@@ -23,10 +26,52 @@ const rootRoute = createRootRoute({
 
 const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: DashboardPage })
 
-// Search params are declared with *optional* properties. Returning `{ folder: undefined }`
-// from an un-annotated validator makes TanStack treat every key as required, which forces
-// every `Link` and `navigate` in the app to spell out search params it does not care about.
+// Course Workspace & Academic Domain Routes
+const coursesRoute = createRoute({ getParentRoute: () => rootRoute, path: '/courses', component: CoursesPage })
 
+interface CourseContextSearch {
+  courseId?: number
+}
+
+const syllabusRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/syllabus',
+  component: SyllabusMapPage,
+  validateSearch: (search: Record<string, unknown>): CourseContextSearch => ({
+    courseId: search.courseId ? Number(search.courseId) : undefined,
+  }),
+})
+
+const papersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/papers',
+  component: PaperAnalyticsPage,
+  validateSearch: (search: Record<string, unknown>): CourseContextSearch => ({
+    courseId: search.courseId ? Number(search.courseId) : undefined,
+  }),
+})
+
+const simulatorRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/simulator',
+  component: ExamSimulatorPage,
+  validateSearch: (search: Record<string, unknown>): CourseContextSearch => ({
+    courseId: search.courseId ? Number(search.courseId) : undefined,
+  }),
+})
+
+const adaptiveRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/adaptive',
+  component: AdaptiveRevisionPage,
+  validateSearch: (search: Record<string, unknown>): CourseContextSearch => ({
+    courseId: search.courseId ? Number(search.courseId) : undefined,
+  }),
+})
+
+const performanceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/performance', component: PerformancePage })
+
+// Existing Study & Tool Routes
 interface LibrarySearch {
   folder?: number
   tag?: string
@@ -109,6 +154,12 @@ const settingsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/set
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
+  coursesRoute,
+  syllabusRoute,
+  papersRoute,
+  simulatorRoute,
+  adaptiveRoute,
+  performanceRoute,
   libraryRoute,
   sourceRoute,
   reviewRoute,

@@ -55,6 +55,12 @@ def init_database(config: Config | None = None) -> None:
     run_migrations()
     create_virtual_tables()
 
+    try:
+        from ..rag.index import get_index
+        get_index().ensure(384)
+    except Exception as exc:
+        log.warning("Could not ensure vector index table: %s", exc)
+
     # Seed default EduVerse demo student if enabled
     if cfg.seed_demo:
         try:
@@ -68,4 +74,4 @@ def init_database(config: Config | None = None) -> None:
     else:
         log.info("Demo account seeding suppressed (production or EDUVERSE_SEED_DEMO=false).")
 
-    log.info("database ready at %s", cfg.db_path)
+    log.info("database ready at %s", cfg.db_url)

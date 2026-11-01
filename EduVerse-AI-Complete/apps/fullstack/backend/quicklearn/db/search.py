@@ -1,25 +1,22 @@
-"""FTS5 full-text search index.
+"""Full-text search index supporting both PostgreSQL (native tsvector + GIN) and SQLite (FTS5).
 
 One index covers everything searchable — note text, transcript segments, card faces, concept
 definitions and source titles — so ``Cmd+K`` is a single query rather than a union of five.
-
-Built on FTS5's *external content* pattern: a plain ``search_docs`` table holds the rows and
-owns a ``(kind, entity_id)`` unique key, while ``search_fts`` indexes it and is kept in sync by
-triggers. Triggers rather than application-level syncing because an index that can silently
-drift out of date is worse than no index — a user who searches and gets nothing concludes the
-content isn't there.
 """
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
+
+log = logging.getLogger(__name__)
 
 SearchKind = Literal["note", "segment", "card", "concept", "source"]
 
-_SCHEMA = """
+_SQLITE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS search_docs (
     id         INTEGER PRIMARY KEY,
     kind       TEXT    NOT NULL,
@@ -56,9 +53,38 @@ CREATE TRIGGER IF NOT EXISTS search_docs_au AFTER UPDATE ON search_docs BEGIN
 END;
 """
 
+_POSTGRES_SCHEMA = """
+CREATE TABLE IF NOT EXISTS search_docs (
+    id         SERIAL PRIMARY KEY,
+    kind       VARCHAR(32)  NOT NULL,
+    entity_id  INTEGER      NOT NULL,
+    source_id  INTEGER,
+    title      TEXT         NOT NULL DEFAULT '',
+    body       TEXT         NOT NULL DEFAULT '',
+    tsv        tsvector GENERATED ALWAYS AS (
+        setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
+        setweight(to_tsvector('english', coalesce(body, '')), 'B')
+    ) STORED,
+    UNIQUE(kind, entity_id)
+);
 
-def create_schema(conn: sqlite3.Connection) -> None:
-    conn.executescript(_SCHEMA)
+CREATE INDEX IF NOT EXISTS ix_search_docs_source ON search_docs(source_id);
+CREATE INDEX IF NOT EXISTS ix_search_docs_tsv ON search_docs USING GIN(tsv);
+"""
+
+
+def _is_pg(conn: Any) -> bool:
+    mod = getattr(conn, "__module__", "").lower()
+    return "psycopg" in mod or "postgres" in mod or hasattr(conn, "pgconn")
+
+
+def create_schema(conn: Any) -> None:
+    if _is_pg(conn):
+        cur = conn.cursor()
+        cur.execute(_POSTGRES_SCHEMA)
+        cur.close()
+    else:
+        conn.executescript(_SQLITE_SCHEMA)
 
 
 @dataclass(slots=True)
@@ -68,12 +94,12 @@ class SearchHit:
     source_id: int | None
     title: str
     snippet: str
-    #: FTS5 BM25. Negative, and more negative means a better match.
+    #: FTS5 BM25 or inverted ts_rank. Negative, and more negative means a better match.
     score: float
 
 
 def upsert(
-    conn: sqlite3.Connection,
+    conn: Any,
     kind: SearchKind,
     entity_id: int,
     *,
@@ -81,57 +107,97 @@ def upsert(
     body: str = "",
     source_id: int | None = None,
 ) -> None:
-    conn.execute(
-        """
-        INSERT INTO search_docs (kind, entity_id, source_id, title, body)
-        VALUES (?, ?, ?, ?, ?)
-        ON CONFLICT(kind, entity_id) DO UPDATE SET
-            source_id = excluded.source_id,
-            title     = excluded.title,
-            body      = excluded.body
-        """,
-        (kind, entity_id, source_id, title, body),
-    )
+    if _is_pg(conn):
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO search_docs (kind, entity_id, source_id, title, body)
+            VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT(kind, entity_id) DO UPDATE SET
+                source_id = EXCLUDED.source_id,
+                title     = EXCLUDED.title,
+                body      = EXCLUDED.body
+            """,
+            (kind, entity_id, source_id, title, body),
+        )
+        cur.close()
+    else:
+        conn.execute(
+            """
+            INSERT INTO search_docs (kind, entity_id, source_id, title, body)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(kind, entity_id) DO UPDATE SET
+                source_id = excluded.source_id,
+                title     = excluded.title,
+                body      = excluded.body
+            """,
+            (kind, entity_id, source_id, title, body),
+        )
 
 
 def upsert_many(
-    conn: sqlite3.Connection,
+    conn: Any,
     kind: SearchKind,
     rows: Iterable[tuple[int, str, str, int | None]],
 ) -> None:
     """Bulk variant. ``rows`` is ``(entity_id, title, body, source_id)``."""
-    conn.executemany(
-        """
-        INSERT INTO search_docs (kind, entity_id, title, body, source_id)
-        VALUES (?, ?, ?, ?, ?)
-        ON CONFLICT(kind, entity_id) DO UPDATE SET
-            title = excluded.title, body = excluded.body, source_id = excluded.source_id
-        """,
-        [(kind, eid, title, body, sid) for eid, title, body, sid in rows],
-    )
+    data = [(kind, eid, title, body, sid) for eid, title, body, sid in rows]
+    if not data:
+        return
+
+    if _is_pg(conn):
+        cur = conn.cursor()
+        cur.executemany(
+            """
+            INSERT INTO search_docs (kind, entity_id, title, body, source_id)
+            VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT(kind, entity_id) DO UPDATE SET
+                title = EXCLUDED.title, body = EXCLUDED.body, source_id = EXCLUDED.source_id
+            """,
+            data,
+        )
+        cur.close()
+    else:
+        conn.executemany(
+            """
+            INSERT INTO search_docs (kind, entity_id, title, body, source_id)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(kind, entity_id) DO UPDATE SET
+                title = excluded.title, body = excluded.body, source_id = excluded.source_id
+            """,
+            data,
+        )
 
 
-def delete(conn: sqlite3.Connection, kind: SearchKind, entity_id: int) -> None:
-    conn.execute("DELETE FROM search_docs WHERE kind = ? AND entity_id = ?", (kind, entity_id))
+def delete(conn: Any, kind: SearchKind, entity_id: int) -> None:
+    if _is_pg(conn):
+        cur = conn.cursor()
+        cur.execute("DELETE FROM search_docs WHERE kind = %s AND entity_id = %s", (kind, entity_id))
+        cur.close()
+    else:
+        conn.execute("DELETE FROM search_docs WHERE kind = ? AND entity_id = ?", (kind, entity_id))
 
 
-def delete_kind_for_source(conn: sqlite3.Connection, kind: SearchKind, source_id: int) -> None:
-    conn.execute("DELETE FROM search_docs WHERE kind = ? AND source_id = ?", (kind, source_id))
+def delete_kind_for_source(conn: Any, kind: SearchKind, source_id: int) -> None:
+    if _is_pg(conn):
+        cur = conn.cursor()
+        cur.execute("DELETE FROM search_docs WHERE kind = %s AND source_id = %s", (kind, source_id))
+        cur.close()
+    else:
+        conn.execute("DELETE FROM search_docs WHERE kind = ? AND source_id = ?", (kind, source_id))
 
 
-def delete_source(conn: sqlite3.Connection, source_id: int) -> None:
-    conn.execute("DELETE FROM search_docs WHERE source_id = ?", (source_id,))
+def delete_source(conn: Any, source_id: int) -> None:
+    if _is_pg(conn):
+        cur = conn.cursor()
+        cur.execute("DELETE FROM search_docs WHERE source_id = %s", (source_id,))
+        cur.close()
+    else:
+        conn.execute("DELETE FROM search_docs WHERE source_id = ?", (source_id,))
 
 
 def escape_query(raw: str) -> str:
-    """Turn user input into a safe FTS5 MATCH expression.
-
-    FTS5 has its own query syntax, and characters like ``"``, ``*``, ``:``, ``^``, ``(``, ``-``
-    are operators. A user typing ``C++ (advanced)`` into a search box means those literally and
-    would otherwise get a bare ``fts5: syntax error`` instead of results. Each run of
-    alphanumerics becomes one quoted token, and a trailing ``*`` gives prefix matching on the
-    final word so search feels responsive as you type.
-    """
+    """Turn user input into a safe FTS5 MATCH expression for SQLite."""
     tokens = []
     current: list[str] = []
     for ch in raw:
@@ -147,20 +213,77 @@ def escape_query(raw: str) -> str:
     if not tokens:
         return ""
     quoted = [f'"{t}"' for t in tokens[:-1]]
-    # Prefix-match the last token only if it looks like a word being typed.
     last = tokens[-1]
     quoted.append(f'"{last}"*' if len(last) >= 2 else f'"{last}"')
     return " ".join(quoted)
 
 
 def search(
-    conn: sqlite3.Connection,
+    conn: Any,
     query: str,
     *,
     kinds: Sequence[SearchKind] | None = None,
     source_ids: Sequence[int] | None = None,
     limit: int = 50,
 ) -> list[SearchHit]:
+    from ..security import principal
+    user_filter_id = principal.get()
+
+    if _is_pg(conn):
+        clean_words = [w for w in query.split() if w.isalnum()]
+        if not clean_words:
+            return []
+        clean_q = " ".join(clean_words)
+
+        sql = [
+            """
+            SELECT d.kind, d.entity_id, d.source_id, d.title,
+                   ts_headline('english', coalesce(d.body, ''), plainto_tsquery('english', %s), 'StartSel=<mark>, StopSel=</mark>, MaxWords=24, MinWords=10') AS snip,
+                   ts_rank(d.tsv, plainto_tsquery('english', %s)) AS score
+            FROM search_docs d
+            WHERE d.tsv @@ plainto_tsquery('english', %s)
+            """
+        ]
+        params: list[object] = [clean_q, clean_q, clean_q]
+
+        if user_filter_id is not None:
+            sql.append("AND (d.source_id IS NULL OR d.source_id IN (SELECT id FROM sources WHERE user_id = %s))")
+            params.append(user_filter_id)
+
+        if kinds:
+            sql.append(f"AND d.kind IN ({','.join(['%s'] * len(kinds))})")
+            params.extend(kinds)
+        if source_ids:
+            sql.append(f"AND d.source_id IN ({','.join(['%s'] * len(source_ids))})")
+            params.extend(source_ids)
+
+        sql.append("ORDER BY score DESC LIMIT %s")
+        params.append(limit)
+
+        cur = conn.cursor()
+        try:
+            cur.execute(" ".join(sql), params)
+            rows = cur.fetchall()
+        except Exception as exc:
+            log.warning("Postgres search error: %s", exc)
+            rows = []
+        finally:
+            cur.close()
+
+        return [
+            SearchHit(
+                kind=row[0],
+                entity_id=row[1],
+                source_id=row[2],
+                title=row[3] or "",
+                snippet=row[4] or "",
+                # Flip sign so that sorting ascending by score matches BM25 (more negative = better match)
+                score=-float(row[5] or 0.0),
+            )
+            for row in rows
+        ]
+
+    # SQLite FTS5 fallback path
     match_expr = escape_query(query)
     if not match_expr:
         return []
@@ -175,27 +298,24 @@ def search(
         WHERE search_fts MATCH ?
         """
     ]
-    params: list[object] = [match_expr]
-    from ..security import principal
-    if principal.get() is not None:
+    sqlite_params: list[object] = [match_expr]
+    if user_filter_id is not None:
         sql.append("AND d.source_id IN (SELECT id FROM sources WHERE user_id = ?)")
-        params.append(principal.get())
+        sqlite_params.append(user_filter_id)
 
     if kinds:
         sql.append(f"AND d.kind IN ({','.join('?' * len(kinds))})")
-        params.extend(kinds)
+        sqlite_params.extend(kinds)
     if source_ids:
         sql.append(f"AND d.source_id IN ({','.join('?' * len(source_ids))})")
-        params.extend(source_ids)
+        sqlite_params.extend(source_ids)
 
     sql.append("ORDER BY score LIMIT ?")
-    params.append(limit)
+    sqlite_params.append(limit)
 
     try:
-        rows = conn.execute(" ".join(sql), params).fetchall()
+        rows = conn.execute(" ".join(sql), sqlite_params).fetchall()
     except sqlite3.OperationalError:
-        # Defensive: escape_query should make this unreachable, but a search box that
-        # 500s is worse than one that returns nothing.
         return []
 
     return [

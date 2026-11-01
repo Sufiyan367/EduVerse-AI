@@ -631,3 +631,29 @@ class PasswordResetToken(Base):
     used_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime, nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow)
 
+
+# Academic Domain Models
+from .academic_models import (
+    Course,
+    CourseUnit,
+    CourseOutcome,
+    SyllabusTopic,
+    TopicOutcomeLink,
+    CourseMaterialLink,
+    PreviousPaper,
+    ExamQuestion,
+    QuestionTopicLink,
+    ExamPattern,
+    ExamBlueprint,
+    Rubric,
+    RubricCriterion,
+    ExamSession,
+    AssessmentQuestion,
+    AnswerAttempt,
+    GradingFeedback,
+    StudentTopicMastery,
+    TopicMasteryEvent,
+    RevisionPlan,
+    RevisionTask,
+    RemediationAttempt,
+)

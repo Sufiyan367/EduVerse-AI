@@ -1,9 +1,9 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Sparkles, BookOpen, Brain, LayoutDashboard, Menu, Mic, MessageSquare, Headphones,
-  Search, Settings as SettingsIcon, ListChecks, AlertTriangle, CalendarCheck,
-  LogOut,
+  Sparkles, BookOpen, Brain, LayoutDashboard, Menu, MessageSquare,
+  Search, Settings as SettingsIcon, ListChecks, CalendarCheck,
+  LogOut, Layers, TrendingUp, Award, BarChart2,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -20,14 +20,16 @@ import { AuthScreen } from '../auth/AuthScreen'
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true },
-  { to: '/library', label: 'Library', icon: BookOpen },
-  { to: '/review', label: 'Review', icon: Brain, badge: 'due' as const },
-  { to: '/quiz', label: 'Quiz', icon: ListChecks },
-  { to: '/chat', label: 'AI Tutor', icon: MessageSquare },
-  { to: '/knowledge-gap', label: 'Knowledge Gaps', icon: AlertTriangle },
-  { to: '/revision', label: 'Revision Planner', icon: CalendarCheck },
-  { to: '/podcasts', label: 'Podcasts', icon: Headphones },
-  { to: '/record', label: 'Record', icon: Mic },
+  { to: '/courses', label: 'My Courses', icon: BookOpen },
+  { to: '/syllabus', label: 'Syllabus Map', icon: Layers },
+  { to: '/papers', label: 'Paper Analytics', icon: TrendingUp },
+  { to: '/simulator', label: 'Exam Simulator', icon: Award },
+  { to: '/performance', label: 'My Performance', icon: BarChart2 },
+  { to: '/adaptive', label: 'Adaptive Revision', icon: CalendarCheck },
+  { to: '/chat', label: 'Study Assistant', icon: MessageSquare },
+  { to: '/library', label: 'Study Library', icon: Sparkles },
+  { to: '/review', label: 'Flashcards', icon: Brain, badge: 'due' as const },
+  { to: '/quiz', label: 'Practice Quiz', icon: ListChecks },
 ]
 
 export function AppShell() {
