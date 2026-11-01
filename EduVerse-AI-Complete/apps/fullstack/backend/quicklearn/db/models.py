@@ -62,8 +62,7 @@ def _enum(python_enum: type, name: str) -> Enum:
     )
 
 
-class Base(DeclarativeBase):
-    pass
+from .base import Base
 
 
 source_tags = Table(
@@ -467,10 +466,14 @@ class Job(Base):
     __tablename__ = "jobs"
     __table_args__ = (
         Index("ix_jobs_claim", "status", "id"),
+        Index("ix_jobs_claim_v2", "status", "priority", "next_run_at"),
         UniqueConstraint("source_id", "type", "dedupe_key", name="uq_job_idempotency"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     parent_id: Mapped[int | None] = mapped_column(
         ForeignKey("jobs.id", ondelete="CASCADE"), index=True
     )
@@ -481,6 +484,13 @@ class Job(Base):
     status: Mapped[JobStatus] = mapped_column(
         _enum(JobStatus, "job_status"), default=JobStatus.QUEUED, index=True
     )
+    priority: Mapped[int] = mapped_column(Integer, default=50, index=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    locked_until: Mapped[dt.datetime | None] = mapped_column(UTCDateTime, nullable=True, index=True)
+    locked_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    next_run_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow, index=True)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3)
+    error_details: Mapped[JSONDict] = mapped_column(JSON, default=dict)
     payload: Mapped[JSONDict] = mapped_column(JSON, default=dict)
     progress: Mapped[int] = mapped_column(Integer, default=0)
     stage: Mapped[str] = mapped_column(String(255), default="")
@@ -656,4 +666,8 @@ from .academic_models import (
     RevisionPlan,
     RevisionTask,
     RemediationAttempt,
+    AutomationRule,
+    WeeklyReport,
+    Notification,
+    EvidenceAuditIssue,
 )

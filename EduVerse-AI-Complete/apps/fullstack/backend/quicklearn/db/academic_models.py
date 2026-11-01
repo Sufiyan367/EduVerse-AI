@@ -27,7 +27,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .models import Base
+from .base import Base
 from .types import UTCDateTime, utcnow
 
 
@@ -357,3 +357,69 @@ class RemediationAttempt(Base):
     created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow)
 
     task: Mapped[RevisionTask] = relationship(back_populates="remediations")
+
+
+# ==========================================
+# 5. AUTONOMOUS AUTOMATION & AUDIT ENGINE
+# ==========================================
+
+class AutomationRule(Base):
+    __tablename__ = "automation_rules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    rule_name: Mapped[str] = mapped_column(String(64), index=True)
+    trigger_event: Mapped[str] = mapped_column(String(64), index=True)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    config: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow)
+    updated_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)
+
+
+class WeeklyReport(Base):
+    __tablename__ = "weekly_reports"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    course_id: Mapped[int | None] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), nullable=True, index=True)
+    week_start: Mapped[dt.datetime] = mapped_column(UTCDateTime)
+    week_end: Mapped[dt.datetime] = mapped_column(UTCDateTime)
+    metrics: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    strong_topics: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    weak_topics: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    repeated_mistakes: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    revision_completion_rate: Mapped[float] = mapped_column(Float, default=0.0)
+    summary_text: Mapped[str] = mapped_column(Text, default="")
+    recommendations: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(255))
+    message: Mapped[str] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(String(64), default="info")  # revision_alert, automation_completed, audit_warning, exam_readiness
+    link: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow, index=True)
+
+
+class EvidenceAuditIssue(Base):
+    __tablename__ = "evidence_audit_issues"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    course_id: Mapped[int | None] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), nullable=True, index=True)
+    issue_type: Mapped[str] = mapped_column(String(64), index=True)  # ambiguous_mapping, missing_citation, invalid_rubric_weight, out_of_bounds, orphaned_mastery
+    severity: Mapped[str] = mapped_column(String(32), default="warning")  # warning, error, review_required
+    entity_type: Mapped[str] = mapped_column(String(64))  # source, topic_mapping, question, rubric, mastery
+    entity_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    description: Mapped[str] = mapped_column(Text)
+    evidence_context: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(32), default="open", index=True)  # open, resolved, dismissed
+    created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow)
+    resolved_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime, nullable=True)

@@ -26,6 +26,7 @@ const NAV = [
   { to: '/simulator', label: 'Exam Simulator', icon: Award },
   { to: '/performance', label: 'My Performance', icon: BarChart2 },
   { to: '/adaptive', label: 'Adaptive Revision', icon: CalendarCheck },
+  { to: '/automation', label: 'Automation Center', icon: Layers },
   { to: '/chat', label: 'Study Assistant', icon: MessageSquare },
   { to: '/library', label: 'Study Library', icon: Sparkles },
   { to: '/review', label: 'Flashcards', icon: Brain, badge: 'due' as const },

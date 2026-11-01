@@ -72,6 +72,8 @@ const post = <T>(path: string, body?: unknown) =>
   request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) })
 const patch = <T>(path: string, body: unknown) =>
   request<T>(path, { method: 'PATCH', body: JSON.stringify(body) })
+const put = <T>(path: string, body?: unknown) =>
+  request<T>(path, { method: 'PUT', body: body === undefined ? undefined : JSON.stringify(body) })
 const del = <T>(path: string) => request<T>(path, { method: 'DELETE' })
 
 const qs = (params: Record<string, string | number | boolean | undefined | null>) => {
@@ -377,4 +379,23 @@ export const api = {
   toggleTask: (taskId: number) => post<any>(`/adaptive/tasks/${taskId}/toggle`, {}),
   remediateTask: (taskId: number, data: { action_type?: string; delta?: number }) =>
     post<any>(`/adaptive/tasks/${taskId}/remediate`, data),
+
+  // ---------------------------------------------------------------- automation
+  getAutomationJobs: (params?: { status?: string; job_type?: string; limit?: number }) =>
+    get<any>(`/automation/jobs${params?.status ? `?status=${params.status}` : ''}`),
+  getAutomationJobDetail: (jobId: number) => get<any>(`/automation/jobs/${jobId}`),
+  retryAutomationJob: (jobId: number) => post<any>(`/automation/jobs/${jobId}/retry`, {}),
+  cancelAutomationJob: (jobId: number) => post<any>(`/automation/jobs/${jobId}/cancel`, {}),
+  getAutomationRules: () => get<any[]>('/automation/rules'),
+  toggleAutomationRule: (ruleName: string, data: { is_enabled: boolean; config?: any }) =>
+    put<any>(`/automation/rules/${ruleName}`, data),
+  triggerAutomationWorkflow: (data: { event_name: string; payload?: any; course_id?: number }) =>
+    post<any>('/automation/trigger', data),
+  getAuditIssues: (status?: string) => get<any[]>(`/automation/audit${status ? `?status=${status}` : ''}`),
+  resolveAuditIssue: (issueId: number, action?: string) =>
+    post<any>(`/automation/audit/${issueId}/resolve${action ? `?action=${action}` : ''}`, {}),
+  getNotifications: () => get<any[]>('/automation/notifications'),
+  markNotificationRead: (id: number) => post<any>(`/automation/notifications/${id}/read`, {}),
+  markAllNotificationsRead: () => post<any>('/automation/notifications/read-all', {}),
+  getSystemHealth: () => get<any>('/automation/health'),
 }

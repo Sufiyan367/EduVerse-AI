@@ -100,6 +100,11 @@ def create_paper(
     db.add(paper)
     db.commit()
     db.refresh(paper)
+    try:
+        from ..automation import trigger_event
+        trigger_event("previous_paper_uploaded", {"course_id": course_id, "paper_id": paper.id, "source_id": paper.source_id, "user_id": user.id}, user_id=user.id)
+    except Exception as exc:
+        log.warning("Failed to trigger previous_paper_uploaded: %s", exc)
     return {"id": paper.id, "title": paper.title, "exam_year": paper.exam_year}
 
 

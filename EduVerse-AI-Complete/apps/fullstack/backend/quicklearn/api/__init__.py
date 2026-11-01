@@ -15,6 +15,7 @@ from fastapi import APIRouter
 
 from . import (
     adaptive,
+    automation,
     auth,
     cards,
     chat,
@@ -49,6 +50,7 @@ api_router.include_router(papers.router)
 api_router.include_router(simulator.router)
 api_router.include_router(evaluation.router)
 api_router.include_router(adaptive.router)
+api_router.include_router(automation.router)
 
 # Study & RAG Tools
 api_router.include_router(sources.router)

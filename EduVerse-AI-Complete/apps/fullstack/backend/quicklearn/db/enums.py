@@ -60,6 +60,14 @@ class JobType(StrEnum):
     GENERATE_QUIZ = "generate_quiz"
     GENERATE_PODCAST = "generate_podcast"
     INDEX = "index"
+    AUTONOMOUS_SYLLABUS = "autonomous_syllabus"
+    AUTONOMOUS_MATERIAL = "autonomous_material"
+    AUTONOMOUS_PAPER = "autonomous_paper"
+    AUTONOMOUS_EXAM_EVAL = "autonomous_exam_eval"
+    AUTONOMOUS_REVISION = "autonomous_revision"
+    AUTONOMOUS_READINESS = "autonomous_readiness"
+    AUTONOMOUS_WEEKLY = "autonomous_weekly"
+    AUTONOMOUS_AUDIT = "autonomous_audit"
 
 
 class BlockType(StrEnum):

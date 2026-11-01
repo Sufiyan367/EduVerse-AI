@@ -235,6 +235,11 @@ def submit_exam_answers(
 
     session.status = "submitted"
     session.submitted_at = utcnow()
+    try:
+        from ..automation import trigger_event
+        trigger_event("exam_session_completed", {"session_id": session.id, "user_id": user.id}, user_id=user.id)
+    except Exception as exc:
+        log.warning("Failed to trigger exam_session_completed: %s", exc)
     db.commit()
     return {"status": "submitted", "session_id": session.id, "answers_saved": submitted_count}
 

@@ -17,6 +17,7 @@ import { RevisionPage } from './routes/Revision'
 import { PodcastsPage } from './routes/Podcasts'
 import { RecordPage } from './routes/Record'
 import { SettingsPage } from './routes/Settings'
+import { AutomationCenterPage } from './routes/AutomationCenter'
 import { NotFound } from './routes/NotFound'
 
 const rootRoute = createRootRoute({
@@ -151,6 +152,7 @@ const revisionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/rev
 const podcastsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/podcasts', component: PodcastsPage })
 const recordRoute = createRoute({ getParentRoute: () => rootRoute, path: '/record', component: RecordPage })
 const settingsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/settings', component: SettingsPage })
+const automationRoute = createRoute({ getParentRoute: () => rootRoute, path: '/automation', component: AutomationCenterPage })
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -170,6 +172,7 @@ const routeTree = rootRoute.addChildren([
   podcastsRoute,
   recordRoute,
   settingsRoute,
+  automationRoute,
 ])
 
 export const router = createRouter({
