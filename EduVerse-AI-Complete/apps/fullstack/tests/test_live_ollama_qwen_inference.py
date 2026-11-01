@@ -44,6 +44,37 @@ from quicklearn.rag.retrieve import retrieve
 from quicklearn.settings import get_settings
 
 
+def _ollama_reachable() -> bool:
+    try:
+        response = httpx.get("http://127.0.0.1:11434/api/tags", timeout=2.0)
+        return response.status_code < 500
+    except Exception:
+        return False
+
+
+def _nvidia_smi_available() -> bool:
+    try:
+        smi = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        return smi.returncode == 0 and bool(smi.stdout.strip())
+    except Exception:
+        return False
+
+
+requires_live_ollama = pytest.mark.skipif(
+    not _ollama_reachable(),
+    reason="Local Ollama daemon not reachable at http://127.0.0.1:11434",
+)
+requires_nvidia_smi = pytest.mark.skipif(
+    not _nvidia_smi_available(),
+    reason="nvidia-smi unavailable; NVIDIA GPU live checks require local GPU drivers",
+)
+
+
 @pytest.fixture
 def ollama_qwen_llm():
     """Return configured OllamaLLM targeting local Qwen3.5:4b with high reasoning."""
@@ -97,6 +128,7 @@ def sample_academic_pdf(tmp_path: Path) -> Path:
     return pdf_path
 
 
+@requires_nvidia_smi
 def test_nvidia_gpu_offload_active():
     """Verify that NVIDIA GPU offload is active on RTX 3050 and VRAM is allocated."""
     smi = subprocess.run(
@@ -120,6 +152,7 @@ def test_nvidia_gpu_offload_active():
 
 
 @pytest.mark.asyncio
+@requires_live_ollama
 async def test_qwen_direct_reasoning_multistep(ollama_qwen_llm: OllamaLLM):
     """Test multi-step reasoning directly with Qwen3.5:4b think='high'."""
     prompt = (
@@ -143,6 +176,7 @@ async def test_qwen_direct_reasoning_multistep(ollama_qwen_llm: OllamaLLM):
 
 
 @pytest.mark.asyncio
+@requires_live_ollama
 async def test_qwen_direct_reasoning_mathematical(ollama_qwen_llm: OllamaLLM):
     """Test step-by-step mathematical reasoning and formula evaluation."""
     prompt = (
@@ -167,6 +201,7 @@ async def test_qwen_direct_reasoning_mathematical(ollama_qwen_llm: OllamaLLM):
 
 
 @pytest.mark.asyncio
+@requires_live_ollama
 async def test_qwen_direct_reasoning_programming(ollama_qwen_llm: OllamaLLM):
     """Test programming algorithms and complexity analysis."""
     prompt = (
@@ -186,6 +221,7 @@ async def test_qwen_direct_reasoning_programming(ollama_qwen_llm: OllamaLLM):
 
 
 @pytest.mark.asyncio
+@requires_live_ollama
 async def test_qwen_rag_qa_over_academic_pdf(sample_academic_pdf: Path, config: Config, store: Any):
     """Test end-to-end RAG QA: upload academic PDF, index, query via Qwen3.5:4b, verify citations."""
     settings = get_settings()
@@ -247,6 +283,7 @@ async def test_qwen_rag_qa_over_academic_pdf(sample_academic_pdf: Path, config: 
 
 
 @pytest.mark.asyncio
+@requires_live_ollama
 async def test_qwen_rag_abstains_on_unsupported_query(sample_academic_pdf: Path, config: Config, store: Any):
     """Verify that Qwen3.5:4b honestly abstains without hallucinating on questions outside the PDF."""
     settings = get_settings()
