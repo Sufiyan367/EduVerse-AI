@@ -38,11 +38,24 @@ Unlike generic conversational chatbots that hallucinate or rely on unverified we
 - **Conversational Query Contextualization:** Automatically resolves pronouns and elliptical follow-up questions ("What are its two phases?", "Explain the second point") using chat history prior to retrieval.
 - **Fail-Closed Citation Validation:** Model output is evaluated against retrieved segment IDs. Hallucinated citation markers are stripped, and ungrounded factual assertions are rejected.
 - **Evidence-to-Recall Learning Loop:** Transforms verified document excerpts into interactive multiple-choice quizzes and flashcards scheduled with the Free Spaced Repetition Scheduler (FSRS v6).
+- **Citation Preview Thumbnails:** On-demand rendering of physical PDF page thumbnails (adapted from Cinnamon Kotaemon) for interactive citation preview.
 - **Offline Mock Transparency:** When no external cloud API key is configured, the system operates in local offline mock mode, citing real excerpts and clearly flagging `is_mock=True` with no fake AI claims.
 
 ---
 
-## 3. The Evidence-to-Recall Learning Loop
+## 3. Upstream Technical Reference & Open-Source Attribution
+
+EduVerse AI adapts core algorithmic patterns from the open-source RAG reference implementation **Cinnamon Kotaemon** (`Cinnamon/kotaemon`, Commit `9ad3e4e49aa35b8acddd235918a5d9753c1cfdf9`, Apache-2.0):
+- **Spatial Bounding-Box Layout & Table Preservation:** Adapted from Kotaemon's `box.py` and `table.py`.
+- **On-Demand Page Preview Thumbnails:** Adapted from Kotaemon's `pdf_loader.py`.
+- **Inline Citation QA Verification:** Adapted from Kotaemon's `citation_qa_inline.py`.
+- **Context Relevance Guard (0.15 threshold):** Adapted from Kotaemon's `simple.py`.
+
+Full licensing terms and upstream notices are maintained in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+---
+
+## 4. The Evidence-to-Recall Learning Loop
 
 EduVerse AI is structured around a continuous cognitive workflow rather than open-ended chatting:
 

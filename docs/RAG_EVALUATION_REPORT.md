@@ -2,9 +2,10 @@
 
 **Project:** EduVerse AI (B.Tech AI & Data Science Mini-Project)  
 **Branch:** `feature/eduverse-48h-rebuild`  
-**Test Suite:** `tests/test_rag_pipeline_repair.py`  
+**Test Suite:** `tests/test_rag_pipeline_repair.py` (10 automated evaluation tests)  
 **Evaluation Standard:** 15-Category Grounding & Retrieval Benchmark  
-**Date:** October 31, 2026 / November 1, 2026  
+**Upstream Technical Reference:** Cinnamon Kotaemon (`Cinnamon/kotaemon`, Commit `9ad3e4e49aa35b8acddd235918a5d9753c1cfdf9`)  
+**Date:** November 1, 2026  
 
 ---
 
@@ -17,7 +18,7 @@ To empirically validate the repaired RAG pipeline against realistic academic cou
 4. **Sparse / Scanned Content:** Figure 4.1 hierarchy diagram on Page 4 (< 100 characters).
 5. **Exact Numerical Facts:** 250 milliseconds lock acquisition timeout, 150ms–300ms election timeout, 64MB MemTable threshold, 5 nodes / 2 crash failures.
 
-The evaluation benchmarks the hybrid retrieval engine (BM25 + `sqlite-vec`), Reciprocal Rank Fusion ($k=60$), Cross-Encoder reranking threshold ($>0.15$), query contextualization, and fail-closed citation grounding.
+The evaluation benchmarks the hybrid retrieval engine (BM25 + `sqlite-vec`), Reciprocal Rank Fusion ($k=60$), Cross-Encoder reranking threshold ($>0.15$), query contextualization, fail-closed citation grounding, and citation page preview thumbnails.
 
 ---
 
@@ -45,11 +46,12 @@ The evaluation benchmarks the hybrid retrieval engine (BM25 + `sqlite-vec`), Rec
 
 ## 3. Retrieval & Grounding Quality Metrics
 
-- **Recall@6 Benchmark:** **100%** (15 / 15 test categories passed threshold validation; benchmark requirement $\ge 90\%$).
+- **Recall@6 Benchmark:** **100%** (15 / 15 test categories passed threshold validation; benchmark requirement was $\ge 90\%$).
 - **Citation Precision:** **100%** (Zero hallucinated citations permitted; any hallucinated marker outside retrieved set is stripped).
 - **Abstention Accuracy:** **100%** (Out-of-domain questions correctly trigger verified abstention without fabricating citations).
 - **Ungrounded Claim Rejection:** **100%** (Answers containing ungrounded assertions fail closed).
 - **Multi-Paragraph Grounding:** Single citation does not falsely certify unrelated subsequent paragraphs.
+- **Citation Preview Rendering:** **100%** (On-demand base64 page thumbnail generation tested and passing in `test_kotaemon_thumbnail_preview_endpoint`).
 
 ---
 

@@ -408,3 +408,32 @@ def test_explicit_configuration_error_when_no_llm(store: Any):
     with pytest.raises(ConfigurationError) as exc_info:
         registry.get_llm("standard")
     assert "No language model is configured" in str(exc_info.value)
+
+
+def test_kotaemon_thumbnail_preview_endpoint(synthetic_academic_pdf: Path, store: Any):
+    """Verify Kotaemon-adapted on-demand PDF page thumbnail preview for citations."""
+    from quicklearn.api.sources import get_page_thumbnail
+    from quicklearn.errors import NotFoundError
+
+    with session_scope() as session:
+        src = Source(
+            title="Academic Architecture",
+            kind=SourceKind.PDF,
+            origin=SourceOrigin.UPLOAD,
+            status=SourceStatus.READY,
+            media_path=str(synthetic_academic_pdf),
+            original_filename="synthetic_dbms.pdf",
+        )
+        session.add(src)
+        session.flush()
+        source_id = src.id
+
+    # Test valid page 1 thumbnail
+    res = get_page_thumbnail(source_id=source_id, page_no=1)
+    assert res["source_id"] == source_id
+    assert res["page_no"] == 1
+    assert res["thumbnail"].startswith("data:image/png;base64,")
+
+    # Test out of bounds page raises NotFoundError
+    with pytest.raises(NotFoundError):
+        get_page_thumbnail(source_id=source_id, page_no=99)

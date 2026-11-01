@@ -532,6 +532,51 @@ def get_audio(source_id: int, user: User | None = Depends(get_optional_user)) ->
     return FileResponse(Path(candidate), headers={"Accept-Ranges": "bytes"})
 
 
+@router.get("/{source_id}/pages/{page_no}/thumbnail")
+def get_page_thumbnail(
+    source_id: int, page_no: int, dpi: int = 72, user: User | None = Depends(get_optional_user)
+) -> dict[str, Any]:
+    """Generate on-demand page thumbnail for citation preview (adapted from Cinnamon/kotaemon)."""
+    with session_scope() as session:
+        source = session.get(Source, source_id)
+        if source is None:
+            raise NotFoundError(f"Source {source_id} not found.")
+        check_source_access(source, user)
+        if not source.media_path or not Path(source.media_path).exists():
+            raise NotFoundError("The media file is missing from disk.")
+        path = Path(source.media_path)
+
+    if path.suffix.lower() != ".pdf":
+        raise NotFoundError("Thumbnails are only available for PDF documents.")
+
+    import base64
+    from io import BytesIO
+    import fitz
+    from PIL import Image
+
+    try:
+        doc = fitz.open(path)
+        idx = page_no - 1
+        if idx < 0 or idx >= len(doc):
+            doc.close()
+            raise NotFoundError(f"Page {page_no} out of bounds (1..{len(doc)}).")
+
+        page = doc.load_page(idx)
+        pm = page.get_pixmap(dpi=dpi)
+        img = Image.frombytes("RGB", [pm.width, pm.height], pm.samples)
+        img_bytes = BytesIO()
+        img.save(img_bytes, format="PNG")
+        doc.close()
+        b64 = base64.b64encode(img_bytes.getvalue()).decode("utf-8")
+        return {
+            "source_id": source_id,
+            "page_no": page_no,
+            "thumbnail": f"data:image/png;base64,{b64}",
+        }
+    except Exception as exc:
+        raise NotFoundError(f"Could not render page thumbnail: {exc}") from exc
+
+
 # --------------------------------------------------------------------------- regenerate
 
 

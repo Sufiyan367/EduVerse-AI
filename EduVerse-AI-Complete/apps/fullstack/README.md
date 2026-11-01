@@ -17,7 +17,12 @@ This directory contains the production-grade canonical application for **EduVers
   - `providers/`: Adapters for Google Gemini, Groq, OpenAI, Anthropic, Ollama, and local Mock mode.
 - **`frontend/`**: Modern React 18 SPA built with Vite, Tailwind CSS, Lucide Icons, and KaTeX.
 - **`data/`**: Runtime directory containing the SQLite database and uploaded document media files (gitignored).
-- **`tests/`**: Comprehensive 146-test regression suite covering APIs, RAG, auth, FSRS flashcards, and multi-tenant isolation.
+- **`tests/`**: Comprehensive 147-test regression suite covering APIs, RAG, auth, FSRS flashcards, citation page thumbnails, and multi-tenant isolation.
+
+---
+
+## Upstream RAG Reference & Attribution
+EduVerse AI adapts core RAG algorithms (spatial layout sorting, table markdown synthesis, page thumbnail previews, inline citation verification, and relevance thresholding) from [Cinnamon Kotaemon](https://github.com/Cinnamon/kotaemon) (Commit `9ad3e4e49aa35b8acddd235918a5d9753c1cfdf9`, Apache-2.0). See [THIRD_PARTY_NOTICES.md](../../../THIRD_PARTY_NOTICES.md) for full attribution.
 
 ---
 
