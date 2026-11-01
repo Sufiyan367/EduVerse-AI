@@ -95,6 +95,7 @@ class SecurityMiddleware:
             return await self.app(scope, receive, secure_send)
         if path in (
             '/api/v1/health',
+            '/api/v1/health/llm',
             '/api/v1/auth/login',
             '/api/v1/auth/register',
             '/api/v1/auth/forgot-password',
@@ -123,12 +124,25 @@ class SecurityMiddleware:
             if scope['type'] == 'websocket' and path.endswith('/ws/jobs'):
                 async def filtered_send(message):
                     if message['type'] == 'websocket.send' and message.get('text'):
-                        payload = json.loads(message['text'])
-                        if payload.get('type') != 'ping':
-                            from .db.session import session_scope
-                            with session_scope() as session:
-                                if not payload.get('source_id') or session.get(m.Source, payload['source_id']) is None:
-                                    return
+                        try:
+                            payload = json.loads(message['text'])
+                            ptype = payload.get('type')
+                            if ptype == 'snapshot':
+                                from .db.session import session_scope
+                                with session_scope() as session:
+                                    user_source_ids = {s.id for s in session.query(m.Source.id).filter((m.Source.user_id == user.id) | (m.Source.user_id.is_(None))).all()}
+                                    filtered_jobs = [j for j in payload.get('jobs', []) if not j.get('source_id') or j.get('source_id') in user_source_ids]
+                                    payload['jobs'] = filtered_jobs
+                                    message = dict(message)
+                                    message['text'] = json.dumps(payload)
+                            elif ptype != 'ping' and payload.get('source_id'):
+                                from .db.session import session_scope
+                                with session_scope() as session:
+                                    src = session.get(m.Source, payload['source_id'])
+                                    if not src or (src.user_id is not None and src.user_id != user.id):
+                                        return
+                        except Exception:
+                            pass
                     await send(message)
                 return await self.app(scope, receive, filtered_send)
             return await self.app(scope, receive, secure_send if scope['type'] == 'http' else send)

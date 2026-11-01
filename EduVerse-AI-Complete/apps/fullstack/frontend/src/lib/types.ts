@@ -463,3 +463,16 @@ export interface RevisionSession {
   notes: string | null
   created_at: string
 }
+
+
+export interface LlmStatus {
+  status: 'connected' | 'loading' | 'unavailable' | 'cloud' | 'mock'
+  provider: string
+  model: string
+  is_local: boolean
+  thinking?: string
+  context_window?: number
+  gpu?: string
+  message?: string
+  models?: string[]
+}

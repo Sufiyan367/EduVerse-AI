@@ -6,7 +6,8 @@
 [![React: 18](https://img.shields.io/badge/React-18-61DAFB.svg?logo=react&logoColor=black)](EduVerse-AI-Complete/apps/fullstack/frontend/)
 [![PyMuPDF: 1.24+](https://img.shields.io/badge/PyMuPDF-1.24+-0A9396.svg)](https://pymupdf.readthedocs.io/)
 [![sqlite-vec](https://img.shields.io/badge/Vector%20Store-sqlite--vec-blue.svg)](https://github.com/asg017/sqlite-vec)
-[![Test Suite: 146 Passed](https://img.shields.io/badge/Tests-146%20Passed-brightgreen.svg)](tests/)
+[![Test Suite: 154 Passed](https://img.shields.io/badge/Tests-154%20Passed-brightgreen.svg)](tests/)
+[![Local LLM: Qwen3.5:4b](https://img.shields.io/badge/Local%20LLM-Qwen3.5%3A4b%20(RTX%203050)-7B2CBF.svg)](https://ollama.com)
 
 > **Academic Classification:** B.Tech Artificial Intelligence & Data Science Mini-Project  
 > **Institution:** Indira College of Engineering & Management (ICEM Pune)  
@@ -37,6 +38,8 @@ Unlike generic conversational chatbots that hallucinate or rely on unverified we
 - **Relevance-Gated Reranker:** Evaluates retrieved excerpts with a strict relevance threshold ($> 0.15$), rejecting out-of-domain noise before prompt assembly.
 - **Conversational Query Contextualization:** Automatically resolves pronouns and elliptical follow-up questions ("What are its two phases?", "Explain the second point") using chat history prior to retrieval.
 - **Fail-Closed Citation Validation:** Model output is evaluated against retrieved segment IDs. Hallucinated citation markers are stripped, and ungrounded factual assertions are rejected.
+- **Local Reasoning & GPU Acceleration:** Powered natively by `qwen3.5:4b` via local Ollama, offloaded to the NVIDIA GeForce RTX 3050 Laptop GPU (using ~3.7 GB VRAM). Executes complex multi-step reasoning (`think="high"`).
+- **Privacy-Preserving Thinking Filter:** Model reasoning traces (`<think>...</think>`) are filtered from all user-facing responses and logs to protect student study privacy.
 - **Evidence-to-Recall Learning Loop:** Transforms verified document excerpts into interactive multiple-choice quizzes and flashcards scheduled with the Free Spaced Repetition Scheduler (FSRS v6).
 - **Citation Preview Thumbnails:** On-demand rendering of physical PDF page thumbnails (adapted from Cinnamon Kotaemon) for interactive citation preview.
 - **Offline Mock Transparency:** When no external cloud API key is configured, the system operates in local offline mock mode, citing real excerpts and clearly flagging `is_mock=True` with no fake AI claims.
@@ -208,42 +211,47 @@ Once running, navigate your web browser to:
 
 ---
 
-## 10. Configuring Real AI Providers
+## 10. Configuring AI Providers & 3-Tier Routing
 
-EduVerse AI works offline with deterministic mock mode and local FastEmbed embeddings. To connect a live cloud LLM:
+EduVerse AI features a strict 3-tier routing architecture that guarantees zero subscription cost and offline availability:
 
-1. Open **Settings** $\rightarrow$ **Providers** in the navigation bar.
-2. Add your API Key for your preferred provider:
-   - **Google Gemini:** Supports `gemini-3.8-flash`, `gemini-2.5-flash`, `gemini-1.5-flash`, `gemini-1.5-pro` (also enables multimodal vision OCR for scanned lecture slides).
-   - **Groq:** Fast open-weights inference (`llama-3.3-70b-versatile`, `mixtral-8x7b-32768`).
-   - **OpenAI:** `gpt-4o-mini`, `gpt-4o`.
-   - **Anthropic Claude:** `claude-3-5-sonnet`.
-   - **Ollama / LM Studio:** Local models (`llama3.2`, `mistral`, `deepseek-r1`) via `http://localhost:11434/v1`.
-3. Under **Model Routing**, assign your provider and model to the `standard` and `fast` routing tiers.
-4. Settings and encrypted API keys are stored securely in your local SQLite database and are never logged or exported.
+### Tier 1: Local Ollama (Primary — Recommended)
+- **Model:** `qwen3.5:4b` running on `http://127.0.0.1:11434`.
+- **GPU Acceleration:** Fully offloads to NVIDIA RTX 3050 (allocates ~3.7 GB VRAM).
+- **Reasoning Control:** Supports `OLLAMA_THINK="high"` (options: `low`, `medium`, `high`, `off`).
+- **Privacy Guarantee:** Internal `<think>...</think>` tokens are scrubbed from outputs.
+- **Dedicated Health Check:** Real-time status at `http://127.0.0.1:8080/api/v1/health/llm`.
+
+### Tier 2: Cloud Fallback Guard
+- Cloud providers (Google Gemini, Groq, OpenAI, Anthropic) are **strictly blocked** by default (`ALLOW_CLOUD_FALLBACK=false`) to prevent unexpected external API usage.
+- To enable cloud fallbacks, set `ALLOW_CLOUD_FALLBACK=true` in your `.env` or settings.
+
+### Tier 3: Deterministic Local Mock
+- When Ollama is offline and cloud fallback is disabled, EduVerse continues running without crashing, citing verified document segments in offline mock mode with `is_mock=True` transparently reported.
 
 ---
 
 ## 11. Running Automated Tests
 
-### 1. Canonical Fullstack Test Suite (146 Tests)
+### 1. Live Local Inference Test Suite (Ollama + Qwen3.5:4b on RTX 3050)
 ```cmd
 cd /d "S:\SY\SEM 3\MP\EduVerse-AI-repo\EduVerse-AI-Complete\apps\fullstack"
 set PYTHONPATH=backend
-pytest tests -v --tb=short
+pytest tests/test_live_ollama_qwen_inference.py -v
 ```
 
-### 2. Dedicated RAG Pipeline Repair & 15-Category Benchmark Suite (9 Tests)
+### 2. Ollama Reasoning Integration & Handshake Suite (7 Tests)
 ```cmd
-cd /d "S:\SY\SEM 3\MP\EduVerse-AI-repo\EduVerse-AI-Complete\apps\fullstack"
-set PYTHONPATH=backend
+pytest tests/test_ollama_reasoning_integration.py -v
+```
+
+### 3. Dedicated RAG Pipeline Repair & 15-Category Benchmark Suite (10 Tests)
+```cmd
 pytest tests/test_rag_pipeline_repair.py -v
 ```
 
-### 3. Repository Root Baseline Suite (17 Tests)
+### 4. Canonical Fullstack Regression Suite (154 Tests)
 ```cmd
-cd /d "S:\SY\SEM 3\MP\EduVerse-AI-repo"
-set PYTHONPATH=.
 pytest tests -v --tb=short
 ```
 

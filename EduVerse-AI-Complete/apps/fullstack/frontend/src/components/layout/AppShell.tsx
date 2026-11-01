@@ -8,7 +8,8 @@ import {
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { api } from '../../lib/api'
-import { useJobs, useUi } from '../../lib/store'
+import { useUi, useServerHealth } from '../../lib/store'
+import { startHealthMonitoring } from '../../lib/serverHealth'
 import { jobSocket } from '../../lib/ws'
 import { cn, modKey } from '../../lib/utils'
 import type { User } from '../../lib/types'
@@ -47,6 +48,12 @@ export function AppShell() {
     }
     return null
   })
+
+  // Continuous server and model health monitoring
+  useEffect(() => {
+    const stopMonitoring = startHealthMonitoring()
+    return () => stopMonitoring()
+  }, [])
 
   // Connect socket only when logged in
   useEffect(() => {
@@ -216,6 +223,8 @@ export function AppShell() {
             </Tooltip>
           </div>
 
+          <LlmIndicator />
+
           <JobTray />
 
           <Link
@@ -259,14 +268,47 @@ export function AppShell() {
   )
 }
 
+function LlmIndicator() {
+  const llmStatus = useServerHealth((state) => state.llmStatus)
+  if (!llmStatus) return null
+  const isOnline = llmStatus.status === 'connected'
+  const isLoading = llmStatus.status === 'loading'
+
+  return (
+    <div
+      title={llmStatus.message || undefined}
+      className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--bg-sunken)] px-2.5 py-1.5 text-[11px]"
+    >
+      <div className="flex items-center gap-1.5 min-w-0">
+        <span
+          className={cn(
+            'h-2 w-2 rounded-full shrink-0',
+            isOnline
+              ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50'
+              : isLoading
+              ? 'bg-amber-500 animate-pulse'
+              : 'bg-zinc-400',
+          )}
+        />
+        <span className="truncate font-medium text-[var(--text)]">
+          {isOnline ? llmStatus.model || 'qwen3.5:4b' : isLoading ? 'Model loading…' : 'Ollama offline'}
+        </span>
+      </div>
+      <span className="text-[10px] text-[var(--text-muted)] shrink-0 capitalize">
+        {isOnline ? `${llmStatus.thinking || 'high'} reason` : 'offline'}
+      </span>
+    </div>
+  )
+}
+
 function ConnectionBanner() {
-  const connected = useJobs((state) => state.connected)
-  const [visible, setVisible] = useDelayed(!connected, 4000)
+  const serverConnected = useServerHealth((state) => state.serverConnected)
+  const [visible, setVisible] = useDelayed(!serverConnected, 4000)
   if (!visible) return null
   return (
-    <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-700 shadow-lg dark:text-amber-300">
+    <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-700 shadow-lg backdrop-blur dark:text-amber-300">
       Reconnecting to EduVerse server…
-      <button className="ml-2 underline" onClick={() => setVisible(false)}>
+      <button className="ml-2 underline hover:text-amber-900 dark:hover:text-amber-100" onClick={() => setVisible(false)}>
         dismiss
       </button>
     </div>

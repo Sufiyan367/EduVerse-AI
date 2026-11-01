@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Job, JobEvent } from './types'
+import type { Job, JobEvent, LlmStatus } from './types'
 
 // ---------------------------------------------------------------- theme
 
@@ -185,4 +185,20 @@ export const useUi = create<UiState>((set) => ({
   // Collapsed by default on narrow screens; the layout opens it on desktop at mount.
   sidebarOpen: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
   setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
+}))
+
+// ---------------------------------------------------------------- server & llm health
+
+interface ServerHealthState {
+  serverConnected: boolean
+  setServerConnected: (connected: boolean) => void
+  llmStatus: LlmStatus | null
+  setLlmStatus: (status: LlmStatus | null) => void
+}
+
+export const useServerHealth = create<ServerHealthState>((set) => ({
+  serverConnected: true,
+  setServerConnected: (serverConnected) => set({ serverConnected }),
+  llmStatus: null,
+  setLlmStatus: (llmStatus) => set({ llmStatus }),
 }))

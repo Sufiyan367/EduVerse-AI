@@ -2,6 +2,7 @@ import type {
   AnswerResult, AuthResponse, Card, Chat, ChatMessage, Concept, Dashboard, DashboardStats, DueCounts, Excerpt, Folder,
   Job, KnowledgeGapSummary, Note, QuizDone, QuizQuestion, QuizResults, ReviewResult, RevisionRecommendation, RevisionSession, SearchHit,
   Segment, SettingsPayload, Source, SourceDetail, TopicGap, Usage, User,
+  LlmStatus,
 } from './types'
 
 const BASE = '/api/v1'
@@ -266,6 +267,7 @@ export const api = {
       body,
     ),
   health: () => get<Record<string, unknown>>('/health'),
+  healthLlm: () => get<LlmStatus>('/health/llm'),
 
   // ---------------------------------------------------------------- eduverse auth & learning
   login: (body: { username: string; password: string }) => post<AuthResponse>('/auth/login', body),

@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { api, ApiError } from '../lib/api'
 import type { ChatMessage, Excerpt, Segment } from '../lib/types'
 import { openChatSocket } from '../lib/ws'
+import { useServerHealth } from '../lib/store'
 import { cn, formatRelative } from '../lib/utils'
 import {
   Badge, Button, Dialog, DialogContent, DialogTitle, EmptyState, Field, Select,
@@ -193,6 +194,7 @@ function NewChatDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
 
 function Conversation({ chatId }: { chatId: number }) {
   const queryClient = useQueryClient()
+  const llmStatus = useServerHealth((state) => state.llmStatus)
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState('')
   const [busy, setBusy] = useState(false)
@@ -273,8 +275,30 @@ function Conversation({ chatId }: { chatId: number }) {
 
   return (
     <>
+      <div className="flex h-10 shrink-0 items-center justify-between border-b border-[var(--border)] bg-[var(--bg-raised)]/60 px-4 text-xs">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-3.5 w-3.5 text-[var(--accent)]" />
+          <span className="font-medium text-[var(--text)]">
+            {llmStatus?.status === 'connected' ? `Model: ${llmStatus.model || 'qwen3.5:4b'}` : 'Local AI / Offline'}
+          </span>
+          <span className="text-[11px] text-[var(--text-muted)]">
+            ({llmStatus?.is_local ? 'Local RTX 3050' : 'Cloud'} • Reasoning: {llmStatus?.thinking || 'high'})
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge tone={llmStatus?.status === 'connected' ? 'accent' : 'neutral'} className="text-[10px]">
+            {llmStatus?.status === 'connected' ? 'GPU Active' : 'Offline'}
+          </Badge>
+        </div>
+      </div>
+
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
         <div className="mx-auto max-w-2xl space-y-5">
+          {llmStatus?.status === 'unavailable' && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+              💡 <strong>Local Ollama Offline:</strong> Start Ollama (`ollama serve`) to enable private GPU reasoning. Documents and citations will operate locally.
+            </div>
+          )}
           {messages.length === 0 && !streaming && (
             <div className="py-8 text-center">
               <Sparkles className="mx-auto mb-2 h-6 w-6 text-[var(--text-muted)]" />

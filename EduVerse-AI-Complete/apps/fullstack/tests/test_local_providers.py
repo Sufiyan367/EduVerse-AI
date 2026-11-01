@@ -352,8 +352,9 @@ async def test_real_provider_failure_does_not_silently_fallback_to_mock(store: A
     def failing_handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("Ollama daemon is offline on port 11434")
 
-    ollama_instance = registry.get_provider(registry.ProviderKind.LLM, "ollama")
+    ollama_instance = registry.get_provider(registry.ProviderKind.LLM, "ollama", model="llama3.2")
     mount(ollama_instance, failing_handler)
+    mount(registry.get_provider(registry.ProviderKind.LLM, "ollama"), failing_handler)
 
     # Attempting text completion through gateway MUST raise ProviderUnavailableError
     with pytest.raises(ProviderUnavailableError) as exc_info:

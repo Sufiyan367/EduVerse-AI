@@ -445,7 +445,8 @@ async def send_message(
 @router.websocket("/ws/{chat_id}")
 async def chat_socket(websocket: WebSocket, chat_id: int) -> None:
     """Streaming chat with query contextualization and evidence grounding."""
-    await websocket.accept()
+    subprotocol = next((p for p in websocket.scope.get("subprotocols", []) if p.startswith("bearer.")), None)
+    await websocket.accept(subprotocol=subprotocol)
 
     # Resolve optional user identity from query param or auth header
     user = None

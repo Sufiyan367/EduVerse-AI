@@ -147,26 +147,119 @@ def get_provider(kind: ProviderKind, name: str, *, model: str = "") -> Provider:
 
 
 def get_llm(task_class: TaskClass | str = TaskClass.STANDARD) -> Resolved:
-    """Resolve the provider and model for a task class."""
+    """Resolve the provider and model with 3-tier routing: Ollama -> Cloud (if allowed) -> Local Mock."""
     task = TaskClass(task_class)
     settings = get_settings()
     provider_name, model = settings.routing(task.value)
+    allow_cloud = settings.get_bool("providers.ollama.allow_cloud_fallback", False)
+
+    # Cloud Guard: If cloud fallback is disabled, prevent cloud provider calls
+    cloud_providers = {"openai", "anthropic", "google", "groq", "openrouter"}
+    if not allow_cloud and provider_name in cloud_providers:
+        log.warning(
+            "Cloud fallback is disabled (ALLOW_CLOUD_FALLBACK=false). "
+            "Re-routing request from cloud provider '%s' to local Ollama.", provider_name
+        )
+        provider_name = "ollama"
+        model = settings.get_str("providers.ollama.model", "qwen3.5:4b")
 
     if not provider_name:
         raise ConfigurationError(
-            "No language model is configured yet. Open Settings → Providers, add an API key, "
-            "then pick models under Model routing. If you just want to look around, choose the "
-            "'Mock (offline demo)' provider."
-        )
-    if not model:
-        raise ConfigurationError(
-            f"No model chosen for the '{task.value}' task class. "
-            f"Pick one in Settings → Model routing."
+            f"No language model is configured for task '{task.value}'. Choose one in Settings → Models."
         )
 
-    provider = get_provider(ProviderKind.LLM, provider_name)
-    assert isinstance(provider, LLMProvider)
-    return Resolved(provider=provider, model=model, provider_name=provider_name, task_class=task)
+    try:
+        provider = get_provider(ProviderKind.LLM, provider_name, model=model)
+        assert isinstance(provider, LLMProvider)
+        return Resolved(provider=provider, model=model or "qwen3.5:4b", provider_name=provider_name, task_class=task)
+    except ConfigurationError as exc:
+        # If Ollama is requested but unconfigured / unavailable, fall back to offline mock
+        if provider_name == "ollama":
+            log.info("Local Ollama unconfigured, falling back to deterministic local mock: %s", exc)
+            mock_provider = get_provider(ProviderKind.LLM, "mock")
+            assert isinstance(mock_provider, LLMProvider)
+            return Resolved(provider=mock_provider, model="mock", provider_name="mock", task_class=task)
+        raise
+
+async def get_llm_status() -> dict[str, Any]:
+    """Retrieve detailed LLM operational status for health monitoring and frontend UI."""
+    settings = get_settings()
+    allow_cloud = settings.get_bool("providers.ollama.allow_cloud_fallback", False)
+    provider_name, model_name = settings.routing("standard")
+
+    # Detect GPU hardware
+    gpu_info = "CPU only"
+    try:
+        import subprocess
+        smi = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name,memory.used,memory.total", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=2
+        )
+        if smi.returncode == 0 and smi.stdout.strip():
+            parts = [p.strip() for p in smi.stdout.strip().split(",")]
+            if len(parts) >= 3:
+                gpu_info = f"{parts[0]} ({parts[1]}MB / {parts[2]}MB VRAM)"
+    except Exception:
+        pass
+
+    try:
+        ollama = get_provider(ProviderKind.LLM, "ollama")
+        assert isinstance(ollama, LLMProvider)
+        conn = await ollama.test_connection()
+        think_level = getattr(ollama, "think", "high")
+        ctx = getattr(ollama, "num_ctx", 4096)
+
+        if conn.ok and conn.models:
+            active_model = model_name if any(m.id == model_name for m in conn.models) else conn.models[0].id
+            return {
+                "status": "connected",
+                "provider": "ollama",
+                "model": active_model,
+                "is_local": True,
+                "thinking": think_level,
+                "context_window": ctx,
+                "allow_cloud_fallback": allow_cloud,
+                "gpu": gpu_info,
+                "models": [m.id for m in conn.models],
+                "message": f"Local Ollama online ({len(conn.models)} model(s)). GPU: {gpu_info}.",
+            }
+        elif conn.ok:
+            return {
+                "status": "loading",
+                "provider": "ollama",
+                "model": model_name or "qwen3.5:4b",
+                "is_local": True,
+                "thinking": think_level,
+                "context_window": ctx,
+                "allow_cloud_fallback": allow_cloud,
+                "gpu": gpu_info,
+                "models": [],
+                "message": conn.message,
+            }
+        else:
+            return {
+                "status": "unavailable",
+                "provider": "ollama",
+                "model": model_name or "qwen3.5:4b",
+                "is_local": True,
+                "thinking": think_level,
+                "context_window": ctx,
+                "allow_cloud_fallback": allow_cloud,
+                "gpu": gpu_info,
+                "models": [],
+                "message": conn.message,
+            }
+    except Exception as exc:
+        return {
+            "status": "unavailable",
+            "provider": "ollama",
+            "model": model_name or "qwen3.5:4b",
+            "is_local": True,
+            "allow_cloud_fallback": allow_cloud,
+            "gpu": gpu_info,
+            "models": [],
+            "message": str(exc),
+        }
 
 
 def get_stt() -> tuple[STTProvider, str]:
