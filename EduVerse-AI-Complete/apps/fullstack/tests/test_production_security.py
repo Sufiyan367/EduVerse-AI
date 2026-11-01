@@ -228,8 +228,9 @@ def test_production_demo_suppression(data_dir: Path):
     assert default_cfg.seed_demo is False
 
     prod_cfg = Config(data_dir=data_dir / "prod_test")
+    prod_db_url = f"sqlite:///{(prod_cfg.data_dir / 'quicklearn.db').as_posix()}"
 
-    with patch.dict(os.environ, {"EDUVERSE_ENV": "production"}):
+    with patch.dict(os.environ, {"EDUVERSE_ENV": "production", "QUICKLEARN_DATABASE_URL": prod_db_url}):
         assert prod_cfg.is_production is True
         assert prod_cfg.seed_demo is False
         init_database(prod_cfg)
@@ -240,7 +241,11 @@ def test_production_demo_suppression(data_dir: Path):
 
     # In local demo environment with default flag, demo user should be available
     dev_cfg = Config(data_dir=data_dir / "dev_test")
-    with patch.dict(os.environ, {"EDUVERSE_ENV": "development", "EDUVERSE_SEED_DEMO": "true"}):
+    dev_db_url = f"sqlite:///{(dev_cfg.data_dir / 'quicklearn.db').as_posix()}"
+    with patch.dict(
+        os.environ,
+        {"EDUVERSE_ENV": "development", "EDUVERSE_SEED_DEMO": "true", "QUICKLEARN_DATABASE_URL": dev_db_url},
+    ):
         assert dev_cfg.seed_demo is True
         init_database(dev_cfg)
 
