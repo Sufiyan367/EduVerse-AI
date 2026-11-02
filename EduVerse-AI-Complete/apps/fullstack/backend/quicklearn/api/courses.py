@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session
 
 from ..auth import get_current_user
 from ..db.academic_models import (
+    ExamSession,
+    StudentTopicMastery,
     Course,
     CourseMaterialLink,
     CourseOutcome,
@@ -247,3 +249,135 @@ def link_material(
         link.unit_id = req.unit_id
     db.commit()
     return {"status": "linked", "source_id": req.source_id, "course_id": course_id}
+
+
+@router.get("/{course_id}/progress")
+def get_course_progress(
+    course_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Retrieve truthful, verifiable course progress and readiness score with explicit calculation basis."""
+    course = db.query(Course).filter(Course.id == course_id, Course.user_id == user.id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    units = db.query(CourseUnit).filter(CourseUnit.course_id == course.id).order_by(CourseUnit.unit_number).all()
+    topics = db.query(SyllabusTopic).filter(SyllabusTopic.course_id == course.id).all()
+    total_topics = len(topics)
+
+    # Topic statuses and masteries
+    topic_ids = [t.id for t in topics]
+    mastery_records = {
+        m.topic_id: m
+        for m in db.query(StudentTopicMastery)
+        .filter(StudentTopicMastery.topic_id.in_(topic_ids), StudentTopicMastery.user_id == user.id)
+        .all()
+    } if topic_ids else {}
+
+    status_counts = {
+        "not_started": 0,
+        "learning": 0,
+        "practicing": 0,
+        "needs_review": 0,
+        "mastered": 0,
+    }
+
+    assessed_topics = []
+    unit_progress = []
+
+    for u in units:
+        u_topics = [t for t in topics if t.unit_id == u.id]
+        u_assessed = 0
+        u_mastered = 0
+        for t in u_topics:
+            m = mastery_records.get(t.id)
+            st = getattr(m, "status", None) if m else "not_started"
+            if st not in status_counts:
+                st = "not_started"
+            status_counts[st] += 1
+            if m and (st != "not_started" or m.mastery_score > 0):
+                assessed_topics.append(m.mastery_score)
+                u_assessed += 1
+            if st == "mastered":
+                u_mastered += 1
+
+        unit_readiness = (
+            round((u_assessed / len(u_topics)) * 100, 1) if u_topics else None
+        )
+        unit_progress.append({
+            "unit_id": u.id,
+            "unit_number": u.unit_number,
+            "title": u.title,
+            "weightage_percent": u.weightage_percent,
+            "total_topics": len(u_topics),
+            "assessed_topics": u_assessed,
+            "mastered_topics": u_mastered,
+            "unit_readiness": unit_readiness,
+        })
+
+    # Exam sessions for this course
+    exam_sessions = (
+        db.query(ExamSession)
+        .filter(
+            ExamSession.course_id == course.id,
+            ExamSession.user_id == user.id,
+            ExamSession.status == "graded",
+            ExamSession.total_score.isnot(None),
+        )
+        .all()
+    )
+    exam_attempts_count = len(exam_sessions)
+    average_exam_score = None
+    if exam_attempts_count > 0:
+        pcts = [(s.total_score / s.max_score * 100.0) for s in exam_sessions if s.max_score > 0]
+        average_exam_score = round(sum(pcts) / len(pcts), 1) if pcts else 0.0
+
+    assessed_count = len(assessed_topics)
+    avg_mastery = (
+        round(sum(assessed_topics) / assessed_count, 3) if assessed_count > 0 else 0.0
+    )
+
+    mapped_count = total_topics
+    has_sufficient_data = total_topics > 0 and (assessed_count > 0 or exam_attempts_count > 0)
+
+    if not has_sufficient_data:
+        readiness_pct = None
+        calculation_basis = "Not enough data — complete topic quizzes or an exam simulation to calculate readiness."
+    else:
+        coverage_ratio = assessed_count / total_topics if total_topics > 0 else 0.0
+        if exam_attempts_count > 0 and average_exam_score is not None:
+            exam_ratio = average_exam_score / 100.0
+            raw_readiness = (0.40 * coverage_ratio + 0.40 * avg_mastery + 0.20 * exam_ratio) * 100.0
+            readiness_pct = round(raw_readiness, 1)
+            calculation_basis = (
+                f"Derived from {assessed_count}/{total_topics} assessed topics (avg {round(avg_mastery*100, 1)}% mastery) "
+                f"and {exam_attempts_count} exam simulation(s) (avg {average_exam_score}%). "
+                f"Formula: 0.40*coverage + 0.40*mastery + 0.20*exam."
+            )
+        else:
+            raw_readiness = (0.50 * coverage_ratio + 0.50 * avg_mastery) * 100.0
+            readiness_pct = round(raw_readiness, 1)
+            calculation_basis = (
+                f"Derived from {assessed_count}/{total_topics} assessed topics (avg {round(avg_mastery*100, 1)}% mastery). "
+                f"Formula: 0.50*coverage + 0.50*mastery."
+            )
+
+    return {
+        "course_id": course.id,
+        "code": course.code,
+        "name": course.name,
+        "total_units": len(units),
+        "total_topics": total_topics,
+        "mapped_topics_count": mapped_count,
+        "assessed_topics_count": assessed_count,
+        "topics_by_status": status_counts,
+        "average_topic_mastery": avg_mastery,
+        "exam_attempts_count": exam_attempts_count,
+        "average_exam_score": average_exam_score,
+        "has_sufficient_data": has_sufficient_data,
+        "readiness_percentage": readiness_pct,
+        "calculation_basis": calculation_basis,
+        "formula_documentation": "Readiness = 0.40 * (assessed_topics / total_topics) + 0.40 * avg_topic_mastery + 0.20 * (avg_exam_score / 100) [or 0.50/0.50 when no exam session taken]",
+        "unit_progress": unit_progress,
+    }

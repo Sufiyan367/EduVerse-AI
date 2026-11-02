@@ -149,3 +149,33 @@ EduVerse AI
 - `EduVerse-AI-Complete/apps/fullstack/frontend/src/components/layout/AppShell.tsx` (5-Destination Nav)
 - `EduVerse-AI-Complete/apps/fullstack/frontend/src/router.tsx` (Route hierarchy + backward compatibility)
 - `docs/reports/PRODUCT_EXPERIENCE_REDESIGN.md` (This document)
+
+
+---
+
+## 5. Final Product Intelligence & Guided Learning Pass (November 3, 2026)
+
+Following the initial navigation consolidation, EduVerse AI received a comprehensive product intelligence overhaul to ensure all metrics are authentic and every topic provides a DeepTutor-grade learning experience:
+
+### A. Truthful Metrics & Readiness Formula
+- **Removal of All Hardcoded Estimates:** Audited and eliminated placeholder metrics (including the static 65% readiness in `Progress.tsx`).
+- **Verifiable Course Exam Readiness Standard:** Standardized on an explicit weighted formula:
+  $$\text{Readiness} = 0.40 \cdot \text{Coverage} + 0.40 \cdot \text{Mastery} + 0.20 \cdot \text{Exam Score}$$
+  *(or 50% Coverage + 50% Mastery when no exam simulation has been completed).*
+- **Insufficient Data State:** Returns `null` readiness with the clear explanation `"Not enough data — complete topic quizzes or an exam simulation to calculate readiness."`
+
+### B. Guided Topic Learning Journey (`GuidedLearningModal.tsx` & `guided_learning.py`)
+- **Lifecycle State Machine:** Tracks every syllabus topic through `Not Started -> Learning -> Practicing -> Needs Review / Mastered`.
+- **4-Step Integrated Modal:**
+  1. *Curriculum Context:* Bloom taxonomy level, prerequisites, linked lecture PDFs, and grounded excerpts.
+  2. *Adaptive Tutor Explanation:* Pedagogical modes (Standard, Explain Simply, Worked Example, Compare Concepts) with exact citations or explicit disclaimer when no source material is linked.
+  3. *Targeted 3-Question Knowledge Check:* Evaluates definitions, trade-offs, and failure modes.
+  4. *Remediation & Spaced Review:* Provides immediate mistake analysis, promotes topics scoring $\ge 80\%$ to `Mastered`, marks topics $< 70\%$ as `Needs Review`, and schedules persistent revision tasks.
+
+### C. Multi-Scope RAG & Tutor Scoping
+- Extended `ChatScope` with `COURSE` and `TOPIC` scopes, ensuring document retrieval is strictly isolated to the selected course and topic.
+- Added instant action triggers to assistant chat responses (`Explain simply`, `Show worked example`, `Compare concepts`, `Take Quiz`, `Schedule Revision`).
+
+### D. Final Regression Verification
+- **Pytest Suite:** 55/55 tests passed in 20.01s (including new `test_guided_learning_and_metrics.py`).
+- **Frontend Typecheck & Build:** `tsc --noEmit` clean; `vite build` completed in 12.29s.

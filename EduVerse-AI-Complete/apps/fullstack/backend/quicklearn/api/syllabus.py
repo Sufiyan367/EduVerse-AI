@@ -17,6 +17,7 @@ from ..db.academic_models import (
     CourseUnit,
     SyllabusTopic,
     TopicOutcomeLink,
+    StudentTopicMastery,
 )
 from ..db.models import Segment, Source, User
 from ..db.session import get_db
@@ -70,12 +71,23 @@ def get_syllabus(
         for t in topics:
             total_topics += 1
             linked_cos = [co_map.get(link.outcome_id, "") for link in t.outcome_links if link.outcome_id in co_map]
+            m = (
+                db.query(StudentTopicMastery)
+                .filter(StudentTopicMastery.topic_id == t.id, StudentTopicMastery.user_id == user.id)
+                .first()
+            )
+            st = getattr(m, "status", None) if m else "not_started"
+            if not st:
+                st = "not_started"
             topics_data.append({
                 "id": t.id,
                 "name": t.name,
                 "bloom_level": t.bloom_level,
                 "importance_score": round(t.importance_score, 2),
                 "course_outcomes": linked_cos,
+                "status": st,
+                "mastery_score": m.mastery_score if m else 0.0,
+                "confidence_level": m.confidence_level if m else "none",
                 "created_at": t.created_at.isoformat() if t.created_at else None,
             })
 

@@ -40,6 +40,14 @@ export function DashboardPage() {
     queryFn: () => api.listCourses(),
   })
 
+  const activeCourse = courses.find((c: any) => c.id === activeCourseId) || courses[0] || null
+
+  const { data: activeCourseProgress } = useQuery({
+    queryKey: ['course-progress', activeCourse?.id],
+    queryFn: () => api.getCourseProgress(activeCourse!.id),
+    enabled: !!activeCourse?.id,
+  })
+
   if (isLoading || !data) {
     return (
       <div className="mx-auto max-w-6xl space-y-4 p-6">
@@ -60,7 +68,7 @@ export function DashboardPage() {
   const studentName = user?.full_name || user?.username || 'Student'
 
   const dueTotal = (data.due?.due || 0) + (data.due?.new || 0)
-  const activeCourse = courses.find((c: any) => c.id === activeCourseId) || courses[0] || null
+// activeCourse defined above
 
   // Determine top priority action
   let primaryAction = {
@@ -192,18 +200,45 @@ export function DashboardPage() {
                   </h3>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 py-2 border-y border-border/60 text-center text-xs">
+                {/* Truthful Readiness & Lifecycle Summary */}
+                <div className="p-3 rounded-lg bg-muted/30 border border-border/70 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground font-medium">Exam Readiness:</span>
+                    {activeCourseProgress?.readiness_percentage !== null && activeCourseProgress?.readiness_percentage !== undefined ? (
+                      <span className="font-bold text-primary">
+                        {Math.round(activeCourseProgress.readiness_percentage)}%
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground font-medium text-[11px]">Not enough data</span>
+                    )}
+                  </div>
+                  {activeCourseProgress?.readiness_percentage !== null && activeCourseProgress?.readiness_percentage !== undefined && (
+                    <div className="w-full bg-muted/80 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="bg-primary h-1.5 rounded-full"
+                        style={{ width: `${Math.min(100, Math.max(0, activeCourseProgress.readiness_percentage))}%` }}
+                      />
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
+                    <span>Mastered: <strong className="text-foreground">{activeCourseProgress?.topics_by_status?.mastered || 0}</strong></span>
+                    <span>Learning: <strong className="text-foreground">{(activeCourseProgress?.topics_by_status?.learning || 0) + (activeCourseProgress?.topics_by_status?.practicing || 0)}</strong></span>
+                    <span>Review: <strong className="text-foreground">{activeCourseProgress?.topics_by_status?.needs_review || 0}</strong></span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 py-1.5 text-center text-xs">
                   <div>
-                    <span className="font-bold text-foreground text-sm">{activeCourse.unit_count || 0}</span>
-                    <span className="block text-[11px] text-muted-foreground">Units</span>
+                    <span className="font-bold text-foreground text-xs">{activeCourse.unit_count || 0}</span>
+                    <span className="block text-[10px] text-muted-foreground">Units</span>
                   </div>
                   <div>
-                    <span className="font-bold text-foreground text-sm">{activeCourse.topic_count || 0}</span>
-                    <span className="block text-[11px] text-muted-foreground">Topics</span>
+                    <span className="font-bold text-foreground text-xs">{activeCourse.topic_count || 0}</span>
+                    <span className="block text-[10px] text-muted-foreground">Topics</span>
                   </div>
                   <div>
-                    <span className="font-bold text-foreground text-sm">{activeCourse.paper_count || 0}</span>
-                    <span className="block text-[11px] text-muted-foreground">Papers</span>
+                    <span className="font-bold text-foreground text-xs">{activeCourse.paper_count || 0}</span>
+                    <span className="block text-[10px] text-muted-foreground">Papers</span>
                   </div>
                 </div>
 

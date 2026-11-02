@@ -223,7 +223,7 @@ export const api = {
 
   // ---------------------------------------------------------------- chat
   listChats: () => get<{ chats: Chat[] }>('/chat'),
-  createChat: (scope_type: 'source' | 'folder' | 'global', scope_id?: number | null, title = '') =>
+  createChat: (scope_type: 'source' | 'folder' | 'global' | 'course' | 'topic', scope_id?: number | null, title = '') =>
     post<Chat>('/chat', { scope_type, scope_id, title }),
   chatMessages: (id: number) => get<{ chat: Chat; messages: ChatMessage[] }>(`/chat/${id}/messages`),
   sendChatMessage: (id: number, content: string) =>
@@ -344,6 +344,24 @@ export const api = {
   deleteCourse: (courseId: number) => del<any>(`/courses/${courseId}`),
   linkCourseMaterial: (courseId: number, data: { source_id: number; unit_id?: number }) =>
     post<any>(`/courses/${courseId}/materials`, data),
+  getCourseProgress: (courseId: number) => get<any>(`/courses/${courseId}/progress`),
+
+  getGuidedLearning: (courseId: number, topicId: number) =>
+    get<any>(`/courses/${courseId}/topics/${topicId}/learning`),
+  startTopicLearning: (courseId: number, topicId: number) =>
+    post<any>(`/courses/${courseId}/topics/${topicId}/learning/start`, {}),
+  explainTopic: (courseId: number, topicId: number, mode = 'standard') =>
+    post<any>(`/courses/${courseId}/topics/${topicId}/learning/explain?mode=${mode}`, {}),
+  getTopicKnowledgeCheck: (courseId: number, topicId: number) =>
+    post<any>(`/courses/${courseId}/topics/${topicId}/learning/quiz`, {}),
+  submitTopicKnowledgeCheck: (
+    courseId: number,
+    topicId: number,
+    answers: Array<{ question_id: number; selected_option: string }>,
+  ) =>
+    post<any>(`/courses/${courseId}/topics/${topicId}/learning/submit`, { answers }),
+  scheduleTopicRevision: (courseId: number, topicId: number) =>
+    post<any>(`/courses/${courseId}/topics/${topicId}/learning/revision`, {}),
 
   getSyllabus: (courseId: number) => get<any>(`/courses/${courseId}/syllabus`),
   addUnit: (courseId: number, data: { unit_number: number; title: string; description?: string; weightage_percent?: number }) =>

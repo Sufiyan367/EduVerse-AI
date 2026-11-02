@@ -22,6 +22,7 @@ from . import (
     courses,
     dashboard,
     evaluation,
+    guided_learning,
     knowledge_gap,
     library,
     notes,
@@ -46,6 +47,7 @@ api_router.include_router(library.router)
 # Academic Exam Intelligence & Course Workspace
 api_router.include_router(courses.router)
 api_router.include_router(syllabus.router)
+api_router.include_router(guided_learning.router)
 api_router.include_router(papers.router)
 api_router.include_router(simulator.router)
 api_router.include_router(evaluation.router)

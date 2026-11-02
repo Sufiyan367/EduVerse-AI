@@ -34,9 +34,10 @@ def setup_postgres_env():
     session_mod._session_factory = None
 
     try:
+        from sqlalchemy import text
         engine = session_mod.get_engine()
-        with engine.connect() as conn:
-            pass
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE student_topic_mastery ADD COLUMN IF NOT EXISTS status VARCHAR(32) DEFAULT 'not_started'"))
     except Exception as exc:
         # Restore environment immediately if connection fails
         if old_url is not None:

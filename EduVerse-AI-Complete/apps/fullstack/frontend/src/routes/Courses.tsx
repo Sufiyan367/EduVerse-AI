@@ -68,6 +68,12 @@ export function CoursesPage() {
 
   const selectedCourse = courses.find((c: any) => c.id === selectedCourseId) || null
 
+  const { data: courseProgress } = useQuery({
+    queryKey: ['course-progress', selectedCourseId],
+    queryFn: () => api.getCourseProgress(selectedCourseId!),
+    enabled: !!selectedCourseId,
+  })
+
   const createMutation = useMutation({
     mutationFn: () =>
       api.createCourse({
@@ -294,6 +300,128 @@ export function CoursesPage() {
           {/* Tab 1: Overview */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
+              {/* Academic Exam Readiness & Topic Mastery Truthful Hero */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Readiness Metric Card */}
+                <div className="lg:col-span-1 rounded-2xl border border-border bg-card p-5 space-y-3 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Course Exam Readiness
+                      </span>
+                      <Badge tone={courseProgress?.readiness_percentage ? 'accent' : 'neutral'} className="text-[10px]">
+                        {courseProgress?.has_exam_data ? 'Exam Grounded' : 'Syllabus Grounded'}
+                      </Badge>
+                    </div>
+                    <div className="mt-2 flex items-baseline gap-2">
+                      {courseProgress?.readiness_percentage !== null && courseProgress?.readiness_percentage !== undefined ? (
+                        <>
+                          <span className="text-3xl font-extrabold text-foreground">
+                            {Math.round(courseProgress.readiness_percentage)}%
+                          </span>
+                          <span className="text-xs text-muted-foreground font-medium">calculated readiness</span>
+                        </>
+                      ) : (
+                        <div className="py-1">
+                          <span className="text-xl font-bold text-muted-foreground">Not enough data</span>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            Complete topic knowledge checks or an exam simulation to calculate verified course readiness.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {courseProgress?.readiness_percentage !== null && courseProgress?.readiness_percentage !== undefined && (
+                    <div className="space-y-2 pt-2 border-t border-border/60">
+                      <div className="w-full bg-muted/60 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-primary h-2 rounded-full transition-all duration-500"
+                          style={{ width: `${Math.min(100, Math.max(0, courseProgress.readiness_percentage))}%` }}
+                        />
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 text-[10px] text-muted-foreground text-center">
+                        <div className="bg-muted/30 p-1.5 rounded">
+                          <span className="font-semibold text-foreground block">
+                            {Math.round(courseProgress.breakdown.topic_coverage_rate * 100)}%
+                          </span>
+                          Assessed
+                        </div>
+                        <div className="bg-muted/30 p-1.5 rounded">
+                          <span className="font-semibold text-foreground block">
+                            {Math.round(courseProgress.breakdown.avg_topic_mastery * 100)}%
+                          </span>
+                          Mastery
+                        </div>
+                        <div className="bg-muted/30 p-1.5 rounded">
+                          <span className="font-semibold text-foreground block">
+                            {courseProgress.breakdown.exam_simulation_avg !== null
+                              ? `${Math.round(courseProgress.breakdown.exam_simulation_avg)}%`
+                              : 'None'}
+                          </span>
+                          Exam
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Topic Learning Lifecycle Distribution */}
+                <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-5 space-y-3 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Topic Learning Progress
+                      </h3>
+                      <p className="text-xs text-foreground font-medium mt-0.5">
+                        {courseProgress?.assessed_topics_count || 0} of {courseProgress?.total_topics || selectedCourse.topic_count || 0} topics assessed
+                      </p>
+                    </div>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleTabChange('syllabus')}
+                      className="text-xs gap-1.5"
+                    >
+                      <Layers className="h-3.5 w-3.5 text-primary" />
+                      <span>Open Syllabus & Topics</span>
+                    </Button>
+                  </div>
+
+                  {/* Lifecycle Distribution Badges */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                    <div className="p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5">
+                      <div className="text-[11px] font-semibold text-emerald-400">Mastered</div>
+                      <div className="text-xl font-bold text-foreground mt-0.5">
+                        {courseProgress?.topics_by_status?.mastered || 0}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">Knowledge check &gt; 80%</div>
+                    </div>
+                    <div className="p-3 rounded-xl border border-primary/20 bg-primary/5">
+                      <div className="text-[11px] font-semibold text-primary">In Learning</div>
+                      <div className="text-xl font-bold text-foreground mt-0.5">
+                        {(courseProgress?.topics_by_status?.learning || 0) + (courseProgress?.topics_by_status?.practicing || 0)}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">Active guided session</div>
+                    </div>
+                    <div className="p-3 rounded-xl border border-amber-500/20 bg-amber-500/5">
+                      <div className="text-[11px] font-semibold text-amber-400">Needs Review</div>
+                      <div className="text-xl font-bold text-foreground mt-0.5">
+                        {courseProgress?.topics_by_status?.needs_review || 0}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">Knowledge check &lt; 70%</div>
+                    </div>
+                    <div className="p-3 rounded-xl border border-border bg-muted/20">
+                      <div className="text-[11px] font-semibold text-muted-foreground">Not Started</div>
+                      <div className="text-xl font-bold text-foreground mt-0.5">
+                        {courseProgress?.topics_by_status?.not_started || 0}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">Pending study</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Quick Summary Card */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-card border border-border rounded-xl p-4">

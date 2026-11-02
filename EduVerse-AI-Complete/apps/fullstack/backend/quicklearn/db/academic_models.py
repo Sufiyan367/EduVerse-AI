@@ -296,6 +296,7 @@ class StudentTopicMastery(Base):
     topic_id: Mapped[int] = mapped_column(ForeignKey("syllabus_topics.id", ondelete="CASCADE"), index=True)
     mastery_score: Mapped[float] = mapped_column(Float, default=0.0)  # 0.0 to 1.0
     confidence_level: Mapped[str] = mapped_column(String(32), default="low")  # low, medium, high
+    status: Mapped[str] = mapped_column(String(32), default="not_started")  # not_started, learning, practicing, needs_review, mastered
     last_evaluated_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow)
 
     __table_args__ = (UniqueConstraint("user_id", "topic_id", name="uq_user_topic_mastery"),)

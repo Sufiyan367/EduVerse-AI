@@ -56,6 +56,15 @@ def init_database(config: Config | None = None) -> None:
     create_virtual_tables()
 
     try:
+        from sqlalchemy import text
+        from .session import session_scope
+        with session_scope() as session:
+            session.execute(text("ALTER TABLE student_topic_mastery ADD COLUMN status VARCHAR(32) DEFAULT 'not_started'"))
+            session.commit()
+    except Exception:
+        pass
+
+    try:
         from ..rag.index import get_index
         get_index().ensure(384)
     except Exception as exc:

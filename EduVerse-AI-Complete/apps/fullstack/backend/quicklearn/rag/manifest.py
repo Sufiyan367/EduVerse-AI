@@ -88,6 +88,25 @@ def _query_manifest(
         stmt = stmt.where(Source.id == scope_id)
     elif scope_type == "folder" and scope_id is not None:
         stmt = stmt.where(Source.folder_id == scope_id)
+    elif scope_type == "course" and scope_id is not None:
+        from ..db.academic_models import CourseMaterialLink
+        course_source_ids = select(CourseMaterialLink.source_id).where(CourseMaterialLink.course_id == scope_id)
+        stmt = stmt.where(Source.id.in_(course_source_ids))
+    elif scope_type == "topic" and scope_id is not None:
+        from ..db.academic_models import SyllabusTopic, CourseMaterialLink
+        from sqlalchemy import or_
+        topic_row = session.execute(
+            select(SyllabusTopic.unit_id, SyllabusTopic.course_id).where(SyllabusTopic.id == scope_id)
+        ).first()
+        if topic_row:
+            unit_id, course_id = topic_row
+            topic_sources = select(CourseMaterialLink.source_id).where(
+                CourseMaterialLink.course_id == course_id,
+                or_(CourseMaterialLink.unit_id == unit_id, CourseMaterialLink.unit_id.is_(None))
+            )
+            stmt = stmt.where(Source.id.in_(topic_sources))
+        else:
+            stmt = stmt.where(Source.id == -1)
 
     # Deterministic order
     stmt = stmt.order_by(Source.title.asc(), Source.id.asc())

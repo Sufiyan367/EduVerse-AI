@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useSearch, Link } from '@tanstack/react-router'
 import {
   BookOpen, Check, Copy, ListChecks, MessageSquare,
-  Plus, Send, Sparkles, Brain
+  Plus, Send, Sparkles, Brain, Layers
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
@@ -49,8 +49,32 @@ export function ChatPage() {
       )
       if (existing) navigate({ to: '/chat', search: { id: existing.id } as any })
       else if (!scopedCreate.isPending) scopedCreate.mutate(Number(search.source))
+    } else if (search?.courseId && !search?.id) {
+      const cId = Number(search.courseId)
+      const existing = chats.find(
+        (chat) => chat.scope_type === 'course' && chat.scope_id === cId,
+      )
+      if (existing) navigate({ to: '/chat', search: { id: existing.id } as any })
+      else {
+        api.createChat('course', cId, `Course: ${activeCourse?.code || cId}`).then((newChat) => {
+          queryClient.invalidateQueries({ queryKey: ['chats'] })
+          navigate({ to: '/chat', search: { id: newChat.id } as any })
+        }).catch(() => {})
+      }
+    } else if (search?.topicId && !search?.id) {
+      const tId = Number(search.topicId)
+      const existing = chats.find(
+        (chat) => chat.scope_type === 'topic' && chat.scope_id === tId,
+      )
+      if (existing) navigate({ to: '/chat', search: { id: existing.id } as any })
+      else {
+        api.createChat('topic', tId, `Topic: ${search.topicTitle || tId}`).then((newChat) => {
+          queryClient.invalidateQueries({ queryKey: ['chats'] })
+          navigate({ to: '/chat', search: { id: newChat.id } as any })
+        }).catch(() => {})
+      }
     }
-  }, [search?.source, search?.id, chats.length])
+  }, [search?.source, search?.courseId, search?.topicId, search?.id, chats.length])
 
   return (
     <div className="mx-auto flex h-full max-w-7xl">
@@ -143,7 +167,8 @@ export function ChatPage() {
 }
 
 function NewChatDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
-  const [scope, setScope] = useState<'global' | 'source' | 'folder'>('global')
+  const { data: courses = [] } = useQuery({ queryKey: ['courses'], queryFn: () => api.listCourses() })
+  const [scope, setScope] = useState<'global' | 'course' | 'source' | 'folder'>('global')
   const [scopeId, setScopeId] = useState('')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -176,11 +201,29 @@ function NewChatDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="global">Entire library</SelectItem>
+                <SelectItem value="course">Course workspace</SelectItem>
                 <SelectItem value="source">One source</SelectItem>
                 <SelectItem value="folder">One folder</SelectItem>
               </SelectContent>
             </Select>
           </Field>
+
+          {scope === 'course' && (
+            <Field label="Course Workspace">
+              <Select value={scopeId} onValueChange={setScopeId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose course…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(courses ?? []).map((c: any) => (
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      {c.code}: {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
 
           {scope === 'source' && (
             <Field label="Source">
@@ -383,7 +426,7 @@ function Conversation({ chatId, activeCourse }: { chatId: number; activeCourse: 
 
               {/* Action Toolbar on Assistant Messages */}
               {message.role === 'assistant' && (
-                <div className="flex items-center gap-2 text-xs pt-1">
+                <div className="flex flex-wrap items-center gap-1.5 text-xs pt-1">
                   <button
                     onClick={() => handleCopy(message.id, message.content)}
                     className="inline-flex items-center gap-1 px-2 py-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors text-[11px]"
@@ -393,18 +436,42 @@ function Conversation({ chatId, activeCourse }: { chatId: number; activeCourse: 
                     <span>{copiedId === message.id ? 'Copied' : 'Copy'}</span>
                   </button>
                   <button
+                    onClick={() => send('Explain this in simpler terms with an intuitive analogy or everyday intuition.')}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded border border-border/70 hover:border-primary/40 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors text-[11px]"
+                    title="Explain simply"
+                  >
+                    <Sparkles className="h-3 w-3 text-teal-400" />
+                    <span>Explain simply</span>
+                  </button>
+                  <button
+                    onClick={() => send('Provide a step-by-step worked example demonstrating how this concept or formula is applied.')}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded border border-border/70 hover:border-primary/40 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors text-[11px]"
+                    title="Show worked example"
+                  >
+                    <BookOpen className="h-3 w-3 text-blue-400" />
+                    <span>Show worked example</span>
+                  </button>
+                  <button
+                    onClick={() => send('Compare and contrast the key concepts mentioned here with related principles in this course, highlighting common exam confusions.')}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded border border-border/70 hover:border-primary/40 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors text-[11px]"
+                    title="Compare concepts"
+                  >
+                    <Layers className="h-3 w-3 text-purple-400" />
+                    <span>Compare concepts</span>
+                  </button>
+                  <button
                     onClick={() => navigate({ to: '/practice', search: { tab: 'quiz' } as any })}
                     className="inline-flex items-center gap-1 px-2 py-1 rounded text-primary hover:bg-primary/10 transition-colors text-[11px]"
                   >
                     <ListChecks className="h-3 w-3" />
-                    <span>Practice with Quiz</span>
+                    <span>Take Quiz</span>
                   </button>
                   <button
-                    onClick={() => navigate({ to: '/practice', search: { tab: 'flashcards' } as any })}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded text-teal-400 hover:bg-teal-500/10 transition-colors text-[11px]"
+                    onClick={() => navigate({ to: '/practice', search: { tab: 'revision' } as any })}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded text-amber-400 hover:bg-amber-500/10 transition-colors text-[11px]"
                   >
                     <Brain className="h-3 w-3" />
-                    <span>Review Cards</span>
+                    <span>Schedule Revision</span>
                   </button>
                 </div>
               )}

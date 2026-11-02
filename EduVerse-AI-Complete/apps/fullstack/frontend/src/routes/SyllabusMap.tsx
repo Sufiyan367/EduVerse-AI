@@ -1,6 +1,7 @@
+import { GuidedLearningModal } from '../components/learning/GuidedLearningModal'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
-import { Layers, Sparkles, Plus, Trash2 } from 'lucide-react'
+import { Layers, Sparkles, Plus, Trash2, BookOpen } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../lib/api'
 import { Button, Input, Modal } from '../components/ui'
@@ -47,6 +48,7 @@ export function SyllabusMapPage({ courseId }: { courseId?: number } = {}) {
 
   const [addTopicOpen, setAddTopicOpen] = useState(false)
   const [targetUnitId, setTargetUnitId] = useState<number | null>(null)
+  const [selectedGuidedTopicId, setSelectedGuidedTopicId] = useState<number | null>(null)
   const [topicName, setTopicName] = useState('')
   const [bloomLevel, setBloomLevel] = useState('Understand')
 
@@ -221,8 +223,19 @@ export function SyllabusMapPage({ courseId }: { courseId?: number } = {}) {
               <div className="text-2xl font-bold text-foreground mt-1">{syllabus.outcomes.length || 6}</div>
             </div>
             <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-              <div className="text-xs text-muted-foreground font-medium">Target Exam Coverage</div>
-              <div className="text-2xl font-bold text-emerald-500 mt-1">100%</div>
+              <div className="text-xs text-muted-foreground font-medium">Assessed Topic Mastery</div>
+              <div className="text-2xl font-bold text-primary mt-1">
+                {(() => {
+                  let assessed = 0
+                  syllabus?.units?.forEach((u: any) => {
+                    u.topics?.forEach((t: any) => {
+                      if (t.status === 'mastered' || t.status === 'needs_review' || (t.mastery_score && t.mastery_score > 0)) assessed++
+                    })
+                  })
+                  return syllabus.total_topics > 0 ? `${Math.round((assessed / syllabus.total_topics) * 100)}%` : '0%'
+                })()}
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">Assessed via quizzes & checks</div>
             </div>
           </div>
 
@@ -271,11 +284,37 @@ export function SyllabusMapPage({ courseId }: { courseId?: number } = {}) {
                       {u.topics.map((t: any) => (
                         <div
                           key={t.id}
-                          className="flex items-start justify-between p-3.5 rounded-lg border border-border/70 bg-card hover:bg-muted/20 transition-colors group"
+                          className="flex flex-col justify-between p-3.5 rounded-lg border border-border/70 bg-card hover:border-primary/40 transition-colors group"
                         >
-                          <div className="space-y-1.5 pr-2">
-                            <div className="text-sm font-medium text-foreground line-clamp-2">{t.name}</div>
-                            <div className="flex flex-wrap items-center gap-1.5">
+                          <div>
+                            <div className="flex items-start justify-between gap-1">
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                                t.status === 'mastered'
+                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                  : t.status === 'needs_review'
+                                  ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                                  : t.status === 'learning'
+                                  ? 'bg-sky-500/10 text-sky-400 border-sky-500/20'
+                                  : 'bg-muted text-muted-foreground border-border'
+                              }`}>
+                                {t.status === 'mastered' && '✓ Mastered'}
+                                {t.status === 'needs_review' && 'Needs Review'}
+                                {t.status === 'learning' && 'Learning'}
+                                {(!t.status || t.status === 'not_started') && 'Not Started'}
+                              </span>
+
+                              <button
+                                onClick={() => deleteTopicMutation.mutate(t.id)}
+                                className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive p-1 transition-opacity"
+                                title="Remove topic"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+
+                            <div className="text-sm font-semibold text-foreground line-clamp-2 mt-2">{t.name}</div>
+
+                            <div className="flex flex-wrap items-center gap-1.5 mt-2">
                               <span
                                 className={`text-[10px] font-medium border px-1.5 py-0.5 rounded-md ${getBloomBadgeClass(
                                   t.bloom_level
@@ -288,13 +327,16 @@ export function SyllabusMapPage({ courseId }: { courseId?: number } = {}) {
                               </span>
                             </div>
                           </div>
-                          <button
-                            onClick={() => deleteTopicMutation.mutate(t.id)}
-                            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive p-1 transition-opacity"
-                            title="Remove topic"
+
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => setSelectedGuidedTopicId(t.id)}
+                            className="w-full justify-center text-xs gap-1.5 mt-3 h-7 bg-muted/40 hover:bg-primary/10 hover:text-primary transition-colors"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                            <BookOpen className="h-3 w-3" />
+                            <span>Study Topic &rarr;</span>
+                          </Button>
                         </div>
                       ))}
                     </div>
@@ -453,6 +495,16 @@ export function SyllabusMapPage({ courseId }: { courseId?: number } = {}) {
           </div>
         </form>
       </Modal>
+      {/* Guided Topic Learning Modal */}
+      <GuidedLearningModal
+        courseId={selectedCourseId || 0}
+        topicId={selectedGuidedTopicId}
+        open={!!selectedGuidedTopicId}
+        onClose={() => setSelectedGuidedTopicId(null)}
+        onStatusChange={() => {
+          queryClient.invalidateQueries({ queryKey: ['syllabus', selectedCourseId] })
+        }}
+      />
     </div>
   )
 }

@@ -136,6 +136,8 @@ class ChatScope(StrEnum):
     SOURCE = "source"
     FOLDER = "folder"
     GLOBAL = "global"
+    COURSE = "course"
+    TOPIC = "topic"
 
 
 class MessageRole(StrEnum):

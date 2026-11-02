@@ -232,7 +232,7 @@ export interface QuizResults {
 
 export interface Chat {
   id: number
-  scope_type: 'source' | 'folder' | 'global'
+  scope_type: 'source' | 'folder' | 'global' | 'course' | 'topic'
   scope_id: number | null
   title: string
   message_count: number

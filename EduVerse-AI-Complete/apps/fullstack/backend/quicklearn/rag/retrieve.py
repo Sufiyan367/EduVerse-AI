@@ -126,6 +126,33 @@ def _scope_source_ids(
                 stmt = stmt.where(user_filter)
             return list(session.execute(stmt).scalars()) or [-1]
 
+        if scope_type == "course" and scope_id is not None:
+            from ..db.academic_models import Course, CourseMaterialLink
+            course_check = select(Course.id).where(Course.id == scope_id)
+            if user_id is not None:
+                course_check = course_check.where(Course.user_id == user_id)
+            if not session.execute(course_check).scalar_one_or_none():
+                return [-1]
+
+            stmt = select(CourseMaterialLink.source_id).where(CourseMaterialLink.course_id == scope_id)
+            source_ids = list(session.execute(stmt).scalars())
+            return source_ids or [-1]
+
+        if scope_type == "topic" and scope_id is not None:
+            from ..db.academic_models import SyllabusTopic, CourseMaterialLink
+            topic_row = session.execute(
+                select(SyllabusTopic.unit_id, SyllabusTopic.course_id).where(SyllabusTopic.id == scope_id)
+            ).first()
+            if not topic_row:
+                return [-1]
+            unit_id, course_id = topic_row
+            stmt = select(CourseMaterialLink.source_id).where(
+                CourseMaterialLink.course_id == course_id,
+                or_(CourseMaterialLink.unit_id == unit_id, CourseMaterialLink.unit_id.is_(None))
+            )
+            source_ids = list(session.execute(stmt).scalars())
+            return source_ids or [-1]
+
         # Global library scope:
         if user_id is not None:
             stmt = select(Source.id).where(user_filter)
@@ -320,4 +347,14 @@ def scope_description(scope_type: str, scope_id: int | None) -> str:
         with session_scope() as session:
             folder = session.get(Folder, scope_id)
             return f"the folder “{folder.name}”" if folder else "one folder"
+    if scope_type == "course" and scope_id is not None:
+        from ..db.academic_models import Course
+        with session_scope() as session:
+            course = session.get(Course, scope_id)
+            return f"the course “{course.code}: {course.name}”" if course else "one course workspace"
+    if scope_type == "topic" and scope_id is not None:
+        from ..db.academic_models import SyllabusTopic
+        with session_scope() as session:
+            topic = session.get(SyllabusTopic, scope_id)
+            return f"the syllabus topic “{topic.name}”" if topic else "one topic"
     return "your entire library"

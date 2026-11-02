@@ -59,7 +59,7 @@ FOLLOWUP_PRONOUNS = {
 
 
 class CreateChatRequest(BaseModel):
-    scope_type: Literal["source", "folder", "global"] = "global"
+    scope_type: Literal["source", "folder", "global", "course", "topic"] = "global"
     scope_id: int | None = None
     title: str = ""
 
