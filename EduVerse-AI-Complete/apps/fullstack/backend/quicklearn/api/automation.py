@@ -259,7 +259,7 @@ def list_audit_issues(
 @router.post("/audit/{issue_id}/resolve")
 def resolve_audit_issue(
     issue_id: int,
-    action: str = Query(default="resolve", regex="^(resolve|dismiss)$"),
+    action: str = Query(default="resolve", pattern="^(resolve|dismiss)$"),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:

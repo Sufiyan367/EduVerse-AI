@@ -29,6 +29,9 @@ def check_card_access(card: Card, user: User | None, *, write: bool = False) -> 
             raise ForbiddenError(f"You do not have access to card {card.id}.")
         if owner_id != user.id:
             raise ForbiddenError(f"You do not have access to card {card.id}.")
+    else:
+        if user is None or user.id != 1:
+            raise ForbiddenError(f"You do not have access to card {card.id}.")
 
 
 class ReviewRequest(BaseModel):
@@ -92,9 +95,12 @@ def list_cards(
     with session_scope() as session:
         stmt = select(Card).join(Source, Source.id == Card.source_id)
         if user is not None:
-            stmt = stmt.where((Source.user_id == user.id) | (Source.user_id.is_(None)))
+            if user.id == 1:
+                stmt = stmt.where((Source.user_id == user.id) | (Source.user_id.is_(None)))
+            else:
+                stmt = stmt.where(Source.user_id == user.id)
         else:
-            stmt = stmt.where(Source.user_id.is_(None))
+            return {"cards": []}
         if source_id is not None:
             stmt = stmt.where(Card.source_id == source_id)
         rows = list(session.execute(stmt.order_by(Card.id).limit(limit).offset(offset)).scalars())

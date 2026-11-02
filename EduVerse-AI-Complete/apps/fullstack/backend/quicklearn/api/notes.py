@@ -32,6 +32,9 @@ def check_note_access(note: Note, user: User | None, *, write: bool = False) -> 
             raise ForbiddenError(f"You do not have access to note {note.id}.")
         if owner_id != user.id:
             raise ForbiddenError(f"You do not have access to note {note.id}.")
+    else:
+        if user is None or user.id != 1:
+            raise ForbiddenError(f"You do not have access to note {note.id}.")
 
 
 AiAction = Literal["explain", "expand", "simplify", "key_points", "rewrite"]

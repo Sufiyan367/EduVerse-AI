@@ -6,7 +6,7 @@
 [![React: 18](https://img.shields.io/badge/React-18-61DAFB.svg?logo=react&logoColor=black)](EduVerse-AI-Complete/apps/fullstack/frontend/)
 [![PyMuPDF: 1.24+](https://img.shields.io/badge/PyMuPDF-1.24+-0A9396.svg)](https://pymupdf.readthedocs.io/)
 [![sqlite-vec](https://img.shields.io/badge/Vector%20Store-sqlite--vec-blue.svg)](https://github.com/asg017/sqlite-vec)
-[![Test Suite: 154 Passed](https://img.shields.io/badge/Tests-154%20Passed-brightgreen.svg)](tests/)
+[![Test Suite: 48 Passed](https://img.shields.io/badge/Tests-48%20Passed%20(8%20Suites)-brightgreen.svg)](EduVerse-AI-Complete/apps/fullstack/backend/tests/)
 [![Local LLM: Qwen3.5:4b](https://img.shields.io/badge/Local%20LLM-Qwen3.5%3A4b%20(RTX%203050)-7B2CBF.svg)](https://ollama.com)
 
 > **Academic Classification:** B.Tech Artificial Intelligence & Data Science Mini-Project  
@@ -233,27 +233,26 @@ EduVerse AI features a strict 3-tier routing architecture that guarantees zero s
 
 ## 11. Running Automated Tests
 
-### 1. Live Local Inference Test Suite (Ollama + Qwen3.5:4b on RTX 3050)
+All tests run from the canonical backend directory:
+
 ```cmd
-cd /d "S:\SY\SEM 3\MP\EduVerse-AI-repo\EduVerse-AI-Complete\apps\fullstack"
-set PYTHONPATH=backend
-pytest tests/test_live_ollama_qwen_inference.py -v
+cd /d "S:\SY\SEM 3\MP\EduVerse-AI-repo\EduVerse-AI-Complete\apps\fullstack\backend"
+python -m pytest tests -v
 ```
 
-### 2. Ollama Reasoning Integration & Handshake Suite (7 Tests)
-```cmd
-pytest tests/test_ollama_reasoning_integration.py -v
-```
+The 48-test suite covers 8 specialized verification suites:
 
-### 3. Dedicated RAG Pipeline Repair & 15-Category Benchmark Suite (10 Tests)
-```cmd
-pytest tests/test_rag_pipeline_repair.py -v
-```
-
-### 4. Canonical Fullstack Regression Suite (154 Tests)
-```cmd
-pytest tests -v --tb=short
-```
+| Suite | File | Tests | Focus |
+|---|---|:---:|---|
+| **Autonomous Automation** | `test_autonomous_automation_engine.py` | 11 | Queue concurrency, leases, exponential backoff, background workers |
+| **Local Ollama Inference** | `test_ollama_provider.py` | 4 | URL normalization, think token cleaning, payload parameters, live daemon |
+| **DeepTutor P0 Adaptations** | `test_p0_adaptations_e2e.py` | 4 | Source manifest system note, prompt injection, verbatim citations, quiz evidence |
+| **Comprehensive PDF Pipeline** | `test_pdf_pipeline_comprehensive.py` | 11 | Multi-column, tables, code/equations, scanned OCR, blank/corrupt PDFs, FTS5 |
+| **Academic Workflow (Optional PG)**| `test_postgres_academic_workflow.py` | 3 | Course units, exam session simulation, mastery graph, vector retrieval |
+| **Quiz Evidence Verification** | `test_quiz_evidence_verification.py` | 5 | Server-side quote matching, anti-hallucination rejector, hyphen resilience |
+| **Quote Grounding & Normalization**| `test_quote_grounding.py` | 5 | Wrapped words, smart quotes/dashes, ligatures, cross-chunk boundaries |
+| **Source Manifest System Note** | `test_source_manifest.py` | 5 | Inventory note rendering, user isolation, scope filtering, empty library |
+| **Total** | **8 Test Suites** | **48** | **100% Passed** |
 
 ---
 

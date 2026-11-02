@@ -72,9 +72,12 @@ class SendMessageRequest(BaseModel):
 def create_chat(
     payload: CreateChatRequest, user: User | None = Depends(get_optional_user)
 ) -> dict[str, Any]:
+    if user is None:
+        from ..errors import ForbiddenError
+        raise ForbiddenError("Authentication required to create a chat.")
     with session_scope() as session:
         chat = Chat(
-            user_id=user.id if user else None,
+            user_id=user.id,
             scope_type=ChatScope(payload.scope_type),
             scope_id=payload.scope_id,
             title=payload.title.strip() or "New chat",
@@ -88,12 +91,14 @@ def create_chat(
 def list_chats(
     limit: int = 50, user: User | None = Depends(get_optional_user)
 ) -> dict[str, Any]:
+    if user is None:
+        return {"chats": []}
     with session_scope() as session:
         stmt = select(Chat).order_by(Chat.created_at.desc())
-        if user is not None:
+        if user.id == 1:
             stmt = stmt.where(or_(Chat.user_id == user.id, Chat.user_id.is_(None)))
         else:
-            stmt = stmt.where(Chat.user_id.is_(None))
+            stmt = stmt.where(Chat.user_id == user.id)
         rows = list(session.execute(stmt.limit(limit)).scalars())
         counts = dict(
             session.execute(
@@ -113,8 +118,12 @@ def get_messages(
         chat = session.get(Chat, chat_id)
         if chat is None:
             raise NotFoundError(f"Chat {chat_id} not found.")
-        if user is not None and chat.user_id is not None and chat.user_id != user.id:
-            raise NotFoundError(f"Chat {chat_id} not found.")
+        if chat.user_id is not None:
+            if user is None or chat.user_id != user.id:
+                raise NotFoundError(f"Chat {chat_id} not found.")
+        else:
+            if user is None or user.id != 1:
+                raise NotFoundError(f"Chat {chat_id} not found.")
         rows = list(
             session.execute(
                 select(Message).where(Message.chat_id == chat_id).order_by(Message.id)
@@ -131,8 +140,12 @@ def delete_chat(
         chat = session.get(Chat, chat_id)
         if chat is None:
             raise NotFoundError(f"Chat {chat_id} not found.")
-        if user is not None and chat.user_id is not None and chat.user_id != user.id:
-            raise NotFoundError(f"Chat {chat_id} not found.")
+        if chat.user_id is not None:
+            if user is None or chat.user_id != user.id:
+                raise NotFoundError(f"Chat {chat_id} not found.")
+        else:
+            if user is None or user.id != 1:
+                raise NotFoundError(f"Chat {chat_id} not found.")
         session.delete(chat)
     return {"deleted": True}
 

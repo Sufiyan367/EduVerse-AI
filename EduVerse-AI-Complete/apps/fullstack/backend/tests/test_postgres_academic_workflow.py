@@ -19,7 +19,44 @@ import pytest
 backend_dir = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(backend_dir))
 
-os.environ["QUICKLEARN_DATABASE_URL"] = "postgresql+psycopg://eduverse_app:EduVerse_App_2026_SecureKey!@127.0.0.1:5432/eduverse_db"
+PG_URL = "postgresql+psycopg://eduverse_app:EduVerse_App_2026_SecureKey!@127.0.0.1:5432/eduverse_db"
+
+
+@pytest.fixture(autouse=True, scope="module")
+def setup_postgres_env():
+    """Configure PostgreSQL environment for this optional test suite and restore SQLite on exit."""
+    import quicklearn.db.session as session_mod
+    old_url = os.environ.get("QUICKLEARN_DATABASE_URL")
+    os.environ["QUICKLEARN_DATABASE_URL"] = PG_URL
+
+    # Reset cached engine to connect to PG
+    session_mod._engine = None
+    session_mod._session_factory = None
+
+    try:
+        engine = session_mod.get_engine()
+        with engine.connect() as conn:
+            pass
+    except Exception as exc:
+        # Restore environment immediately if connection fails
+        if old_url is not None:
+            os.environ["QUICKLEARN_DATABASE_URL"] = old_url
+        else:
+            os.environ.pop("QUICKLEARN_DATABASE_URL", None)
+        session_mod._engine = None
+        session_mod._session_factory = None
+        pytest.skip(f"Optional PostgreSQL test skipped: {exc}")
+
+    yield
+
+    # Restore default SQLite environment
+    if old_url is not None:
+        os.environ["QUICKLEARN_DATABASE_URL"] = old_url
+    else:
+        os.environ.pop("QUICKLEARN_DATABASE_URL", None)
+    session_mod._engine = None
+    session_mod._session_factory = None
+
 
 from quicklearn.db.session import get_engine, session_scope, raw_sqlite, is_postgres
 from quicklearn.db.models import User, Segment

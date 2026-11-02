@@ -80,8 +80,73 @@ if (-not (Test-Path $IndexHtml)) {
     Write-Host "      Production static assets verified ($IndexHtml)" -ForegroundColor Green
 }
 
-# 4. Port occupancy and health check
-Write-Host "[4/6] Checking port $Port status..." -ForegroundColor Cyan
+# 4. Local AI Provider (Ollama & Reasoning Model)
+Write-Host "[4/7] Verifying local AI provider (Ollama)..." -ForegroundColor Cyan
+if (Test-Path "S:\OllamaModels") {
+    $env:OLLAMA_MODELS = "S:\OllamaModels"
+}
+$env:OLLAMA_HOST = "127.0.0.1:11434"
+
+$OllamaExe = if (Get-Command ollama -ErrorAction SilentlyContinue) {
+    (Get-Command ollama).Source
+} elseif (Test-Path "$env:LOCALAPPDATA\Programs\Ollama\ollama.exe") {
+    "$env:LOCALAPPDATA\Programs\Ollama\ollama.exe"
+} else {
+    $null
+}
+
+$DaemonOnline = $false
+if ($OllamaExe) {
+    try {
+        $r = Invoke-WebRequest -Uri "http://127.0.0.1:11434/api/tags" -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
+        if ($r.StatusCode -eq 200) { $DaemonOnline = $true }
+    } catch {}
+
+    if (-not $DaemonOnline) {
+        Write-Host "      Starting Ollama daemon in background..." -ForegroundColor Gray
+        Start-Process -FilePath $OllamaExe -ArgumentList "serve" -WindowStyle Hidden
+        $WaitStart = Get-Date
+        while (((Get-Date) - $WaitStart).TotalSeconds -lt 15) {
+            Start-Sleep -Milliseconds 500
+            try {
+                $r = Invoke-WebRequest -Uri "http://127.0.0.1:11434/api/tags" -TimeoutSec 1 -UseBasicParsing -ErrorAction Stop
+                if ($r.StatusCode -eq 200) {
+                    $DaemonOnline = $true
+                    break
+                }
+            } catch {}
+        }
+    }
+
+    if ($DaemonOnline) {
+        Write-Host "      Ollama daemon is ONLINE (127.0.0.1:11434)" -ForegroundColor Green
+        try {
+            $tags = Invoke-RestMethod -Uri "http://127.0.0.1:11434/api/tags" -TimeoutSec 4 -ErrorAction Stop
+            $hasModel = $false
+            if ($tags.models) {
+                foreach ($m in $tags.models) {
+                    if ($m.name -like "qwen3.5*") {
+                        $hasModel = $true
+                        Write-Host "      Found reasoning model: $($m.name)" -ForegroundColor Green
+                        break
+                    }
+                }
+            }
+            if (-not $hasModel) {
+                Write-Host "      [WARNING] Model 'qwen3.5:4b' not detected in Ollama." -ForegroundColor Yellow
+            }
+        } catch {
+            Write-Host "      [WARNING] Could not list Ollama models." -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "      [WARNING] Ollama daemon is offline. (Offline Demo / Mock mode will be used)" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "      [NOTICE] Ollama binary not found. Local offline mock mode available." -ForegroundColor Yellow
+}
+
+# 5. Port occupancy and health check
+Write-Host "[5/7] Checking port $Port status..." -ForegroundColor Cyan
 $TargetUrl = "http://${HostAddress}:${Port}"
 $HealthUrl = "${TargetUrl}/api/v1/health"
 
@@ -114,14 +179,18 @@ if ($AlreadyRunning -and -not $ForceRestart) {
         }
     }
 
-    # 5. Launch Backend Server
-    Write-Host "[5/6] Starting EduVerse AI server..." -ForegroundColor Cyan
+    # 6. Launch Backend Server
+    Write-Host "[6/7] Starting EduVerse AI server..." -ForegroundColor Cyan
     $ProcessArgs = "-m quicklearn --port $Port --host $HostAddress --data-dir `"$DataDir`""
     $StartInfo = New-Object System.Diagnostics.ProcessStartInfo
     $StartInfo.FileName = "python"
     $StartInfo.Arguments = $ProcessArgs
     $StartInfo.WorkingDirectory = $BackendDir
     $StartInfo.EnvironmentVariables["PYTHONPATH"] = $BackendDir
+    if (Test-Path "S:\OllamaModels") {
+        $StartInfo.EnvironmentVariables["OLLAMA_MODELS"] = "S:\OllamaModels"
+    }
+    $StartInfo.EnvironmentVariables["OLLAMA_HOST"] = "127.0.0.1:11434"
     $StartInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Minimized
     $StartInfo.UseShellExecute = $false
 
@@ -153,8 +222,8 @@ if ($AlreadyRunning -and -not $ForceRestart) {
     Write-Host "      Health and frontend verification passed successfully." -ForegroundColor Green
 }
 
-# 6. Summary and Browser Launch
-Write-Host "[6/6] EduVerse AI is active and ready." -ForegroundColor Cyan
+# 7. Summary and Browser Launch
+Write-Host "[7/7] EduVerse AI is active and ready." -ForegroundColor Cyan
 Write-Host ""
 Write-Host "========================================================================" -ForegroundColor Green
 Write-Host " Access EduVerse AI in your browser:" -ForegroundColor White

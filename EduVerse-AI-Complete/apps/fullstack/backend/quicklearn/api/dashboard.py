@@ -83,12 +83,32 @@ def get_dashboard_stats(
     """Aggregate real learning analytics from the database."""
     now = utcnow()
 
+    if user is None:
+        return DashboardStatsOut(
+            total_sources=0,
+            recent_sources=[],
+            total_cards=0,
+            cards_due_today=0,
+            cards_mastered=0,
+            cards_learning=0,
+            total_quiz_sessions=0,
+            total_quiz_attempts=0,
+            average_quiz_accuracy=0.0,
+            quizzes_passed_pct=0.0,
+            critical_gaps_count=0,
+            moderate_gaps_count=0,
+            pending_revision_count=0,
+            completed_revision_count=0,
+            total_notes=0,
+            recent_activities=[],
+        )
+
     # 1. Sources / Study Materials (User Scoped)
     src_query = select(Source)
-    if user is not None:
+    if user.id == 1:
         src_query = src_query.where((Source.user_id == user.id) | (Source.user_id.is_(None)))
     else:
-        src_query = src_query.where(Source.user_id.is_(None))
+        src_query = src_query.where(Source.user_id == user.id)
     sources = db.scalars(src_query.order_by(Source.created_at.desc())).all()
     total_sources = len(sources)
     recent_sources = [
@@ -103,10 +123,10 @@ def get_dashboard_stats(
 
     # 2. Flashcards & Spaced Repetition (User Scoped)
     card_query = select(Card).join(Source, Source.id == Card.source_id)
-    if user is not None:
+    if user.id == 1:
         card_query = card_query.where((Source.user_id == user.id) | (Source.user_id.is_(None)))
     else:
-        card_query = card_query.where(Source.user_id.is_(None))
+        card_query = card_query.where(Source.user_id == user.id)
     cards = db.scalars(card_query).all()
     total_cards = len(cards)
     cards_due_today = sum(1 for c in cards if c.due <= now and not c.suspended)
@@ -139,20 +159,20 @@ def get_dashboard_stats(
 
     # 5. Revision Sessions (User Scoped)
     rev_query = select(RevisionSession)
-    if user is not None:
+    if user.id == 1:
         rev_query = rev_query.where((RevisionSession.user_id == user.id) | (RevisionSession.user_id.is_(None)))
     else:
-        rev_query = rev_query.where(RevisionSession.user_id.is_(None))
+        rev_query = rev_query.where(RevisionSession.user_id == user.id)
     revision_sessions = db.scalars(rev_query).all()
     pending_revisions = sum(1 for r in revision_sessions if r.status == "PENDING")
     completed_revisions = sum(1 for r in revision_sessions if r.status == "COMPLETED")
 
     # 6. Notes (User Scoped)
     note_query = select(func.count(Note.id))
-    if user is not None:
+    if user.id == 1:
         note_query = note_query.where((Note.user_id == user.id) | (Note.user_id.is_(None)))
     else:
-        note_query = note_query.where(Note.user_id.is_(None))
+        note_query = note_query.where(Note.user_id == user.id)
     total_notes = db.scalar(note_query) or 0
 
     # 7. Real Activity Stream from ActivityLog + Fallback to entities

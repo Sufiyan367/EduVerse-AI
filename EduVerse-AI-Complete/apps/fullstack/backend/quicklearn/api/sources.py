@@ -40,6 +40,10 @@ def check_source_access(source: Source, user: User | None, *, write: bool = Fals
             raise ForbiddenError(f"You do not have access to source {source.id}.")
         if source.user_id != user.id:
             raise ForbiddenError(f"You do not have access to source {source.id}.")
+    else:
+        # Legacy source without explicit user_id: accessible only by primary user (id=1)
+        if user is None or user.id != 1:
+            raise ForbiddenError(f"You do not have access to source {source.id}.")
 
 
 CHUNK_READ = 1024 * 1024
@@ -140,12 +144,14 @@ async def upload_init(
     user: User | None = Depends(get_optional_user),
 ) -> dict[str, Any]:
     """Open a resumable upload."""
+    if user is None:
+        raise ForbiddenError("Authentication required to upload study materials.")
     source_id, token, path = await run_db(
         acquire.begin_upload,
         filename=filename,
         total_bytes=total_bytes,
         folder_id=folder_id,
-        user_id=user.id if user else None,
+        user_id=user.id,
     )
     return {"source_id": source_id, "upload_token": token, "path": path.name}
 
@@ -176,6 +182,8 @@ async def upload_complete(token: Annotated[str, Body(embed=True)]) -> dict[str, 
 
 @router.post("/url")
 async def add_url(payload: UrlRequest, user: User | None = Depends(get_optional_user)) -> dict[str, Any]:
+    if user is None:
+        raise ForbiddenError("Authentication required to add study materials.")
     url = payload.url.strip()
     parsed = urlparse(url if "://" in url else f"https://{url}")
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
@@ -189,7 +197,7 @@ async def add_url(payload: UrlRequest, user: User | None = Depends(get_optional_
         kind=SourceKind.YOUTUBE if youtube else SourceKind.WEB,
         origin=SourceOrigin.URL,
         folder_id=payload.folder_id,
-        user_id=user.id if user else None,
+        user_id=user.id,
         metadata={"url": url},
     )
     job_id = await run_db(enqueue_ingest, source_id)
@@ -198,12 +206,14 @@ async def add_url(payload: UrlRequest, user: User | None = Depends(get_optional_
 
 @router.post("/text")
 async def add_text(payload: TextRequest, user: User | None = Depends(get_optional_user)) -> dict[str, Any]:
+    if user is None:
+        raise ForbiddenError("Authentication required to add study materials.")
     source_id = await run_db(
         acquire.create_text_source,
         title=payload.title.strip() or "Pasted text",
         content=payload.content,
         folder_id=payload.folder_id,
-        user_id=user.id if user else None,
+        user_id=user.id,
     )
     job_id = await run_db(enqueue_ingest, source_id)
     return {"source_id": source_id, "job_id": job_id}
@@ -306,13 +316,15 @@ def list_sources(
     offset: int = 0,
     user: User | None = Depends(get_optional_user),
 ) -> dict[str, Any]:
+    if user is None:
+        return {"sources": [], "total": 0}
+
     with session_scope() as session:
         stmt = select(Source)
-        if user is not None:
-            if user.id == 1:
-                stmt = stmt.where(or_(Source.user_id == user.id, Source.user_id.is_(None)))
-            else:
-                stmt = stmt.where(Source.user_id == user.id)
+        if user.id == 1:
+            stmt = stmt.where(or_(Source.user_id == user.id, Source.user_id.is_(None)))
+        else:
+            stmt = stmt.where(Source.user_id == user.id)
         if folder_id is not None:
             stmt = stmt.where(Source.folder_id == folder_id)
         if status:

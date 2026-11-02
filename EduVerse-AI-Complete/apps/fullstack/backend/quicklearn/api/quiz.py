@@ -13,7 +13,9 @@ from ..db.enums import QuizMode, QuizSessionStatus
 from ..db.models import Concept, QuizAttempt, QuizItem, QuizSession, Source
 from ..db.session import session_scope
 from ..db.types import utcnow
-from ..errors import NotFoundError, ValidationError
+from ..errors import ForbiddenError, NotFoundError, ValidationError
+from ..auth import get_optional_user, User
+from fastapi import Depends
 from ..pipeline.generate import quiz as quiz_gen
 from ..study import mastery
 from .common import quiz_item_dict, run_db
@@ -39,7 +41,7 @@ def _resolve_scope(session_row: QuizSession) -> tuple[list[int] | None, int | No
 
 
 @router.post("/session")
-async def create_session(payload: SessionRequest) -> dict[str, Any]:
+async def create_session(payload: SessionRequest, user: User | None = Depends(get_optional_user)) -> dict[str, Any]:
     if not payload.source_ids and payload.folder_id is None:
         raise ValidationError("Choose at least one source or a folder to quiz on.")
 
@@ -69,7 +71,14 @@ async def create_session(payload: SessionRequest) -> dict[str, Any]:
                     "and use Regenerate → Concepts first."
                 )
 
+            if user is not None and source_ids:
+                for sid in source_ids:
+                    s = session.get(Source, sid)
+                    if s and s.user_id is not None and s.user_id != user.id:
+                        raise ForbiddenError(f"You do not have access to source {sid}.")
+
             row = QuizSession(
+                user_id=user.id if user else None,
                 mode=QuizMode(payload.mode),
                 source_ids=source_ids,
                 folder_id=payload.folder_id,

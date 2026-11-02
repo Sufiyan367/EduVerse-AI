@@ -70,27 +70,22 @@ Once running, navigate your web browser to: **`http://127.0.0.1:8080`**
 
 ## 5. Running Automated Tests
 
-### 1. Live Local Inference Test Suite (Ollama + Qwen3.5:4b on GPU)
+All tests execute with pytest from the backend directory:
+
 ```cmd
-cd /d "S:\SY\SEM 3\MP\EduVerse-AI-repo\EduVerse-AI-Complete\apps\fullstack"
-set PYTHONPATH=backend
-pytest tests/test_live_ollama_qwen_inference.py -v
+cd /d "S:\SY\SEM 3\MP\EduVerse-AI-repo\EduVerse-AI-Complete\apps\fullstack\backend"
+python -m pytest tests -v
 ```
 
-### 2. Ollama Reasoning & Handshake Suite
-```cmd
-pytest tests/test_ollama_reasoning_integration.py -v
-```
-
-### 3. RAG Pipeline Repair & 15-Category Benchmark Suite
-```cmd
-pytest tests/test_rag_pipeline_repair.py -v
-```
-
-### 4. Full Canonical Regression Suite
-```cmd
-pytest tests -v --tb=short
-```
+The 48 automated tests across 8 suites verify:
+- `test_autonomous_automation_engine.py` (11 tests): Concurrency, leases, exponential backoff, worker agents.
+- `test_ollama_provider.py` (4 tests): Local Ollama HTTP gateway, thinking token scrubber, parameter formatting.
+- `test_p0_adaptations_e2e.py` (4 tests): DeepTutor source manifest, prompt injection, verbatim citations, quiz evidence.
+- `test_pdf_pipeline_comprehensive.py` (11 tests): Layout extraction, two-column order, tables, OCR, edge cases.
+- `test_postgres_academic_workflow.py` (3 tests): Academic models, course unit hierarchy, mastery tracking.
+- `test_quiz_evidence_verification.py` (5 tests): Server-side evidence quote validation, hallucination rejection.
+- `test_quote_grounding.py` (5 tests): Hyphenation unwrapping, ligature normalization, boundary matching.
+- `test_source_manifest.py` (5 tests): Deterministic manifest rendering, cross-user isolation, scope filtering.
 
 ---
 
