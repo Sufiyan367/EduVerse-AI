@@ -21,6 +21,7 @@ from ..providers import gateway
 from ..providers.base import Message as ProviderMessage
 from ..providers.base import text_message
 from ..rag import retrieve as rag
+from ..rag.manifest import get_user_source_manifest, render_manifest_note
 from .common import chat_dict, message_dict, run_db, segment_dict
 
 log = logging.getLogger(__name__)
@@ -394,6 +395,11 @@ async def _build_prompt(
         user_id=effective_user_id,
     )
 
+    # Compute deterministic user source inventory manifest
+    manifest_scope_type = scope_type.value if hasattr(scope_type, "value") else str(scope_type)
+    manifest = await run_db(get_user_source_manifest, effective_user_id, manifest_scope_type, scope_id)
+    manifest_note = render_manifest_note(manifest)
+
     system = prompts.render(
         "chat_system",
         excerpts=[
@@ -406,6 +412,7 @@ async def _build_prompt(
             for excerpt in excerpts
         ],
         scope_description=rag.scope_description(scope_type, scope_id),
+        manifest_note=manifest_note,
     )
     messages: list[ProviderMessage] = [text_message("system", system)]
     messages.extend(history)

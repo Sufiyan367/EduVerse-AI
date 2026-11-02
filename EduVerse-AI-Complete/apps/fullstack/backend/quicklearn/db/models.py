@@ -349,6 +349,10 @@ class QuizItem(Base):
     explanation: Mapped[str] = mapped_column(Text, default="")
     difficulty: Mapped[int] = mapped_column(Integer, default=3)
     segment_ids: Mapped[list[int]] = mapped_column(JSON, default=list)
+    #: Verbatim quote from source document verified server-side.
+    evidence: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+    #: Document page number where evidence quote was located.
+    page_no: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
     #: Items minted on demand by adaptive practice, rather than part of a saved bank.
     ephemeral: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow)
