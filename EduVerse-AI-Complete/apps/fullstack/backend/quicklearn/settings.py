@@ -35,7 +35,7 @@ DEFAULTS: dict[str, Any] = {
     "routing.standard": {"provider": "ollama", "model": "qwen3.5:4b"},
     "routing.deep": {"provider": "ollama", "model": "qwen3.5:4b"},
     # Local Ollama Provider configuration
-    "providers.ollama.base_url": "http://127.0.0.1:11434",
+    "providers.ollama.base_url": "http://127.0.0.1:11434/v1",
     "providers.ollama.model": "qwen3.5:4b",
     "providers.ollama.think": "high",
     "providers.ollama.num_ctx": 4096,

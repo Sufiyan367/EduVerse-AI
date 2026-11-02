@@ -172,10 +172,9 @@ def get_llm(task_class: TaskClass | str = TaskClass.STANDARD) -> Resolved:
         provider = get_provider(ProviderKind.LLM, provider_name, model=model)
         assert isinstance(provider, LLMProvider)
         return Resolved(provider=provider, model=model or "qwen3.5:4b", provider_name=provider_name, task_class=task)
-    except ConfigurationError as exc:
-        # If Ollama is requested but unconfigured / unavailable, fall back to offline mock
-        if provider_name == "ollama":
-            log.info("Local Ollama unconfigured, falling back to deterministic local mock: %s", exc)
+    except ConfigurationError:
+        # Never silently substitute Mock AI when Ollama or a real provider is configured
+        if provider_name == "mock":
             mock_provider = get_provider(ProviderKind.LLM, "mock")
             assert isinstance(mock_provider, LLMProvider)
             return Resolved(provider=mock_provider, model="mock", provider_name="mock", task_class=task)
@@ -186,6 +185,21 @@ async def get_llm_status() -> dict[str, Any]:
     settings = get_settings()
     allow_cloud = settings.get_bool("providers.ollama.allow_cloud_fallback", False)
     provider_name, model_name = settings.routing("standard")
+
+    # If the user explicitly configured mock mode:
+    if provider_name == "mock":
+        return {
+            "status": "mock",
+            "provider": "mock",
+            "model": model_name or "mock",
+            "is_local": True,
+            "thinking": "off",
+            "context_window": 4096,
+            "allow_cloud_fallback": False,
+            "gpu": "Mock Mode",
+            "models": ["mock"],
+            "message": "Explicitly configured in Mock AI mode.",
+        }
 
     # Detect GPU hardware
     gpu_info = "CPU only"
@@ -208,9 +222,9 @@ async def get_llm_status() -> dict[str, Any]:
         conn = await ollama.test_connection()
         think_level = getattr(ollama, "think", "high")
         ctx = getattr(ollama, "num_ctx", 4096)
+        active_model = model_name or getattr(ollama, "default_model", "qwen3.5:4b")
 
-        if conn.ok and conn.models:
-            active_model = model_name if any(m.id == model_name for m in conn.models) else conn.models[0].id
+        if conn.ok:
             return {
                 "status": "connected",
                 "provider": "ollama",
@@ -221,32 +235,33 @@ async def get_llm_status() -> dict[str, Any]:
                 "allow_cloud_fallback": allow_cloud,
                 "gpu": gpu_info,
                 "models": [m.id for m in conn.models],
-                "message": f"Local Ollama online ({len(conn.models)} model(s)). GPU: {gpu_info}.",
+                "message": conn.message,
             }
-        elif conn.ok:
+        elif "missing" in conn.message.lower() or "pull" in conn.message.lower():
             return {
                 "status": "loading",
                 "provider": "ollama",
-                "model": model_name or "qwen3.5:4b",
+                "model": active_model,
                 "is_local": True,
                 "thinking": think_level,
                 "context_window": ctx,
                 "allow_cloud_fallback": allow_cloud,
                 "gpu": gpu_info,
-                "models": [],
+                "models": [m.id for m in conn.models],
                 "message": conn.message,
+                "action": f"ollama pull {active_model}",
             }
         else:
             return {
                 "status": "unavailable",
                 "provider": "ollama",
-                "model": model_name or "qwen3.5:4b",
+                "model": active_model,
                 "is_local": True,
                 "thinking": think_level,
                 "context_window": ctx,
                 "allow_cloud_fallback": allow_cloud,
                 "gpu": gpu_info,
-                "models": [],
+                "models": [m.id for m in conn.models],
                 "message": conn.message,
             }
     except Exception as exc:

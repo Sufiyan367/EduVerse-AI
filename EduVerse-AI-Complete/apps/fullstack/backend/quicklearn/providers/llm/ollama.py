@@ -35,6 +35,29 @@ log = logging.getLogger(__name__)
 ThinkingLevel = Literal["high", "medium", "low", "off"]
 
 
+def normalize_ollama_urls(raw_url: str) -> tuple[str, str]:
+    """Normalize input Ollama URL into (native_base, v1_base).
+    
+    Accepts:
+      - 'http://127.0.0.1:11434'
+      - 'http://127.0.0.1:11434/v1'
+      - 'http://127.0.0.1:11434/v1/'
+      - 'http://localhost:11434'
+    Returns:
+      (native_base, v1_base) where:
+      native_base = 'http://127.0.0.1:11434' (for /api/tags, /api/chat, /api/show)
+      v1_base = 'http://127.0.0.1:11434/v1' (for /models, /chat/completions)
+    """
+    clean = (raw_url or "http://127.0.0.1:11434").strip().rstrip("/")
+    if clean.endswith("/v1"):
+        native_base = clean[:-3].rstrip("/")
+        v1_base = clean
+    else:
+        native_base = clean
+        v1_base = f"{clean}/v1"
+    return native_base, v1_base
+
+
 def _clean_thinking_trace(text: str) -> str:
     """Strip raw internal model scratchpad/thinking tokens from user-facing text.
 
@@ -48,6 +71,8 @@ def _clean_thinking_trace(text: str) -> str:
     if not cleaned and text:
         # If model only generated think tags without outside content, strip tags cleanly
         cleaned = re.sub(r"</?think>", "", text).strip()
+    # Strip optional "Thinking Process: ... \n\n" prefix if present
+    cleaned = re.sub(r"^Thinking Process:[\s\S]*?\n\n+", "", cleaned).strip()
     return cleaned
 
 
@@ -77,7 +102,8 @@ class OllamaLLM(OpenAICompatLLM):
         extra_headers: dict[str, str] | None = None,
     ) -> None:
         raw_url = base_url or os.environ.get("OLLAMA_BASE_URL") or self.default_base_url
-        super().__init__(api_key=api_key, base_url=raw_url, extra_headers=extra_headers)
+        self.native_base_url, self.v1_base_url = normalize_ollama_urls(raw_url)
+        super().__init__(api_key=api_key, base_url=self.v1_base_url, extra_headers=extra_headers)
 
         self.default_model = model or os.environ.get("OLLAMA_MODEL") or "qwen3.5:4b"
 
@@ -116,12 +142,17 @@ class OllamaLLM(OpenAICompatLLM):
         )
         # Add Ollama-native options
         payload["options"] = {
+            "num_predict": max_tokens,
             "num_ctx": self.num_ctx,
             "temperature": temperature,
         }
         payload["keep_alive"] = self.keep_alive
-        if self.think != "off":
-            payload["think"] = self.think
+        if json_schema is not None:
+            payload["think"] = False
+        elif self.think not in ("off", False) and max_tokens > 500:
+            payload["think"] = True
+        else:
+            payload["think"] = False
         return payload
 
     def _build_payload(
@@ -160,13 +191,20 @@ class OllamaLLM(OpenAICompatLLM):
             "messages": ollama_msgs,
             "stream": stream,
             "temperature": temperature,
-            "options": {"num_ctx": self.num_ctx, "temperature": temperature},
+            "options": {
+                "num_predict": max_tokens,
+                "num_ctx": self.num_ctx,
+                "temperature": temperature,
+            },
             "keep_alive": self.keep_alive,
         }
-        if self.think != "off":
-            native_payload["think"] = self.think
         if json_schema is not None:
+            native_payload["think"] = False
             native_payload["format"] = json_schema
+        elif self.think not in ("off", False) and max_tokens > 500:
+            native_payload["think"] = True
+        else:
+            native_payload["think"] = False
         return native_payload
 
     async def complete(
@@ -179,8 +217,7 @@ class OllamaLLM(OpenAICompatLLM):
         json_schema: dict[str, Any] | None = None,
     ) -> LLMResponse:
         """Execute completion, trying native /api/chat and falling back to /chat/completions."""
-        native_base = self.base_url.removesuffix("/v1").rstrip("/")
-        native_url = f"{native_base}/api/chat"
+        native_url = f"{self.native_base_url}/api/chat"
 
         target_model = model or self.default_model
         native_payload = self._build_payload(
@@ -200,6 +237,8 @@ class OllamaLLM(OpenAICompatLLM):
                     return self._parse_completion(data, target_model)
                 message = data.get("message") or {}
                 raw_text = message.get("content") or ""
+                if not raw_text and message.get("thinking"):
+                    raw_text = message.get("thinking") or ""
                 clean_text = _clean_thinking_trace(raw_text)
                 return LLMResponse(
                     text=clean_text,
@@ -245,8 +284,7 @@ class OllamaLLM(OpenAICompatLLM):
         max_tokens: int = 4096,
     ) -> AsyncIterator[str]:
         """Stream response tokens while suppressing raw thinking scratchpad tokens."""
-        native_base = self.base_url.removesuffix("/v1").rstrip("/")
-        native_url = f"{native_base}/api/chat"
+        native_url = f"{self.native_base_url}/api/chat"
         target_model = model or self.default_model
 
         payload = self._build_payload(
@@ -313,12 +351,11 @@ class OllamaLLM(OpenAICompatLLM):
 
     async def list_models(self) -> list[ModelInfo]:
         """Enumerate pulled models via Ollama's native endpoint, falling back to /v1/models."""
-        native_base = self.base_url.removesuffix("/v1").rstrip("/")
         try:
             data = await request_json(
                 self._client,
                 "GET",
-                f"{native_base}/api/tags",
+                f"{self.native_base_url}/api/tags",
                 provider=self.name,
                 label=self.label,
             )
@@ -340,66 +377,133 @@ class OllamaLLM(OpenAICompatLLM):
             if models:
                 return sorted(models, key=lambda m: m.id)
         except Exception as exc:
-            log.debug("Ollama native /api/tags failed, falling back to OpenAI compat /models: %s", exc)
+            log.debug("Ollama native /api/tags failed, falling back to OpenAI compat /v1/models: %s", exc)
 
         return await super().list_models()
 
     async def test_connection(self) -> ConnectionResult:
-        """Validate connection and provide actionable guidance if Ollama is not running."""
+        """Validate connection and provide actionable guidance.
+        
+        Distinguishes:
+        1. Ollama daemon offline.
+        2. Ollama daemon online, model missing.
+        3. Model installed but inference failing.
+        4. Model fully operational.
+        """
+        # 1. Check daemon status and list installed models
         try:
-            res = await super().test_connection()
-        except httpx.TimeoutException:
-            return ConnectionResult(
-                ok=False,
-                message=f"Local Ollama request timed out at {self.base_url}.",
-                models=[],
-            )
-        except Exception as exc:
-            if "timeout" in str(exc).lower():
-                return ConnectionResult(
-                    ok=False,
-                    message=f"Local Ollama request timed out at {self.base_url}.",
-                    models=[],
-                )
+            models = await self.list_models()
+        except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
             return ConnectionResult(
                 ok=False,
                 message=(
-                    f"Ollama is not reachable at {self.base_url}. "
-                    "Make sure Ollama is installed and running (`ollama serve` or open the Ollama application), "
-                    "and at least one model is downloaded (e.g. `ollama pull qwen3.5:4b` or `ollama pull llama3.2`)."
+                    f"Ollama daemon is offline at {self.native_base_url}. "
+                    "Start it by running `ollama serve` or open the Ollama Windows application."
+                ),
+                models=[],
+            )
+        except httpx.TimeoutException:
+            return ConnectionResult(
+                ok=False,
+                message=f"Local Ollama request timed out at {self.native_base_url}.",
+                models=[],
+            )
+        except Exception as exc:
+            msg = str(exc)
+            if any(err in msg.lower() for err in ("connecterror", "connection refused", "all connection attempts failed", "unavailable")):
+                return ConnectionResult(
+                    ok=False,
+                    message=(
+                        f"Ollama daemon is offline at {self.native_base_url}. "
+                        "Start it by running `ollama serve` or open the Ollama Windows application."
+                    ),
+                    models=[],
+                )
+            return ConnectionResult(ok=False, message=msg, models=[])
+
+        # 2. Check if any model exists
+        if not models:
+            return ConnectionResult(
+                ok=False,
+                message=(
+                    f"Connected to Ollama at {self.native_base_url}, but no models are installed. "
+                    f"Run `ollama pull {self.default_model}` to download the required model."
                 ),
                 models=[],
             )
 
-        if not res.ok and any(
-            err in res.message.lower()
-            for err in ("connecterror", "connection refused", "all connection attempts failed", "unavailable")
-        ):
+        # 3. Check if target model is present
+        target_model = self.default_model
+        clean_target = target_model.split(":")[0].lower()
+        model_installed = any(
+            m.id == target_model or m.id.lower().startswith(f"{clean_target}:") or m.id.lower() == clean_target
+            for m in models
+        )
+        if not model_installed:
             return ConnectionResult(
                 ok=False,
                 message=(
-                    f"Ollama is not reachable at {self.base_url}. "
-                    "Make sure Ollama is installed and running (`ollama serve` or open the Ollama application), "
-                    "and at least one model is downloaded (e.g. `ollama pull qwen3.5:4b` or `ollama pull llama3.2`)."
+                    f"Ollama daemon is online, but required model '{target_model}' is missing. "
+                    f"Run: ollama pull {target_model}"
                 ),
-                models=[],
+                models=models,
             )
-        if not res.ok and "timeout" in res.message.lower():
+
+        # 4. Verify model GGUF validity via /api/show
+        try:
+            show_resp = await self._client.post(
+                f"{self.native_base_url}/api/show",
+                json={"model": target_model},
+                timeout=5.0,
+            )
+            if show_resp.status_code != 200:
+                return ConnectionResult(
+                    ok=False,
+                    message=f"Model '{target_model}' manifest check failed with HTTP {show_resp.status_code}.",
+                    models=models,
+                )
+        except Exception as exc:
             return ConnectionResult(
                 ok=False,
-                message=f"Local Ollama request timed out at {self.base_url}.",
-                models=[],
+                message=f"Model '{target_model}' manifest inspection failed: {exc}",
+                models=models,
             )
-        if res.ok and not res.models:
+
+        # 5. Operational inference verification
+        try:
+            probe_payload = {
+                "model": target_model,
+                "messages": [{"role": "user", "content": "ping"}],
+                "stream": False,
+                "think": False,
+                "options": {"num_predict": 1},
+            }
+            resp = await self._client.post(
+                f"{self.native_base_url}/api/chat",
+                json=probe_payload,
+                timeout=5.0,
+            )
+            if resp.status_code != 200:
+                return ConnectionResult(
+                    ok=False,
+                    message=f"Model '{target_model}' is installed, but inference returned HTTP {resp.status_code}: {resp.text}",
+                    models=models,
+                )
+        except httpx.TimeoutException:
+            # Model is valid and currently busy generating another request in Ollama queue
+            pass
+        except Exception as exc:
             return ConnectionResult(
                 ok=False,
-                message=(
-                    f"Connected to Ollama at {self.base_url}, but no models are installed. "
-                    "Pull a model first using `ollama pull qwen3.5:4b` or `ollama pull llama3.2` before attempting inference."
-                ),
-                models=[],
+                message=f"Model '{target_model}' is installed, but inference probe failed: {exc}",
+                models=models,
             )
-        return res
+
+        return ConnectionResult(
+            ok=True,
+            message=f"Connected to Ollama — model '{target_model}' fully operational ({len(models)} model(s) available).",
+            models=models,
+        )
 
 
 async def call_ollama_text(
@@ -411,7 +515,8 @@ async def call_ollama_text(
 ) -> str:
     """Direct helper to call local Ollama instance with optional system prompt and clean thinking trace filtering."""
     base_url = os.environ.get("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
-    url = f"{base_url.rstrip('/')}/api/chat"
+    native_base, _ = normalize_ollama_urls(base_url)
+    url = f"{native_base}/api/chat"
     messages = []
     if system:
         messages.append({"role": "system", "content": system})
