@@ -91,8 +91,7 @@ class Config:
         explicit = os.environ.get("QUICKLEARN_DATABASE_URL") or os.environ.get("DATABASE_URL") or _env("DATABASE_URL")
         if explicit and explicit.strip():
             return explicit.strip()
-        # Default to local PostgreSQL 18 with psycopg 3
-        return "postgresql+psycopg://eduverse_app:EduVerse_App_2026_SecureKey!@127.0.0.1:5432/eduverse_db"
+        return f"sqlite+pysqlite:///{self.db_path.as_posix()}"
 
     @property
     def media_dir(self) -> Path:

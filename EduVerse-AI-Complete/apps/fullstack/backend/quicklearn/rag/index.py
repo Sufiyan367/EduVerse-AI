@@ -292,13 +292,19 @@ _index: VectorIndex | None = None
 
 def get_index() -> VectorIndex:
     global _index
-    if _index is None:
-        from ..db.session import is_postgres
-        if is_postgres():
+    from ..db.session import is_postgres
+    if is_postgres():
+        if _index is None or not isinstance(_index, NumpyIndex):
             _index = NumpyIndex()
-        else:
-            _index = Vec0Index() if vec_available() else NumpyIndex()
-        log.info("vector index backend: %s", _index.name)
+            log.info("vector index backend: %s", _index.name)
+    else:
+        is_vec = vec_available()
+        if is_vec and (_index is None or not isinstance(_index, Vec0Index)):
+            _index = Vec0Index()
+            log.info("vector index backend: %s", _index.name)
+        elif not is_vec and (_index is None or not isinstance(_index, NumpyIndex)):
+            _index = NumpyIndex()
+            log.info("vector index backend: %s", _index.name)
     return _index
 
 

@@ -59,7 +59,11 @@ class OllamaLLM(OpenAICompatLLM):
     requires_api_key = False
     is_local = True
     _context_window = 4096
-    _supports_vision = True
+
+    @property
+    def supports_vision(self) -> bool:
+        model_name = (self.default_model or "").lower()
+        return any(v in model_name for v in ("vision", "vl", "llava", "minicpm", "bakllava", "moondream"))
 
     def __init__(
         self,

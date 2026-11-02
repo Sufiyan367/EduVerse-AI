@@ -36,6 +36,7 @@ class SourceStatus(StrEnum):
     PENDING = "pending"
     PROCESSING = "processing"
     READY = "ready"
+    PARTIALLY_PROCESSED = "partially_processed"
     FAILED = "failed"
 
 
@@ -127,6 +128,7 @@ class PodcastStatus(StrEnum):
     SYNTHESIZING = "synthesizing"
     ASSEMBLING = "assembling"
     READY = "ready"
+    PARTIALLY_PROCESSED = "partially_processed"
     FAILED = "failed"
 
 

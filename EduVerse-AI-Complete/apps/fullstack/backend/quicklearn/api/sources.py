@@ -316,7 +316,10 @@ def list_sources(
         if folder_id is not None:
             stmt = stmt.where(Source.folder_id == folder_id)
         if status:
-            stmt = stmt.where(Source.status == SourceStatus(status))
+            if status == "ready":
+                stmt = stmt.where(Source.status.in_([SourceStatus.READY, SourceStatus.PARTIALLY_PROCESSED]))
+            else:
+                stmt = stmt.where(Source.status == SourceStatus(status))
         if q:
             stmt = stmt.where(Source.title.ilike(f"%{q}%"))
         if tag:

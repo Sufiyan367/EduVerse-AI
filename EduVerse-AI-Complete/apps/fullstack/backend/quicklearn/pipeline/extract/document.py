@@ -13,7 +13,9 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
+import re
 from pathlib import Path
+from typing import Any, Sequence
 
 from ...errors import PipelineError
 from ...providers.base import ImagePart, Message
@@ -30,6 +32,37 @@ RASTER_SCALE = 2.0
 MAX_OCR_PAGES = 40
 
 
+def _box_overlaps(b1: Sequence[float], b2: Sequence[float], threshold: float = 0.4) -> bool:
+    """Check if block b1 significantly overlaps b2 (e.g. text inside table)."""
+    x_left = max(b1[0], b2[0])
+    y_top = max(b1[1], b2[1])
+    x_right = min(b1[2], b2[2])
+    y_bottom = min(b1[3], b2[3])
+    if x_right <= x_left or y_bottom <= y_top:
+        return False
+    intersection = (x_right - x_left) * (y_bottom - y_top)
+    b1_area = (b1[2] - b1[0]) * (b1[3] - b1[1])
+    return (b1_area > 0) and ((intersection / b1_area) >= threshold)
+
+
+def _is_noise_header_footer(text: str, bbox: Sequence[float], page_height: float) -> bool:
+    """Detect running headers/footers and isolated page numbers."""
+    # Only evaluate blocks in extreme margin zones (< 38pt from top or bottom)
+    in_top_margin = bbox[3] <= 38.0
+    in_bottom_margin = bbox[1] >= (page_height - 38.0)
+    if not (in_top_margin or in_bottom_margin):
+        return False
+
+    cleaned = text.strip()
+    # Check page number patterns: "1", "Page 1 of 10", "- 1 -", "p. 4"
+    if re.match(r"^(page\s+)?\d+(\s+(of|/)\s+\d+)?$", cleaned, re.IGNORECASE):
+        return True
+    if re.match(r"^[-–—]\s*\d+\s*[-–—]$", cleaned):
+        return True
+    if cleaned.isdigit():
+        return True
+    return False
+
 
 def _sort_page_blocks(blocks: list[Any], page_width: float) -> list[Any]:
     """Sort blocks preserving reading order in both single-column and multi-column pages."""
@@ -45,7 +78,7 @@ def _sort_page_blocks(blocks: list[Any], page_width: float) -> list[Any]:
     for b in text_blocks:
         x0, y0, x1, y1 = float(b[0]), float(b[1]), float(b[2]), float(b[3])
         block_width = x1 - x0
-        is_full = block_width > (page_width * 0.65)
+        is_full = block_width > (page_width * 0.50)
         if is_full:
             full_blocks.append(b)
         elif x1 <= (midpoint + 0.1 * page_width):
@@ -64,15 +97,19 @@ def _sort_page_blocks(blocks: list[Any], page_width: float) -> list[Any]:
         return sorted(text_blocks, key=lambda b: (round(float(b[1]), 1), round(float(b[0]), 1)))
 
     min_col_y = min([float(b[1]) for b in left_blocks + right_blocks])
-    top_full = [b for b in full_blocks if float(b[1]) <= min_col_y]
-    bottom_full = [b for b in full_blocks if float(b[1]) > min_col_y]
+    max_col_y = max([float(b[3]) for b in left_blocks + right_blocks])
+
+    top_full = [b for b in full_blocks if float(b[3]) <= min_col_y]
+    bottom_full = [b for b in full_blocks if float(b[1]) >= max_col_y]
+    mid_full = [b for b in full_blocks if b not in top_full and b not in bottom_full]
 
     sorted_top = sorted(top_full, key=lambda b: float(b[1]))
     sorted_left = sorted(left_blocks, key=lambda b: float(b[1]))
     sorted_right = sorted(right_blocks, key=lambda b: float(b[1]))
+    sorted_mid = sorted(mid_full, key=lambda b: float(b[1]))
     sorted_bottom = sorted(bottom_full, key=lambda b: float(b[1]))
 
-    return sorted_top + sorted_left + sorted_right + sorted_bottom
+    return sorted_top + sorted_left + sorted_right + sorted_mid + sorted_bottom
 
 
 def _extract_pdf_sync(path: Path) -> tuple[list[RawUnit], int, list[int]]:
@@ -82,31 +119,94 @@ def _extract_pdf_sync(path: Path) -> tuple[list[RawUnit], int, list[int]]:
     units: list[RawUnit] = []
     scanned: list[int] = []
 
-    with fitz.open(str(path)) as doc:
+    try:
+        doc = fitz.open(str(path))
+    except Exception as exc:
+        raise PipelineError(f"'{path.name}' is corrupt or cannot be opened as a valid PDF.") from exc
+
+    with doc:
+        if doc.is_encrypted or doc.needs_pass:
+            raise PipelineError(f"'{path.name}' is password-protected and cannot be read without a password.")
+
         page_count = doc.page_count
+        if page_count == 0:
+            raise PipelineError(f"'{path.name}' contains no readable pages.")
+
         for page_index in range(page_count):
             page = doc.load_page(page_index)
             page_no = page_index + 1
             page_width = float(page.rect.width)
+            page_height = float(page.rect.height)
 
+            # 1. Detect and extract structured tables
+            table_bboxes: list[list[float]] = []
+            table_units: list[RawUnit] = []
+            try:
+                table_finder = page.find_tables()
+                if table_finder and table_finder.tables:
+                    for tab in table_finder.tables:
+                        md = tab.to_markdown()
+                        if md and md.strip():
+                            tbbox = [float(tab.bbox[0]), float(tab.bbox[1]), float(tab.bbox[2]), float(tab.bbox[3])]
+                            table_bboxes.append(tbbox)
+                            table_units.append(RawUnit(text=md.strip(), page_no=page_no, bbox=tbbox))
+            except Exception as exc:
+                log.debug("find_tables on page %d: %s", page_no, exc)
+
+            # 2. Extract and filter text blocks
             blocks = page.get_text("blocks")
             sorted_blocks = _sort_page_blocks(blocks, page_width)
             page_chars = 0
+            page_text_units: list[RawUnit] = []
+
             for block in sorted_blocks:
                 text = str(block[4]).strip() if len(block) > 4 else ""
                 if not text:
                     continue
+                bbox = [float(block[0]), float(block[1]), float(block[2]), float(block[3])]
+
+                # Filter running header/footer noise (e.g. standalone page numbers)
+                if _is_noise_header_footer(text, bbox, page_height):
+                    continue
+
+                # Skip raw text blocks that overlap extracted tables to prevent duplicate jumbled tables
+                if any(_box_overlaps(bbox, tbbox) for tbbox in table_bboxes):
+                    continue
+
+                # Merge broken hyphenated words across line wraps
+                text = re.sub(r"(\w+)-\n(\w+)", r"\1\2", text)
                 page_chars += len(text)
-                units.append(
+                page_text_units.append(
                     RawUnit(
                         text=text,
                         page_no=page_no,
-                        bbox=[float(block[0]), float(block[1]), float(block[2]), float(block[3])],
+                        bbox=bbox,
                     )
                 )
 
-            if page_chars < SCAN_THRESHOLD_CHARS:
-                scanned.append(page_no)
+            # Insert table units into page units while preserving multi-column block reading order
+            if not table_units:
+                combined_page_units = page_text_units
+            else:
+                combined_page_units = list(page_text_units)
+                for tab in table_units:
+                    tab_y = tab.bbox[1] if tab.bbox else 0.0
+                    insert_idx = len(combined_page_units)
+                    for i, u in enumerate(combined_page_units):
+                        if u.bbox and u.bbox[1] > tab_y:
+                            insert_idx = i
+                            break
+                    combined_page_units.insert(insert_idx, tab)
+            units.extend(combined_page_units)
+
+            # 3. Distinguish truly blank pages (0 chars, 0 images, 0 drawings) from sparse/scanned pages
+            if page_chars < SCAN_THRESHOLD_CHARS and not table_units:
+                num_images = len(page.get_images())
+                num_drawings = len(page.get_drawings())
+                if page_chars == 0 and num_images == 0 and num_drawings == 0:
+                    log.debug("Page %d of '%s' is an empty/blank page", page_no, path.name)
+                else:
+                    scanned.append(page_no)
 
     return units, page_count, scanned
 

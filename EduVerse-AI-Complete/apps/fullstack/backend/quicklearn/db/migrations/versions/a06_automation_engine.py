@@ -13,19 +13,35 @@ branch_labels = depends_on = None
 
 def upgrade():
     # 1. Enhance jobs table
-    op.add_column('jobs', sa.Column('user_id', sa.Integer(), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=True))
-    op.add_column('jobs', sa.Column('priority', sa.Integer(), nullable=False, server_default='50'))
-    op.add_column('jobs', sa.Column('idempotency_key', sa.String(length=128), nullable=True))
-    op.add_column('jobs', sa.Column('locked_until', sa.DateTime(timezone=True), nullable=True))
-    op.add_column('jobs', sa.Column('locked_by', sa.String(length=64), nullable=True))
-    op.add_column('jobs', sa.Column('next_run_at', sa.DateTime(timezone=True), nullable=True))
-    op.add_column('jobs', sa.Column('max_attempts', sa.Integer(), nullable=False, server_default='3'))
-    op.add_column('jobs', sa.Column('error_details', sa.JSON(), nullable=False, server_default='{}'))
+    bind = op.get_bind()
+    if bind.dialect.name == 'sqlite':
+        with op.batch_alter_table('jobs') as batch_op:
+            batch_op.add_column(sa.Column('user_id', sa.Integer(), nullable=True))
+            batch_op.add_column(sa.Column('priority', sa.Integer(), nullable=False, server_default='50'))
+            batch_op.add_column(sa.Column('idempotency_key', sa.String(length=128), nullable=True))
+            batch_op.add_column(sa.Column('locked_until', sa.DateTime(timezone=True), nullable=True))
+            batch_op.add_column(sa.Column('locked_by', sa.String(length=64), nullable=True))
+            batch_op.add_column(sa.Column('next_run_at', sa.DateTime(timezone=True), nullable=True))
+            batch_op.add_column(sa.Column('max_attempts', sa.Integer(), nullable=False, server_default='3'))
+            batch_op.add_column(sa.Column('error_details', sa.JSON(), nullable=False, server_default='{}'))
+            batch_op.create_index('ix_jobs_user_id', ['user_id'], unique=False)
+            batch_op.create_index('ix_jobs_priority', ['priority'], unique=False)
+            batch_op.create_index('ix_jobs_idempotency_key', ['idempotency_key'], unique=False)
+            batch_op.create_index('ix_jobs_claim_v2', ['status', 'priority', 'next_run_at'], unique=False)
+    else:
+        op.add_column('jobs', sa.Column('user_id', sa.Integer(), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=True))
+        op.add_column('jobs', sa.Column('priority', sa.Integer(), nullable=False, server_default='50'))
+        op.add_column('jobs', sa.Column('idempotency_key', sa.String(length=128), nullable=True))
+        op.add_column('jobs', sa.Column('locked_until', sa.DateTime(timezone=True), nullable=True))
+        op.add_column('jobs', sa.Column('locked_by', sa.String(length=64), nullable=True))
+        op.add_column('jobs', sa.Column('next_run_at', sa.DateTime(timezone=True), nullable=True))
+        op.add_column('jobs', sa.Column('max_attempts', sa.Integer(), nullable=False, server_default='3'))
+        op.add_column('jobs', sa.Column('error_details', sa.JSON(), nullable=False, server_default='{}'))
 
-    op.create_index('ix_jobs_user_id', 'jobs', ['user_id'], unique=False)
-    op.create_index('ix_jobs_priority', 'jobs', ['priority'], unique=False)
-    op.create_index('ix_jobs_idempotency_key', 'jobs', ['idempotency_key'], unique=False)
-    op.create_index('ix_jobs_claim_v2', 'jobs', ['status', 'priority', 'next_run_at'], unique=False)
+        op.create_index('ix_jobs_user_id', 'jobs', ['user_id'], unique=False)
+        op.create_index('ix_jobs_priority', 'jobs', ['priority'], unique=False)
+        op.create_index('ix_jobs_idempotency_key', 'jobs', ['idempotency_key'], unique=False)
+        op.create_index('ix_jobs_claim_v2', 'jobs', ['status', 'priority', 'next_run_at'], unique=False)
 
     # 2. Automation Rules
     op.create_table(

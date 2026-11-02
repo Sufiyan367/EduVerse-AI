@@ -343,6 +343,7 @@ function StatCard({
 
 export function StatusBadge({ status }: { status: string }) {
   if (status === 'ready') return <Badge tone="success">ready</Badge>
+  if (status === 'partially_processed') return <Badge tone="warning">partial</Badge>
   if (status === 'failed') return <Badge tone="danger">failed</Badge>
   if (status === 'processing') return <Badge tone="accent">processing</Badge>
   if (status === 'recording') return <Badge tone="warning">recording</Badge>

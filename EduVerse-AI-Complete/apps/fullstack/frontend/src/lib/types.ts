@@ -2,7 +2,7 @@
 // enough that a generator would be more machinery than it saves, and these double as the
 // place to document what each field means to the UI.
 
-export type SourceStatus = 'pending' | 'processing' | 'ready' | 'failed'
+export type SourceStatus = 'pending' | 'processing' | 'ready' | 'partially_processed' | 'failed' | 'recording'
 export type SourceKind =
   | 'audio' | 'video' | 'pdf' | 'docx' | 'pptx' | 'youtube' | 'web' | 'text' | 'image'
 export type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'

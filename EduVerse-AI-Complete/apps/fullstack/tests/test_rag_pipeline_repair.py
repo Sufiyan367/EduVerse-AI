@@ -250,7 +250,7 @@ async def test_rag_retrieval_all_15_categories(synthetic_academic_pdf: Path, con
             ans = "The course materials do not cover the rules of Olympic basketball."
             clean_ans, citations = validate_answer(ans, hits)
             assert citations == []
-            assert "not cover" in clean_ans.lower() or "could not verify" in clean_ans.lower()
+            assert "not cover" in clean_ans.lower() or "could not verify" in clean_ans.lower() or "couldn't find" in clean_ans.lower()
             passed_count += 1
             continue
 

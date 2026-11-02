@@ -236,6 +236,9 @@ export function SourcePage() {
               {source.page_count ? <span>· {source.page_count} pgs</span> : null}
               {source.duration_sec ? <span>· {formatDuration(source.duration_sec)}</span> : null}
               <span>· {counts.segments} passages</span>
+              {Array.isArray(source.metadata?.unreadable_pages) && (source.metadata.unreadable_pages as number[]).length > 0 && (
+                <span className="text-amber-500 font-medium">· {(source.metadata.unreadable_pages as number[]).length} unreadable pgs</span>
+              )}
             </div>
           </div>
 
@@ -334,6 +337,13 @@ export function SourcePage() {
               <Progress value={activeJob.progress} className="h-1.5 flex-1" />
               <span className="tabular-nums font-mono text-[11px] text-[var(--text-muted)]">{activeJob.progress}%</span>
             </div>
+          </div>
+        )}
+
+        {source.status === 'partially_processed' && source.error && (
+          <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-600 dark:text-amber-400">
+            <span><strong>Partial extraction notice:</strong> {source.error}</span>
+            <span className="text-[11px] opacity-80 shrink-0">Indexed passages available for chat & study</span>
           </div>
         )}
       </header>

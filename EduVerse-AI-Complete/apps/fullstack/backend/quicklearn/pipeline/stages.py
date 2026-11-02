@@ -237,6 +237,13 @@ def _persist_transcript(source_id: int, result: ExtractResult) -> None:
                 source.duration_sec = result.duration_sec
             if result.page_count:
                 source.page_count = result.page_count
+            if isinstance(result.raw, dict):
+                meta = dict(source.meta or {})
+                if "unreadable_pages" in result.raw:
+                    meta["unreadable_pages"] = result.raw["unreadable_pages"]
+                if "scanned_pages" in result.raw:
+                    meta["scanned_pages"] = result.raw["scanned_pages"]
+                source.meta = meta
 
 
 def _persist_extraction(source_id: int, result: ExtractResult, *, timed: bool) -> None:

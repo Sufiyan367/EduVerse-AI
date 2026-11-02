@@ -194,7 +194,8 @@ async def retrieve(
     async def vector_leg() -> list[int]:
         try:
             hits = await vector_index.search_vectors(query, k=top_k, source_ids=source_ids)
-            v_ids = [hit.segment_id for hit in hits]
+            # Filter vector noise below similarity threshold
+            v_ids = [hit.segment_id for hit in hits if hit.score >= 0.35]
             if not v_ids:
                 total_vecs = vector_index.get_index().count()
                 if total_vecs == 0:

@@ -113,6 +113,19 @@ def _finish_child(job_id: int, *, ok: bool, error: str = "", skipped: bool = Fal
     emit("job.succeeded" if ok else "job.failed", job_id=job_id, error=error)
 
 
+async def _run_index_and_verify(source_id: int, job_id: int | None = None) -> None:
+    """Index source segments and verify searchability."""
+    from ..errors import PipelineError
+    from ..pipeline.stages import segment_count
+
+    count = segment_count(source_id)
+    if count == 0:
+        raise PipelineError("Cannot index source: no segments exist.")
+
+    indexed = await rag_index.index_source(source_id, job_id=job_id)
+    log.info("Index verification for source %d: %d segments exist, %d newly embedded/indexed", source_id, count, indexed)
+
+
 @register(JobType.INGEST)
 async def handle_ingest(ctx: JobContext) -> None:
     """Run the whole pipeline for one source."""
@@ -173,7 +186,7 @@ async def handle_ingest(ctx: JobContext) -> None:
             source_id, job_id=ctx.job_id
         ),
         JobType.GENERATE_CARDS: lambda: cards_gen.generate_cards(source_id, job_id=ctx.job_id),
-        JobType.INDEX: lambda: rag_index.index_source(source_id, job_id=ctx.job_id),
+        JobType.INDEX: lambda: _run_index_and_verify(source_id, ctx.job_id),
     }
 
     failures: list[str] = []
@@ -194,8 +207,8 @@ async def handle_ingest(ctx: JobContext) -> None:
             await result
         except QuicklearnError as exc:
             _finish_child(child_id, ok=False, error=exc.message)
-            if job_type in {JobType.NORMALIZE, JobType.TRANSCRIBE}:
-                # Without content there is nothing downstream can do.
+            if job_type in {JobType.NORMALIZE, JobType.TRANSCRIBE, JobType.INDEX}:
+                # Without content or indexing, the source is not usable.
                 _mark_remaining_skipped(children, job_type)
                 stages.set_status(source_id, SourceStatus.FAILED, exc.message)
                 emit("source.updated", source_id=source_id, status="failed", job_id=ctx.job_id, error=getattr(exc, "message", str(exc)))
@@ -208,10 +221,10 @@ async def handle_ingest(ctx: JobContext) -> None:
             continue
         except Exception as exc:
             _finish_child(child_id, ok=False, error=str(exc))
-            if job_type in {JobType.NORMALIZE, JobType.TRANSCRIBE}:
+            if job_type in {JobType.NORMALIZE, JobType.TRANSCRIBE, JobType.INDEX}:
                 _mark_remaining_skipped(children, job_type)
                 stages.set_status(source_id, SourceStatus.FAILED, str(exc))
-                emit("source.updated", source_id=source_id, status="failed", job_id=ctx.job_id, error=exc.message)
+                emit("source.updated", source_id=source_id, status="failed", job_id=ctx.job_id, error=str(exc))
                 raise
             log.exception("stage %s crashed", job_type)
             failures.append(f"{label}: {exc}")
@@ -227,13 +240,25 @@ async def handle_ingest(ctx: JobContext) -> None:
             except Exception:
                 log.debug("auto-title failed", exc_info=True)
 
-    stages.set_status(
-        source_id,
-        SourceStatus.READY,
-        "; ".join(failures)[:2000] if failures else None,
-    )
-    ctx.progress(100, "Ready")
-    emit("source.updated", source_id=source_id, status="ready", job_id=ctx.job_id)
+    with session_scope() as session:
+        source = session.get(Source, source_id)
+        meta = dict(source.meta or {}) if source else {}
+        unreadable = meta.get("unreadable_pages") or []
+
+    if failures or unreadable:
+        notes: list[str] = []
+        if unreadable:
+            notes.append(f"{len(unreadable)} unreadable/scanned page(s) ({unreadable}) require vision model OCR")
+        if failures:
+            notes.extend(failures)
+        err_msg = "; ".join(notes)[:2000]
+        stages.set_status(source_id, SourceStatus.PARTIALLY_PROCESSED, err_msg)
+        ctx.progress(100, "Partially processed")
+        emit("source.updated", source_id=source_id, status="partially_processed", job_id=ctx.job_id, error=err_msg)
+    else:
+        stages.set_status(source_id, SourceStatus.READY, None)
+        ctx.progress(100, "Ready")
+        emit("source.updated", source_id=source_id, status="ready", job_id=ctx.job_id)
 
 
 def _mark_remaining_skipped(children: dict[JobType, int], failed_at: JobType) -> None:

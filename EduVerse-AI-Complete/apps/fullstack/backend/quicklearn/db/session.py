@@ -32,6 +32,15 @@ VEC_AVAILABLE = False
 
 
 def vec_available() -> bool:
+    global VEC_AVAILABLE
+    if not VEC_AVAILABLE:
+        try:
+            eng = get_engine()
+            if eng.dialect.name == "sqlite":
+                with eng.connect() as conn:
+                    pass
+        except Exception:
+            pass
     return VEC_AVAILABLE
 
 

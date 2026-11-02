@@ -255,17 +255,19 @@ class SettingsStore:
 
         loaded = self._load()
         if f"routing.{task_class}" in loaded:
-            conf = self.get_dict(f"routing.{task_class}")
-            return str(conf.get("provider") or ""), str(conf.get("model") or "")
+            conf = loaded[f"routing.{task_class}"]
+            if isinstance(conf, dict):
+                provider = str(conf.get("provider") or "").strip()
+                model = str(conf.get("model") or "").strip()
+                return provider, model
+            return "", ""
 
-        conf = self.get_dict(f"routing.{task_class}")
-        provider = str(conf.get("provider") or "")
-        model = str(conf.get("model") or "")
-        if not provider and task_class != "standard":
+        if task_class != "standard":
             return self.routing("standard")
-        if not provider:
-            provider = "ollama"
-            model = self.get_str("providers.ollama.model", "qwen3.5:4b")
+
+        # Default when nothing has been configured: local Ollama
+        provider = "ollama"
+        model = self.get_str("providers.ollama.model", "qwen3.5:4b")
         return provider, model
 
     def configured_providers(self) -> set[str]:

@@ -196,6 +196,26 @@ def delete_source(conn: Any, source_id: int) -> None:
         conn.execute("DELETE FROM search_docs WHERE source_id = ?", (source_id,))
 
 
+_STOPWORDS = {
+    "a", "about", "above", "after", "again", "against", "all", "am", "an", "and",
+    "any", "are", "aren't", "as", "at", "be", "because", "been", "before", "being",
+    "below", "between", "both", "but", "by", "can", "can't", "cannot", "could",
+    "couldn't", "did", "didn't", "do", "does", "doesn't", "doing", "don't", "down",
+    "during", "each", "few", "for", "from", "further", "had", "hadn't", "has",
+    "hasn't", "have", "haven't", "having", "he", "her", "here", "hers", "herself",
+    "him", "himself", "his", "how", "i", "if", "in", "into", "is", "isn't", "it",
+    "its", "itself", "let's", "me", "more", "most", "mustn't", "my", "myself",
+    "no", "nor", "not", "of", "off", "on", "once", "only", "or", "other", "ought",
+    "our", "ours", "ourselves", "out", "over", "own", "same", "shan't", "she",
+    "should", "shouldn't", "so", "some", "such", "than", "that", "the", "their",
+    "theirs", "them", "themselves", "then", "there", "these", "they", "this",
+    "those", "through", "to", "too", "under", "until", "up", "very", "was",
+    "wasn't", "we", "were", "weren't", "what", "when", "where", "which", "while",
+    "who", "whom", "why", "with", "won't", "would", "wouldn't", "you", "your",
+    "yours", "yourself", "yourselves"
+}
+
+
 def escape_query(raw: str) -> str:
     """Turn user input into a safe FTS5 MATCH expression for SQLite."""
     tokens = []
@@ -212,10 +232,14 @@ def escape_query(raw: str) -> str:
 
     if not tokens:
         return ""
-    quoted = [f'"{t}"' for t in tokens[:-1]]
-    last = tokens[-1]
-    quoted.append(f'"{last}"*' if len(last) >= 2 else f'"{last}"')
-    return " ".join(quoted)
+
+    meaningful = [t for t in tokens if t.lower() not in _STOPWORDS]
+    target_tokens = meaningful if meaningful else tokens
+
+    quoted = [f'"{t}"' for t in target_tokens[:-1]]
+    last = target_tokens[-1]
+    quoted.append(f'"{last}"*' if len(last) >= 3 and last.isalpha() else f'"{last}"')
+    return " OR ".join(quoted)
 
 
 def search(
@@ -300,7 +324,7 @@ def search(
     ]
     sqlite_params: list[object] = [match_expr]
     if user_filter_id is not None:
-        sql.append("AND d.source_id IN (SELECT id FROM sources WHERE user_id = ?)")
+        sql.append("AND (d.source_id IS NULL OR d.source_id IN (SELECT id FROM sources WHERE user_id = ?))")
         sqlite_params.append(user_filter_id)
 
     if kinds:
