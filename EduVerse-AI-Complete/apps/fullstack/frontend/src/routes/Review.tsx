@@ -18,7 +18,7 @@ const RATINGS = [
 ] as const
 
 export function ReviewPage() {
-  const search = useSearch({ from: '/review' })
+  const search = (useSearch({ strict: false }) as { folder?: number; source?: number }) || {}
   const queryClient = useQueryClient()
 
   const [index, setIndex] = useState(0)

@@ -202,3 +202,27 @@ export const useServerHealth = create<ServerHealthState>((set) => ({
   llmStatus: null,
   setLlmStatus: (llmStatus) => set({ llmStatus }),
 }))
+
+// ---------------------------------------------------------------- active course context
+
+interface ActiveCourseState {
+  activeCourseId: number | null
+  setActiveCourseId: (id: number | null) => void
+}
+
+export const useActiveCourse = create<ActiveCourseState>((set) => ({
+  activeCourseId:
+    typeof localStorage !== 'undefined'
+      ? Number(localStorage.getItem('eduverse_active_course_id')) || null
+      : null,
+  setActiveCourseId: (activeCourseId) => {
+    if (typeof localStorage !== 'undefined') {
+      if (activeCourseId) {
+        localStorage.setItem('eduverse_active_course_id', String(activeCourseId))
+      } else {
+        localStorage.removeItem('eduverse_active_course_id')
+      }
+    }
+    set({ activeCourseId })
+  },
+}))

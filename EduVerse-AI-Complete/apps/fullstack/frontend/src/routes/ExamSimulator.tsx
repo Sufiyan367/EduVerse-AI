@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { api } from '../lib/api'
 import { Button, Input, Modal, Badge } from '../components/ui'
 
-export function ExamSimulatorPage() {
+export function ExamSimulatorPage({ courseId }: { courseId?: number } = {}) {
   const queryClient = useQueryClient()
   const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams()
 
@@ -15,15 +15,18 @@ export function ExamSimulatorPage() {
   })
 
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(() => {
+    if (courseId) return courseId
     const cid = urlParams.get('courseId'); if (cid) return Number(cid)
     return null
   })
 
   useEffect(() => {
-    if (!selectedCourseId && courses.length > 0) {
+    if (courseId) {
+      setSelectedCourseId(courseId)
+    } else if (!selectedCourseId && courses.length > 0) {
       setSelectedCourseId(courses[0].id)
     }
-  }, [courses, selectedCourseId])
+  }, [courseId, courses, selectedCourseId])
 
   // Active Session State
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null)

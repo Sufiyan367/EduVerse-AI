@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { api } from '../lib/api'
 import { Button,  } from '../components/ui'
 
-export function AdaptiveRevisionPage() {
+export function AdaptiveRevisionPage({ courseId }: { courseId?: number } = {}) {
   const queryClient = useQueryClient()
   const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams()
 
@@ -15,15 +15,18 @@ export function AdaptiveRevisionPage() {
   })
 
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(() => {
+    if (courseId) return courseId
     const cid = urlParams.get('courseId'); if (cid) return Number(cid)
     return null
   })
 
   useEffect(() => {
-    if (!selectedCourseId && courses.length > 0) {
+    if (courseId) {
+      setSelectedCourseId(courseId)
+    } else if (!selectedCourseId && courses.length > 0) {
       setSelectedCourseId(courses[0].id)
     }
-  }, [courses, selectedCourseId])
+  }, [courseId, courses, selectedCourseId])
 
   // Mastery Profile Query
   const { data: masteryProfile, isLoading: masteryLoading } = useQuery({

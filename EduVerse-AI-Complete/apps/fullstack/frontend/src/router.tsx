@@ -5,8 +5,9 @@ import { CoursesPage } from './routes/Courses'
 import { SyllabusMapPage } from './routes/SyllabusMap'
 import { PaperAnalyticsPage } from './routes/PaperAnalytics'
 import { ExamSimulatorPage } from './routes/ExamSimulator'
-import { PerformancePage } from './routes/Performance'
 import { AdaptiveRevisionPage } from './routes/AdaptiveRevision'
+import { PracticePage } from './routes/Practice'
+import { ProgressPage } from './routes/Progress'
 import { LibraryPage } from './routes/Library'
 import { SourcePage } from './routes/Source'
 import { ReviewPage } from './routes/Review'
@@ -25,11 +26,34 @@ const rootRoute = createRootRoute({
   notFoundComponent: NotFound,
 })
 
+// Destination 1: Home / My Learning
 const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: DashboardPage })
 
-// Course Workspace & Academic Domain Routes
+// Destination 2: Course Workspace & Hierarchy
 const coursesRoute = createRoute({ getParentRoute: () => rootRoute, path: '/courses', component: CoursesPage })
 
+// Destination 3: Context-Aware Academic Tutor
+interface ChatSearch {
+  id?: number
+  source?: number
+}
+const chatRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/chat',
+  component: ChatPage,
+  validateSearch: (search: Record<string, unknown>): ChatSearch => ({
+    id: search.id ? Number(search.id) : undefined,
+    source: search.source ? Number(search.source) : undefined,
+  }),
+})
+
+// Destination 4: Unified Practice Hub (Recall, Quiz, Simulator, Gaps)
+const practiceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/practice', component: PracticePage })
+
+// Destination 5: Unified Progress & Academic Analytics
+const progressRoute = createRoute({ getParentRoute: () => rootRoute, path: '/progress', component: ProgressPage })
+
+// Backward-compatible individual routes (for deep links and bookmark safety)
 interface CourseContextSearch {
   courseId?: number
 }
@@ -70,9 +94,13 @@ const adaptiveRoute = createRoute({
   }),
 })
 
-const performanceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/performance', component: PerformancePage })
+const performanceRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/performance',
+  component: ProgressPage, // Seamlessly aliases to the unified Progress destination
+})
 
-// Existing Study & Tool Routes
+// Library and Document routes
 interface LibrarySearch {
   folder?: number
   tag?: string
@@ -133,20 +161,6 @@ const quizRoute = createRoute({
   }),
 })
 
-interface ChatSearch {
-  id?: number
-  source?: number
-}
-const chatRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/chat',
-  component: ChatPage,
-  validateSearch: (search: Record<string, unknown>): ChatSearch => ({
-    id: search.id ? Number(search.id) : undefined,
-    source: search.source ? Number(search.source) : undefined,
-  }),
-})
-
 const knowledgeGapRoute = createRoute({ getParentRoute: () => rootRoute, path: '/knowledge-gap', component: KnowledgeGapPage })
 const revisionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/revision', component: RevisionPage })
 const podcastsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/podcasts', component: PodcastsPage })
@@ -157,6 +171,9 @@ const automationRoute = createRoute({ getParentRoute: () => rootRoute, path: '/a
 const routeTree = rootRoute.addChildren([
   indexRoute,
   coursesRoute,
+  chatRoute,
+  practiceRoute,
+  progressRoute,
   syllabusRoute,
   papersRoute,
   simulatorRoute,
@@ -166,7 +183,6 @@ const routeTree = rootRoute.addChildren([
   sourceRoute,
   reviewRoute,
   quizRoute,
-  chatRoute,
   knowledgeGapRoute,
   revisionRoute,
   podcastsRoute,

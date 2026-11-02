@@ -32,7 +32,7 @@ const MODES: { value: Mode; label: string; hint: string }[] = [
 ]
 
 export function QuizPage() {
-  const search = useSearch({ from: '/quiz' })
+  const search = (useSearch({ strict: false }) as { source?: number; folder?: number; mode?: string }) || {}
   const [sessionId, setSessionId] = useState<number | null>(null)
   const [mode, setMode] = useState<Mode>((search.mode as Mode) ?? 'practice')
 

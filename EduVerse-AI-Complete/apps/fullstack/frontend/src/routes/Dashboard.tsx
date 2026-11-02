@@ -1,18 +1,18 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link } from '@tanstack/react-router'
 import {
-  AlertCircle, AlertTriangle, ArrowRight, Brain, CalendarCheck,
-  Clock, Flame, ListChecks, Mic, Plus, Sparkles, TrendingDown,
-  Upload,
+  AlertCircle, ArrowRight, BookOpen, Brain, CalendarCheck,
+  CheckCircle2, Clock, Layers, ListChecks, MessageSquare,
+  Plus, Sparkles, TrendingDown, Zap
 } from 'lucide-react'
 import { api } from '../lib/api'
-import { useJobs } from '../lib/store'
+import { useJobs, useActiveCourse } from '../lib/store'
 import { formatRelative, kindLabel } from '../lib/utils'
 import { AddSourceDialog } from '../components/AddSourceDialog'
-import { Badge, Button, Card, CardBody, EmptyState, Progress, Skeleton } from '../components/ui'
+import { Badge, Button, Progress, Skeleton } from '../components/ui'
 
 export function DashboardPage() {
-  const navigate = useNavigate()
+  const { activeCourseId } = useActiveCourse()
   const jobs = useJobs((state) => state.jobs)
   const activeCount = Object.values(jobs).filter(
     (job) => job.parent_id == null && (job.status === 'running' || job.status === 'queued'),
@@ -35,6 +35,11 @@ export function DashboardPage() {
     refetchInterval: 30_000,
   })
 
+  const { data: courses = [] } = useQuery({
+    queryKey: ['courses'],
+    queryFn: () => api.listCourses(),
+  })
+
   if (isLoading || !data) {
     return (
       <div className="mx-auto max-w-6xl space-y-4 p-6">
@@ -49,162 +54,409 @@ export function DashboardPage() {
     )
   }
 
-  const noProviders = !data.providers_configured.llm
-  const dueTotal = data.due.due + data.due.new
+  const user = typeof localStorage !== 'undefined' && localStorage.getItem('eduverse_user')
+    ? JSON.parse(localStorage.getItem('eduverse_user') || '{}')
+    : null
+  const studentName = user?.full_name || user?.username || 'Student'
+
+  const dueTotal = (data.due?.due || 0) + (data.due?.new || 0)
+  const activeCourse = courses.find((c: any) => c.id === activeCourseId) || courses[0] || null
+
+  // Determine top priority action
+  let primaryAction = {
+    title: 'Review Due Flashcards',
+    description: `${dueTotal} card${dueTotal === 1 ? '' : 's'} scheduled for spaced repetition review today.`,
+    buttonText: 'Start Flashcard Review',
+    icon: Brain,
+    to: '/practice',
+    search: { tab: 'flashcards' },
+    active: dueTotal > 0,
+  }
+
+  if (dueTotal === 0 && stats && stats.critical_gaps_count > 0) {
+    primaryAction = {
+      title: 'Remediate Critical Knowledge Gaps',
+      description: `${stats.critical_gaps_count} concept${stats.critical_gaps_count === 1 ? '' : 's'} scoring below 50% accuracy need attention.`,
+      buttonText: 'Resolve Gaps Now',
+      icon: AlertCircle,
+      to: '/practice',
+      search: { tab: 'gaps' },
+      active: true,
+    }
+  } else if (dueTotal === 0 && (!stats || stats.critical_gaps_count === 0) && activeCourse) {
+    primaryAction = {
+      title: `Continue ${activeCourse.code}: ${activeCourse.name}`,
+      description: `Resume curriculum study with ${activeCourse.unit_count || 0} units and past paper intelligence.`,
+      buttonText: 'Open Course Workspace',
+      icon: BookOpen,
+      to: '/courses',
+      search: { courseId: activeCourse.id, tab: 'overview' } as any,
+      active: true,
+    }
+  }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 p-4 sm:p-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+    <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
+      {/* Launchpad Welcome Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-[var(--text)]">{typeof localStorage !== 'undefined' && localStorage.getItem('eduverse_user') ? ('Welcome back, ' + (JSON.parse(localStorage.getItem('eduverse_user') || '{}').full_name || JSON.parse(localStorage.getItem('eduverse_user') || '{}').username || 'Student')) : 'Student Dashboard'}</h1>
-            <Badge tone="accent" className="text-xs">EduVerse AI</Badge>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              Welcome back, {studentName}
+            </h1>
+            <Badge tone="accent" className="text-xs">Academic Launchpad</Badge>
           </div>
-          <p className="text-sm text-[var(--text-muted)]">
-            {data.totals.sources === 0
-              ? 'Add your first study document or lecture notes to begin personalized learning.'
-              : `${data.totals.sources} study material${data.totals.sources === 1 ? '' : 's'} · ${data.totals.cards} flashcards · ${data.totals.concepts} concepts extracted`}
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {courses.length > 0
+              ? `${courses.length} active course workspace${courses.length === 1 ? '' : 's'} · ${data.totals.sources} materials indexed · ${dueTotal} review items due`
+              : 'Add your university courses and study materials to begin personalized learning.'}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Link to="/record">
-            <Button variant="secondary">
-              <Mic className="h-4 w-4" /> Record
+
+        <div className="flex items-center gap-2.5">
+          <Link to="/chat">
+            <Button variant="secondary" size="sm" className="gap-1.5 text-xs">
+              <MessageSquare className="h-4 w-4 text-primary" />
+              <span>Ask Tutor</span>
             </Button>
           </Link>
           <AddSourceDialog
             trigger={
-              <Button variant="primary">
-                <Plus className="h-4 w-4" /> Upload Document
+              <Button variant="primary" size="sm" className="gap-1.5 text-xs shadow-sm">
+                <Plus className="h-4 w-4" />
+                <span>Upload PDF</span>
               </Button>
             }
           />
         </div>
-      </header>
-
-      {/* Critical Knowledge Gaps Alert */}
-      {stats && stats.critical_gaps_count > 0 && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-sm text-rose-300">
-          <div className="flex items-center gap-3">
-            <AlertCircle className="h-5 w-5 shrink-0 text-rose-400" />
-            <div>
-              <p className="font-semibold text-rose-200">
-                {stats.critical_gaps_count} Critical Knowledge Gap{stats.critical_gaps_count === 1 ? '' : 's'} Identified
-              </p>
-              <p className="text-xs text-rose-300/80 mt-0.5">
-                Quiz attempt history reveals concepts scoring below 50% accuracy.
-              </p>
-            </div>
-          </div>
-          <Link to="/knowledge-gap">
-            <Button size="sm" variant="secondary" className="gap-1 border-rose-500/30 text-rose-200">
-              <span>View Evidence & Remediate</span>
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Button>
-          </Link>
-        </div>
-      )}
-
-      {/* Pending Revision Sessions Alert */}
-      {stats && stats.pending_revision_count > 0 && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-300">
-          <div className="flex items-center gap-3">
-            <CalendarCheck className="h-5 w-5 shrink-0 text-amber-400" />
-            <div>
-              <p className="font-semibold text-amber-200">
-                {stats.pending_revision_count} Revision Session{stats.pending_revision_count === 1 ? '' : 's'} Scheduled
-              </p>
-              <p className="text-xs text-amber-300/80 mt-0.5">
-                Adaptive study sessions queued based on memory decay and knowledge gaps.
-              </p>
-            </div>
-          </div>
-          <Link to="/revision">
-            <Button size="sm" variant="secondary" className="gap-1 border-amber-500/30 text-amber-200">
-              <span>Open Planner</span>
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Button>
-          </Link>
-        </div>
-      )}
-
-      {noProviders && (
-        <Card className="border-amber-500/40 bg-amber-500/5">
-          <CardBody className="flex flex-wrap items-center gap-3">
-            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-500" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium">No language model configured yet</p>
-              <p className="text-xs text-[var(--text-muted)]">
-                Switch to local Ollama, LM Studio, or offline Mock in Settings to enable tutoring and card generation.
-              </p>
-            </div>
-            <Link to="/settings">
-              <Button variant="primary" size="sm">Open settings</Button>
-            </Link>
-          </CardBody>
-        </Card>
-      )}
-
-      {/* Top 4 Core Metrics */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Due today"
-          value={dueTotal}
-          hint={`${data.due.due} review · ${data.due.new} new`}
-          icon={Brain}
-          onClick={() => navigate({ to: '/review' })}
-          accent={dueTotal > 0}
-        />
-        <StatCard
-          label="Quiz Accuracy"
-          value={stats ? `${stats.average_quiz_accuracy}%` : '0%'}
-          hint={stats ? `${stats.total_quiz_attempts} questions answered` : 'No attempts yet'}
-          icon={ListChecks}
-          onClick={() => navigate({ to: '/quiz' })}
-        />
-        <StatCard
-          label="Mastery Index"
-          value={`${Math.round(data.mastery.average_mastery * 100)}%`}
-          hint={`${data.mastery.mastered}/${data.mastery.concepts} concepts mastered`}
-          icon={Sparkles}
-          onClick={() => navigate({ to: '/knowledge-gap' })}
-        />
-        <StatCard
-          label="Study streak"
-          value={data.stats.streak_days}
-          hint={data.stats.streak_days === 1 ? 'day active' : 'days active'}
-          icon={Flame}
-        />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        {/* Recent Sources List */}
-        <Card className="lg:col-span-2">
-          <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-            <h2 className="text-sm font-semibold text-[var(--text)]">Recent Study Materials</h2>
-            <Link to="/library" className="text-xs text-[var(--accent)] hover:underline">
-              View all
+      {/* Primary Action Hero: What one thing should I do next? */}
+      <div className="rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/10 via-card to-card p-5 sm:p-6 shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+          <div className="flex items-start gap-4">
+            <div className="p-3 rounded-xl bg-primary/20 text-primary shrink-0 mt-0.5">
+              <primaryAction.icon className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary uppercase tracking-wide">
+                <Zap className="h-3.5 w-3.5" />
+                Recommended Next Step
+              </div>
+              <h2 className="text-lg font-bold text-foreground mt-0.5">
+                {primaryAction.title}
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1 max-w-xl">
+                {primaryAction.description}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0">
+            <Link to={primaryAction.to as any} search={primaryAction.search as any}>
+              <Button size="md" className="gap-2 shadow-sm font-semibold">
+                <span>{primaryAction.buttonText}</span>
+                <ArrowRight className="h-4 w-4" />
+              </Button>
             </Link>
           </div>
+        </div>
+      </div>
+
+      {/* Active Course Card + Daily Action Plan Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column: Active Course Context & Quick Switcher */}
+        <div className="space-y-4 lg:col-span-1">
+          <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-semibold text-foreground uppercase tracking-wider">
+                <BookOpen className="h-4 w-4 text-primary" />
+                Active Course
+              </div>
+              <Link to="/courses" className="text-xs text-primary hover:underline font-medium">
+                All Courses ({courses.length})
+              </Link>
+            </div>
+
+            {activeCourse ? (
+              <div className="space-y-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Badge tone="accent" className="font-mono text-xs font-bold">
+                      {activeCourse.code}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">{activeCourse.semester}</span>
+                  </div>
+                  <h3 className="text-base font-bold text-foreground mt-1 line-clamp-1">
+                    {activeCourse.name}
+                  </h3>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 py-2 border-y border-border/60 text-center text-xs">
+                  <div>
+                    <span className="font-bold text-foreground text-sm">{activeCourse.unit_count || 0}</span>
+                    <span className="block text-[11px] text-muted-foreground">Units</span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-foreground text-sm">{activeCourse.topic_count || 0}</span>
+                    <span className="block text-[11px] text-muted-foreground">Topics</span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-foreground text-sm">{activeCourse.paper_count || 0}</span>
+                    <span className="block text-[11px] text-muted-foreground">Papers</span>
+                  </div>
+                </div>
+
+                <div className="pt-1 flex flex-col gap-2">
+                  <Link
+                    to="/courses"
+                    search={{ courseId: activeCourse.id, tab: 'syllabus' } as any}
+                    className="flex items-center justify-between p-2 rounded-lg bg-muted/40 hover:bg-muted text-xs font-medium text-foreground transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Layers className="h-3.5 w-3.5 text-primary" />
+                      Open Syllabus & Topics
+                    </span>
+                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Link>
+                  <Link
+                    to="/courses"
+                    search={{ courseId: activeCourse.id, tab: 'simulator' } as any}
+                    className="flex items-center justify-between p-2 rounded-lg bg-muted/40 hover:bg-muted text-xs font-medium text-foreground transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
+                      Exam Simulator
+                    </span>
+                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <p className="text-xs text-muted-foreground mb-3">No course workspace created yet.</p>
+                <Link to="/courses">
+                  <Button size="sm" variant="secondary" className="text-xs">
+                    Create Course Workspace
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Tutor Prompt Card */}
+          <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+              <MessageSquare className="h-4 w-4 text-teal-400" />
+              <span>Ask Academic Tutor</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Ground your queries on indexed lecture PDFs and course notes with exact citations.
+            </p>
+            <div className="space-y-1.5">
+              <Link
+                to="/chat"
+                className="block text-xs p-2 rounded-lg border border-border/60 hover:border-primary/40 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                &ldquo;What are the most frequent exam questions in my active course?&rdquo;
+              </Link>
+              <Link
+                to="/chat"
+                className="block text-xs p-2 rounded-lg border border-border/60 hover:border-primary/40 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                &ldquo;Summarize Unit 1 core definitions and provide key formulas.&rdquo;
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Right 2 Columns: Today's Action Items & Weak Concepts */}
+        <div className="space-y-4 lg:col-span-2">
+          {/* Today's Concrete Action Plan */}
+          <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold text-foreground">Today&apos;s Academic Plan</h2>
+              </div>
+              <span className="text-xs text-muted-foreground font-mono">
+                {new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+              </span>
+            </div>
+
+            <div className="space-y-2.5">
+              {/* Task 1: Due Flashcards */}
+              <div className="flex items-center justify-between p-3 rounded-lg border border-border/70 bg-muted/20 hover:bg-muted/40 transition-colors">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`p-2 rounded-lg ${dueTotal > 0 ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                    <Brain className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-foreground truncate">
+                      {dueTotal > 0 ? `${dueTotal} Due Spaced-Repetition Cards` : 'Spaced Repetition Complete'}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {dueTotal > 0 ? 'FSRS-6 algorithm review to retain key formulas' : 'All scheduled flashcards completed for today'}
+                    </p>
+                  </div>
+                </div>
+                <Link to="/practice" search={{ tab: 'flashcards' } as any}>
+                  <Button size="sm" variant={dueTotal > 0 ? 'primary' : 'secondary'} className="text-xs shrink-0">
+                    {dueTotal > 0 ? 'Review' : 'Practice'}
+                  </Button>
+                </Link>
+              </div>
+
+              {/* Task 2: Quiz Knowledge Gaps */}
+              {stats && stats.critical_gaps_count > 0 && (
+                <div className="flex items-center justify-between p-3 rounded-lg border border-rose-500/30 bg-rose-500/5 hover:bg-rose-500/10 transition-colors">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400">
+                      <AlertCircle className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-rose-200 truncate">
+                        {stats.critical_gaps_count} Low-Mastery Concepts Identified
+                      </p>
+                      <p className="text-[11px] text-rose-300/80">
+                        Accuracy below 50% in past quizzes
+                      </p>
+                    </div>
+                  </div>
+                  <Link to="/practice" search={{ tab: 'gaps' } as any}>
+                    <Button size="sm" variant="secondary" className="text-xs border-rose-500/30 text-rose-200 shrink-0">
+                      Strengthen
+                    </Button>
+                  </Link>
+                </div>
+              )}
+
+              {/* Task 3: Adaptive Revision */}
+              {stats && stats.pending_revision_count > 0 && (
+                <div className="flex items-center justify-between p-3 rounded-lg border border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 transition-colors">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400">
+                      <CalendarCheck className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-amber-200 truncate">
+                        {stats.pending_revision_count} Adaptive Revision Session Scheduled
+                      </p>
+                      <p className="text-[11px] text-amber-300/80">
+                        Calculated from memory decay and previous exam performance
+                      </p>
+                    </div>
+                  </div>
+                  <Link to="/practice" search={{ tab: 'adaptive' } as any}>
+                    <Button size="sm" variant="secondary" className="text-xs border-amber-500/30 text-amber-200 shrink-0">
+                      Start Session
+                    </Button>
+                  </Link>
+                </div>
+              )}
+
+              {/* Task 4: Practice Quiz */}
+              <div className="flex items-center justify-between p-3 rounded-lg border border-border/70 bg-muted/20 hover:bg-muted/40 transition-colors">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                    <ListChecks className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-foreground truncate">
+                      Evidence-Grounded Practice Quiz
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Test concept comprehension with citations from uploaded materials
+                    </p>
+                  </div>
+                </div>
+                <Link to="/practice" search={{ tab: 'quiz' } as any}>
+                  <Button size="sm" variant="secondary" className="text-xs shrink-0">
+                    Generate Quiz
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Weak Topics & Knowledge Gaps Section */}
+          <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <TrendingDown className="h-4 w-4 text-amber-500" />
+                <h2 className="text-sm font-semibold text-foreground">Weak Concepts & Gaps</h2>
+              </div>
+              <Link to="/practice" search={{ tab: 'gaps' } as any} className="text-xs text-primary hover:underline">
+                View all gaps
+              </Link>
+            </div>
+
+            {data.weak_concepts.length === 0 ? (
+              <p className="py-4 text-center text-xs text-muted-foreground">
+                {data.totals.concepts === 0
+                  ? 'Concepts appear once study documents have been indexed.'
+                  : 'All concepts currently exceed the 60% mastery threshold.'}
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {data.weak_concepts.slice(0, 3).map((concept) => (
+                  <div key={concept.id} className="p-2.5 rounded-lg bg-muted/30 border border-border/50">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-foreground truncate">{concept.name}</span>
+                      <span className="text-xs font-mono font-medium text-amber-500">
+                        {Math.round(concept.mastery * 100)}% mastery
+                      </span>
+                    </div>
+                    <Progress
+                      value={concept.mastery * 100}
+                      tone={concept.mastery < 0.4 ? 'danger' : 'accent'}
+                      className="mt-1.5 h-1.5"
+                    />
+                    <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground">
+                      <span className="truncate">{concept.source_title}</span>
+                      <Link
+                        to="/practice"
+                        search={{ tab: 'quiz' } as any}
+                        className="text-primary hover:underline font-medium"
+                      >
+                        Practice topic &rarr;
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Materials & Real Activity Feed */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Recent Study Materials */}
+        <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+          <div className="flex items-center justify-between border-b border-border pb-3">
+            <h2 className="text-sm font-semibold text-foreground">Recent Study Materials</h2>
+            <Link to="/library" className="text-xs text-primary hover:underline">
+              Library ({data.totals.sources})
+            </Link>
+          </div>
+
           {data.recent_sources.length === 0 ? (
-            <EmptyState
-              icon={Upload}
-              title="No study materials yet"
-              description="Upload lecture PDFs, slides, or notes to extract concepts, generate quizzes, and start learning."
-              action={<AddSourceDialog trigger={<Button variant="primary">Add your first source</Button>} />}
-            />
+            <div className="py-8 text-center text-xs text-muted-foreground">
+              No study materials yet. Upload lecture notes or PDFs above.
+            </div>
           ) : (
-            <ul className="divide-y divide-[var(--border)]">
-              {data.recent_sources.map((source) => (
+            <ul className="divide-y divide-border/60">
+              {data.recent_sources.slice(0, 4).map((source) => (
                 <li key={source.id}>
                   <Link
                     to="/library/$sourceId"
                     params={{ sourceId: String(source.id) }}
-                    className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-[var(--bg-sunken)]"
+                    className="flex items-center justify-between gap-3 py-2.5 hover:bg-muted/30 px-2 rounded-md transition-colors"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-[var(--text)]">{source.title}</p>
-                      <p className="text-xs text-[var(--text-muted)]">
+                      <p className="truncate text-xs font-medium text-foreground">{source.title}</p>
+                      <p className="text-[11px] text-muted-foreground">
                         {kindLabel(source.kind)} · {formatRelative(source.created_at)}
                       </p>
                     </div>
@@ -214,130 +466,42 @@ export function DashboardPage() {
               ))}
             </ul>
           )}
-        </Card>
+        </div>
 
-        {/* Knowledge Health / Weak Concepts */}
-        <Card>
-          <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
+        {/* Real Chronological Activity Stream */}
+        <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+          <div className="flex items-center justify-between border-b border-border pb-3">
             <div className="flex items-center gap-2">
-              <TrendingDown className="h-4 w-4 text-[var(--text-muted)]" />
-              <h2 className="text-sm font-semibold text-[var(--text)]">Focus Areas</h2>
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold text-foreground">Recent Activity</h2>
             </div>
-            <Link to="/knowledge-gap" className="text-xs text-[var(--accent)] hover:underline">
-              Gap Details
+            <Link to="/progress" className="text-xs text-primary hover:underline">
+              Full Analytics
             </Link>
           </div>
-          {data.weak_concepts.length === 0 ? (
-            <p className="px-4 py-6 text-center text-sm text-[var(--text-muted)]">
-              {data.totals.concepts === 0
-                ? 'Concepts appear once a study document has been uploaded.'
-                : 'All concepts are currently above the mastery threshold.'}
-            </p>
-          ) : (
-            <ul className="divide-y divide-[var(--border)]">
-              {data.weak_concepts.map((concept) => (
-                <li key={concept.id} className="px-4 py-2.5">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <p className="truncate text-sm font-medium text-[var(--text)]">{concept.name}</p>
-                    <span className="shrink-0 tabular-nums text-xs text-[var(--text-muted)]">
-                      {Math.round(concept.mastery * 100)}%
-                    </span>
+
+          {stats && stats.recent_activities.length > 0 ? (
+            <div className="divide-y divide-border/60">
+              {stats.recent_activities.slice(0, 4).map((act) => (
+                <div key={act.id} className="flex items-center justify-between py-2.5 text-xs px-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                    <span className="font-medium text-foreground truncate">{act.title}</span>
                   </div>
-                  <Progress
-                    value={concept.mastery * 100}
-                    tone={concept.mastery < 0.35 ? 'danger' : 'accent'}
-                    className="mt-1.5"
-                  />
-                  <p className="mt-1 truncate text-[11px] text-[var(--text-muted)]">
-                    {concept.source_title}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-          {data.weak_concepts.length > 0 && (
-            <div className="border-t border-[var(--border)] p-3 flex gap-2">
-              <Link to="/quiz" className="flex-1">
-                <Button variant="secondary" size="sm" className="w-full justify-center">
-                  Take Quiz
-                </Button>
-              </Link>
-              <Link to="/revision" className="flex-1">
-                <Button variant="primary" size="sm" className="w-full justify-center">
-                  Plan Revision
-                </Button>
-              </Link>
-            </div>
-          )}
-        </Card>
-      </div>
-
-      {/* Real Chronological Activity Timeline */}
-      {stats && stats.recent_activities.length > 0 && (
-        <Card>
-          <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-[var(--text-muted)]" />
-              <h2 className="text-sm font-semibold text-[var(--text)]">Recent Learning History</h2>
-            </div>
-            <span className="text-xs text-[var(--text-muted)]">Real operations</span>
-          </div>
-          <div className="divide-y divide-[var(--border)] px-4 py-2">
-            {stats.recent_activities.map((act) => (
-              <div key={act.id} className="flex items-center justify-between py-2.5 text-xs">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="h-2 w-2 rounded-full bg-[var(--accent)] shrink-0" />
-                  <span className="font-medium text-[var(--text)] truncate">{act.title}</span>
-                  <Badge tone="neutral" className="text-[10px] hidden sm:inline-block">
-                    {act.entity_type}
-                  </Badge>
+                  <span className="text-[11px] text-muted-foreground shrink-0 ml-2">
+                    {formatRelative(act.created_at)}
+                  </span>
                 </div>
-                <span className="text-[11px] text-[var(--text-muted)] shrink-0 ml-2">
-                  {formatRelative(act.created_at)}
-                </span>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-    </div>
-  )
-}
-
-function StatCard({
-  label, value, hint, icon: Icon, onClick, accent,
-}: {
-  label: string
-  value: string | number
-  hint?: string
-  icon: React.ComponentType<{ className?: string }>
-  onClick?: () => void
-  accent?: boolean
-}) {
-  const inner = (
-    <CardBody className="flex items-start gap-3">
-      <span
-        className={
-          accent
-            ? 'rounded-lg bg-[var(--accent-soft)] p-2 text-[var(--accent)]'
-            : 'rounded-lg bg-[var(--bg-sunken)] p-2 text-[var(--text-muted)]'
-        }
-      >
-        <Icon className="h-4 w-4" />
-      </span>
-      <div className="min-w-0">
-        <p className="text-xs text-[var(--text-muted)]">{label}</p>
-        <p className="text-xl font-semibold tabular-nums">{value}</p>
-        {hint && <p className="truncate text-[11px] text-[var(--text-muted)]">{hint}</p>}
+              ))}
+            </div>
+          ) : (
+            <div className="py-8 text-center text-xs text-muted-foreground">
+              No recent activity recorded yet.
+            </div>
+          )}
+        </div>
       </div>
-    </CardBody>
-  )
-  return onClick ? (
-    <Card className="cursor-pointer transition-colors hover:border-[var(--accent)]/40" onClick={onClick}>
-      {inner}
-    </Card>
-  ) : (
-    <Card>{inner}</Card>
+    </div>
   )
 }
 

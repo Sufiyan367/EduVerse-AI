@@ -2,13 +2,13 @@ import { Link, Outlet, useRouterState } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Sparkles, BookOpen, Brain, LayoutDashboard, Menu, MessageSquare,
-  Search, Settings as SettingsIcon, ListChecks, CalendarCheck,
-  LogOut, Layers, TrendingUp, Award, BarChart2,
+  Search, Settings as SettingsIcon, BarChart2, LogOut, ArrowRight,
+  FolderOpen
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { api } from '../../lib/api'
-import { useUi, useServerHealth } from '../../lib/store'
+import { useUi, useServerHealth, useActiveCourse } from '../../lib/store'
 import { startHealthMonitoring } from '../../lib/serverHealth'
 import { jobSocket } from '../../lib/ws'
 import { cn, modKey } from '../../lib/utils'
@@ -18,23 +18,23 @@ import { CommandPalette } from '../CommandPalette'
 import { JobTray } from './JobTray'
 import { AuthScreen } from '../auth/AuthScreen'
 
-const NAV = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true },
-  { to: '/courses', label: 'My Courses', icon: BookOpen },
-  { to: '/syllabus', label: 'Syllabus Map', icon: Layers },
-  { to: '/papers', label: 'Paper Analytics', icon: TrendingUp },
-  { to: '/simulator', label: 'Exam Simulator', icon: Award },
-  { to: '/performance', label: 'My Performance', icon: BarChart2 },
-  { to: '/adaptive', label: 'Adaptive Revision', icon: CalendarCheck },
-  { to: '/automation', label: 'Automation Center', icon: Layers },
-  { to: '/chat', label: 'Study Assistant', icon: MessageSquare },
-  { to: '/library', label: 'Study Library', icon: Sparkles },
-  { to: '/review', label: 'Flashcards', icon: Brain, badge: 'due' as const },
-  { to: '/quiz', label: 'Practice Quiz', icon: ListChecks },
+// Primary 5 Navigation Destinations
+const PRIMARY_NAV = [
+  { to: '/', label: 'My Learning', icon: LayoutDashboard, exact: true },
+  { to: '/courses', label: 'Courses', icon: BookOpen },
+  { to: '/chat', label: 'Tutor', icon: MessageSquare },
+  { to: '/practice', label: 'Practice', icon: Brain, badge: 'due' as const },
+  { to: '/progress', label: 'Progress', icon: BarChart2 },
+]
+
+// Secondary / Utility Links
+const SECONDARY_NAV = [
+  { to: '/library', label: 'Study Library', icon: FolderOpen },
 ]
 
 export function AppShell() {
   const { sidebarOpen, setSidebarOpen, setPaletteOpen } = useUi()
+  const { activeCourseId } = useActiveCourse()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const queryClient = useQueryClient()
 
@@ -103,6 +103,13 @@ export function AppShell() {
   })
   const dueTotal = (counts?.due ?? 0) + (counts?.new ?? 0)
 
+  const { data: courses = [] } = useQuery({
+    queryKey: ['courses'],
+    queryFn: () => api.listCourses(),
+    enabled: !!currentUser,
+  })
+  const activeCourse = courses.find((c: any) => c.id === activeCourseId) || null
+
   const handleLogout = async () => {
     try {
       await api.logout()
@@ -148,6 +155,7 @@ export function AppShell() {
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
+        {/* Brand Header */}
         <div className="flex h-16 items-center justify-between border-b border-[var(--border)] px-4">
           <Link to="/" className="flex items-center gap-2.5 font-semibold tracking-tight">
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--accent)] text-black shadow-sm shadow-[var(--accent)]/30">
@@ -161,6 +169,7 @@ export function AppShell() {
           <Badge tone="accent" className="text-[10px] px-1.5 py-0.5">SPPU v1.0</Badge>
         </div>
 
+        {/* Global Search */}
         <div className="px-3 pb-2 pt-2.5">
           <button
             type="button"
@@ -168,13 +177,44 @@ export function AppShell() {
             className="flex w-full items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-sunken)] px-2.5 py-1.5 text-[13px] text-[var(--text-muted)] transition hover:border-[var(--accent)]/40 hover:text-[var(--text)]"
           >
             <Search className="h-3.5 w-3.5" />
-            <span className="flex-1 text-left">Search library…</span>
+            <span className="flex-1 text-left">Search workspace…</span>
             <Kbd>{modKey}K</Kbd>
           </button>
         </div>
 
+        {/* Active Course Sticky Chip */}
+        <div className="px-3 mb-1">
+          {activeCourse ? (
+            <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-teal-500/10 border border-teal-500/20 text-xs">
+              <div className="min-w-0 flex items-center gap-1.5">
+                <BookOpen className="h-3.5 w-3.5 text-teal-400 shrink-0" />
+                <span className="font-semibold text-teal-300 truncate">{activeCourse.code}</span>
+              </div>
+              <Link
+                to="/courses"
+                search={{ courseId: activeCourse.id, tab: 'overview' } as any}
+                className="text-[10px] text-teal-400 hover:underline font-medium ml-1"
+              >
+                Workspace
+              </Link>
+            </div>
+          ) : (
+            <Link
+              to="/courses"
+              className="flex items-center justify-between px-2.5 py-1.5 rounded-lg border border-dashed border-[var(--border)] text-[11px] text-[var(--text-muted)] hover:border-[var(--accent)]/40 hover:text-[var(--text)] transition-colors"
+            >
+              <span>Select Active Course</span>
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+          )}
+        </div>
+
+        {/* Navigation Items */}
         <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-1">
-          {NAV.map((item) => {
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] px-2.5 py-1">
+            Workspace
+          </div>
+          {PRIMARY_NAV.map((item) => {
             const active = item.exact ? pathname === item.to : pathname.startsWith(item.to)
             return (
               <Link
@@ -195,6 +235,30 @@ export function AppShell() {
               </Link>
             )
           })}
+
+          <div className="pt-3 pb-1">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] px-2.5 py-1">
+              Resources
+            </div>
+            {SECONDARY_NAV.map((item) => {
+              const active = pathname.startsWith(item.to)
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className={cn(
+                    'flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors',
+                    active
+                      ? 'bg-[var(--accent-soft)] text-[var(--accent)] font-semibold'
+                      : 'text-[var(--text-muted)] hover:bg-[var(--bg-sunken)] hover:text-[var(--text)]',
+                  )}
+                >
+                  <item.icon className="h-3.5 w-3.5 shrink-0" />
+                  <span className="flex-1">{item.label}</span>
+                </Link>
+              )
+            })}
+          </div>
         </nav>
 
         {/* User Account & Settings Footer */}
@@ -240,7 +304,7 @@ export function AppShell() {
             )}
           >
             <SettingsIcon className="h-3.5 w-3.5" />
-            <span>Settings & AI Models</span>
+            <span>Platform Settings</span>
           </Link>
         </div>
       </aside>
