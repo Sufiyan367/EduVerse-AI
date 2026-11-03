@@ -20,15 +20,19 @@ export async function checkLlmHealth(): Promise<void> {
     const status = await api.healthLlm()
     useServerHealth.getState().setLlmStatus(status)
   } catch {
-    // Keep previous state or set unavailable without impacting server status
     const current = useServerHealth.getState().llmStatus
-    if (current) {
-      useServerHealth.getState().setLlmStatus({
-        ...current,
-        status: 'unavailable',
-        message: 'Could not contact local LLM provider endpoint.',
-      })
-    }
+    useServerHealth.getState().setLlmStatus({
+      status: 'unavailable',
+      provider: current?.provider || 'ollama',
+      model: current?.model || 'qwen3.5:4b',
+      is_local: true,
+      thinking: 'off',
+      context_window: current?.context_window || 4096,
+      allow_cloud_fallback: false,
+      gpu: current?.gpu || 'Unknown',
+      models: current?.models || [],
+      message: 'Could not contact local LLM provider endpoint.',
+    })
   }
 }
 

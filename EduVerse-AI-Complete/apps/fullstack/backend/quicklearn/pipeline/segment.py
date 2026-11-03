@@ -126,7 +126,7 @@ def merge_document(units: list[RawUnit]) -> list[PendingSegment]:
                 max(b[2] for b in boxes),
                 max(b[3] for b in boxes),
             ]
-        joined_text = "\n".join(u.text.strip() for u in buffer if u.text.strip()).strip()
+        joined_text = "\n\n".join(u.text.rstrip() for u in buffer if u.text.strip()).strip()
         if joined_text:
             segments.append(
                 PendingSegment(
@@ -136,7 +136,7 @@ def merge_document(units: list[RawUnit]) -> list[PendingSegment]:
                 )
             )
 
-        if retain_overlap and len(buffer) > 1 and len(buffer[-1].text.strip()) < 350:
+        if retain_overlap and len(buffer) > 1 and len(buffer[-1].text.strip()) < 350 and not buffer[-1].text.strip().startswith("```"):
             last_unit = buffer[-1]
             buffer.clear()
             buffer.append(last_unit)
@@ -157,23 +157,33 @@ def merge_document(units: list[RawUnit]) -> list[PendingSegment]:
             continue
 
         page_changed = current_page is not None and unit.page_no != current_page
-        is_heading = text.startswith("#") or (len(text) < 80 and text.isupper() and not is_table_row(text))
+        is_h1 = text.startswith("# ") or (len(text) < 80 and text.isupper() and not is_table_row(text))
+        is_h2 = text.startswith("## ")
+        is_heading = text.startswith("#") or is_h1
+        is_code = text.startswith("```")
         in_table = is_table_row(text) and buffer and is_table_row(buffer[-1].text)
 
         if buffer:
-            if page_changed:
+            if page_changed or is_h1:
                 # Page changed: NEVER overlap across pages to protect citation accuracy
                 flush(retain_overlap=False)
-            elif is_heading and length >= MIN_DOC_CHARS:
+            elif is_code:
+                if len(buffer) == 1 and buffer[0].text.strip().startswith("## ") and len(buffer[0].text.strip()) < 60:
+                    pass
+                else:
+                    flush(retain_overlap=False)
+            elif (is_heading or is_h2) and length >= MIN_DOC_CHARS:
                 # Heading marks new topic: start fresh chunk with heading
                 flush(retain_overlap=False)
-            elif length >= MAX_DOC_CHARS and not in_table:
+            elif length >= MAX_DOC_CHARS and not in_table and not buffer[-1].text.strip().startswith("## "):
                 # Max length reached on the same page: retain overlap unit for boundary continuity
                 flush(retain_overlap=True)
 
         buffer.append(unit)
         current_page = unit.page_no
         length += len(text)
+        if is_code:
+            flush(retain_overlap=False)
 
     flush(retain_overlap=False)
     return [s for s in segments if s.text]

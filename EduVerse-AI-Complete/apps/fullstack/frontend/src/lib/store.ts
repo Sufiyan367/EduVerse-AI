@@ -111,14 +111,14 @@ export const useJobs = create<JobState>((set) => ({
         }
       }
       if (event.type === 'source.updated' && event.source_id) {
-        if (event.status === 'ready' || event.status === 'failed') {
+        if (event.status === 'ready' || event.status === 'failed' || event.status === 'partially_processed') {
           const updatedJobs = { ...state.jobs }
           let changed = false
           for (const [id, job] of Object.entries(updatedJobs)) {
             if (job.source_id === event.source_id && (job.status === 'running' || job.status === 'queued')) {
               updatedJobs[Number(id)] = {
                 ...job,
-                status: event.status === 'ready' ? 'succeeded' : 'failed',
+                status: event.status === 'ready' || event.status === 'partially_processed' ? 'succeeded' : 'failed',
                 progress: 100,
                 error: event.error ?? null,
               }

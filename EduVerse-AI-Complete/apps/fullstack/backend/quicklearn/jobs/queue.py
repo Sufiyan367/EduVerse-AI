@@ -148,6 +148,7 @@ def claim_next(worker_id: str = "worker-0", lease_seconds: int = DEFAULT_LEASE_S
                         status = 'queued'
                         OR (status = 'running' AND locked_until IS NOT NULL AND locked_until < :now)
                     )
+                    AND parent_id IS NULL
                     AND (next_run_at IS NULL OR next_run_at <= :now)
                     ORDER BY priority DESC, id ASC
                     FOR UPDATE SKIP LOCKED
@@ -177,6 +178,7 @@ def claim_next(worker_id: str = "worker-0", lease_seconds: int = DEFAULT_LEASE_S
                  WHERE id = (
                      SELECT id FROM jobs
                       WHERE (status = 'queued' OR (status = 'running' AND locked_until IS NOT NULL AND locked_until < :now))
+                        AND parent_id IS NULL
                         AND (next_run_at IS NULL OR next_run_at <= :now)
                       ORDER BY priority DESC, id ASC
                       LIMIT 1

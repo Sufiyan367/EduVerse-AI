@@ -532,6 +532,37 @@ async def generate_grounded_explanation(
         subject = _detect_subject(combined_text)
         explanation = _generate_domain_fallback(subject, topic, depth, excerpts, source.title)
 
+    combined_text = (topic + " " + " ".join([e.text for e in excerpts])).strip()
+    subject = _detect_subject(combined_text)
+    fallback = _generate_domain_fallback(subject, topic, depth, excerpts, source.title)
+
+    if explanation is None:
+        explanation = fallback
+    else:
+        if len(explanation.definitions) < 2:
+            existing_terms = {d.term.lower() for d in explanation.definitions}
+            for d in fallback.definitions:
+                if d.term.lower() not in existing_terms:
+                    explanation.definitions.append(d)
+
+        # Verify topic alignment in worked example
+        topic_lower = topic.lower()
+        worked_lower = (explanation.worked_example or "").lower()
+        if "round robin" in topic_lower or "scheduling" in topic_lower:
+            if "gantt" not in worked_lower and "turnaround" not in worked_lower and "quantum" not in worked_lower:
+                explanation.worked_example = fallback.worked_example
+        elif "bcnf" in topic_lower or "normal form" in topic_lower:
+            if "bcnf" not in explanation.worked_example and "decomposition" not in worked_lower:
+                explanation.worked_example = fallback.worked_example
+        elif "eigen" in topic_lower or "spectral" in topic_lower:
+            if "eigen" not in worked_lower and "det(" not in worked_lower and "lambda" not in worked_lower:
+                explanation.worked_example = fallback.worked_example
+        elif "hypothesis" in topic_lower or "z-test" in topic_lower or "t-test" in topic_lower or "stat" in topic_lower:
+            if "standard error" not in worked_lower and "t-statistic" not in worked_lower:
+                explanation.worked_example = fallback.worked_example
+        elif not explanation.worked_example or len(explanation.worked_example.strip()) < 20:
+            explanation.worked_example = fallback.worked_example
+
     return {
         "topic": topic,
         "depth": depth,

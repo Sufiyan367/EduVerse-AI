@@ -329,29 +329,143 @@ async def _ocr_pages(
 
 def _extract_docx_sync(path: Path) -> list[RawUnit]:
     from docx import Document
+    from docx.table import Table
+    from docx.text.paragraph import Paragraph
 
-    document = Document(str(path))
+    try:
+        document = Document(str(path))
+    except Exception as exc:
+        raise PipelineError(f"'{path.name}' is corrupt or cannot be opened as a valid Word document.") from exc
+
     units: list[RawUnit] = []
-    for paragraph in document.paragraphs:
-        text = paragraph.text.strip()
-        if not text:
-            continue
-        style = (paragraph.style.name or "").lower() if paragraph.style else ""
-        # Markdown-mark headings so the outline pass can see the author's own structure
-        # instead of having to infer it from prose.
-        if style.startswith("heading"):
-            level = "".join(c for c in style if c.isdigit()) or "1"
-            text = f"{'#' * min(6, int(level))} {text}"
-        units.append(RawUnit(text=text))
+    current_page = 1
+    in_code = False
+    code_lines: list[str] = []
 
-    for table in document.tables:
-        rows = [
-            " | ".join(cell.text.strip() for cell in row.cells)
-            for row in table.rows
-            if any(cell.text.strip() for cell in row.cells)
-        ]
-        if rows:
-            units.append(RawUnit(text="\n".join(rows)))
+    def flush_code() -> None:
+        nonlocal in_code, code_lines
+        if code_lines:
+            # Wrap clean, indented python/code block
+            code_text = "```python\n" + "\n".join(code_lines) + "\n```"
+            units.append(RawUnit(text=code_text, page_no=current_page))
+            code_lines = []
+        in_code = False
+
+    for child in document.element.body:
+        if child.tag.endswith("p"):
+            paragraph = Paragraph(child, document)
+            raw = paragraph.text
+            stripped = raw.strip()
+            style = (paragraph.style.name or "").lower() if paragraph.style else ""
+
+            # Check for hard page breaks
+            xml = child.xml
+            if "lastRenderedPageBreak" in xml or 'type="page"' in xml:
+                current_page += 1
+
+            if not stripped:
+                if in_code and code_lines:
+                    code_lines.append("")
+                continue
+
+            # Heading 1 detection (e.g. "Practical 1: ...", "Chapter 1 ...", or Word Heading 1 style)
+            is_h1 = style.startswith("heading 1") or (
+                bool(re.match(r"^(practical\s+\d+|experiment\s+\d+|lab\s+\d+|chapter\s+\d+)", stripped, re.I))
+                and len(stripped) < 80
+            )
+            if is_h1:
+                flush_code()
+                current_page += 1
+                text = f"# {stripped.lstrip('# ')}"
+                units.append(RawUnit(text=text, page_no=current_page))
+                continue
+
+            # Heading 2 detection (e.g. "What the program does", "Python Code", "Aim:", "Algorithm:", etc.)
+            is_h2 = (
+                style.startswith("heading 2")
+                or stripped in [
+                    "What the program does",
+                    "Python Code",
+                    "Oral Questions — short answers",
+                    "Aim",
+                    "Algorithm",
+                    "Output",
+                    "Conclusion",
+                ]
+                or (
+                    len(stripped) < 60
+                    and any(stripped.lower().startswith(kw) for kw in ["aim:", "algorithm:", "output:", "conclusion:", "theory:"])
+                )
+            )
+            if is_h2:
+                flush_code()
+                text = f"## {stripped.lstrip('# ')}"
+                units.append(RawUnit(text=text, page_no=current_page))
+                # Check if this heading indicates following code
+                is_code_heading = bool(
+                    re.search(r"\b(code|script|implementation)\b", stripped, re.I)
+                    and not re.search(r"\b(what|does|aim|theory|algorithm|questions|oral)\b", stripped, re.I)
+                )
+                if is_code_heading or stripped.strip().lower() == "program":
+                    in_code = True
+                continue
+
+            # Heading 3
+            if style.startswith("heading 3"):
+                flush_code()
+                text = f"### {stripped.lstrip('# ')}"
+                units.append(RawUnit(text=text, page_no=current_page))
+                continue
+
+            # In-code line collection
+            if in_code:
+                # Stop code block if oral questions, quiz, or next heading begins
+                is_stop_word = (
+                    stripped.startswith("Oral Questions")
+                    or stripped.startswith("Q1.")
+                    or stripped.startswith("Q2.")
+                    or style.startswith("heading")
+                )
+                if is_stop_word:
+                    flush_code()
+                    units.append(RawUnit(text=stripped, page_no=current_page))
+                else:
+                    # Crucially preserve leading indentation for code!
+                    code_lines.append(raw.rstrip())
+            else:
+                # Check for code font or styling even without explicit code heading
+                has_code_style = any(kw in style for kw in ["code", "source", "consolas", "courier"])
+                if has_code_style:
+                    code_lines.append(raw.rstrip())
+                    in_code = True
+                    continue
+
+                # Markdown-format lists
+                if style.startswith("list bullet"):
+                    units.append(RawUnit(text=f"- {stripped}", page_no=current_page))
+                elif style.startswith("list number"):
+                    units.append(RawUnit(text=f"1. {stripped}", page_no=current_page))
+                else:
+                    units.append(RawUnit(text=stripped, page_no=current_page))
+
+        elif child.tag.endswith("tbl"):
+            flush_code()
+            table = Table(child, document)
+            rows: list[list[str]] = []
+            for row in table.rows:
+                cells = [re.sub(r"\s+", " ", cell.text).strip() for cell in row.cells]
+                if any(cells):
+                    rows.append(cells)
+            if rows:
+                col_count = max(len(r) for r in rows)
+                padded_rows = [r + [""] * (col_count - len(r)) for r in rows]
+                header = "| " + " | ".join(padded_rows[0]) + " |"
+                divider = "| " + " | ".join(["---"] * col_count) + " |"
+                body_lines = ["| " + " | ".join(r) + " |" for r in padded_rows[1:]]
+                table_md = "\n".join([header, divider] + body_lines)
+                units.append(RawUnit(text=table_md, page_no=current_page))
+
+    flush_code()
     return units
 
 

@@ -1700,6 +1700,22 @@ async def get_topic_knowledge_check(
     candidate_questions: list[dict[str, Any]] = []
     generation_mode = "ai_generated"
 
+    matched_domain = _match_subject_bank(topic.name, course.code, course.name)
+    if not has_evidence and not matched_domain:
+        log.warning("Knowledge check unavailable: no uploaded materials or syllabus domain match for '%s'", topic.name)
+        return {
+            "available": False,
+            "message": (
+                f"Knowledge check is currently unavailable for topic '{topic.name}'. "
+                "No uploaded lecture materials or syllabus domain matches were found to formulate a valid diagnostic assessment. "
+                "Please upload relevant course materials or connect an active LLM provider."
+            ),
+            "questions": [],
+            "quiz_token": None,
+            "total_questions": 0,
+            "passing_threshold_percent": 80,
+        }
+
     # Attempt LLM structured generation of 10 questions
     if registry.has_llm():
         try:

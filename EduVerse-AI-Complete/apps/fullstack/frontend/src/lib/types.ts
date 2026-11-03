@@ -472,6 +472,7 @@ export interface LlmStatus {
   is_local: boolean
   thinking?: string
   context_window?: number
+  allow_cloud_fallback?: boolean
   gpu?: string
   message?: string
   models?: string[]

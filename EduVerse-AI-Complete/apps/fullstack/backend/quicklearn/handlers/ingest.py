@@ -113,7 +113,11 @@ def _finish_child(job_id: int, *, ok: bool, error: str = "", skipped: bool = Fal
     emit("job.succeeded" if ok else "job.failed", job_id=job_id, error=error)
 
 
-async def _run_index_and_verify(source_id: int, job_id: int | None = None) -> None:
+async def _run_index_and_verify(
+    source_id: int,
+    job_id: int | None = None,
+    on_progress: Callable[[int, int], None] | None = None,
+) -> None:
     """Index source segments and verify searchability."""
     from ..errors import PipelineError
     from ..pipeline.stages import segment_count
@@ -122,7 +126,7 @@ async def _run_index_and_verify(source_id: int, job_id: int | None = None) -> No
     if count == 0:
         raise PipelineError("Cannot index source: no segments exist.")
 
-    indexed = await rag_index.index_source(source_id, job_id=job_id)
+    indexed = await rag_index.index_source(source_id, job_id=job_id, on_progress=on_progress)
     log.info("Index verification for source %d: %d segments exist, %d newly embedded/indexed", source_id, count, indexed)
 
 
@@ -186,7 +190,13 @@ async def handle_ingest(ctx: JobContext) -> None:
             source_id, job_id=ctx.job_id
         ),
         JobType.GENERATE_CARDS: lambda: cards_gen.generate_cards(source_id, job_id=ctx.job_id),
-        JobType.INDEX: lambda: _run_index_and_verify(source_id, ctx.job_id),
+        JobType.INDEX: lambda: _run_index_and_verify(
+            source_id,
+            ctx.job_id,
+            on_progress=lambda done, total: ctx.sub_progress(
+                95, 5, done, total, f"Indexing segments ({done}/{total})"
+            ),
+        ),
     }
 
     failures: list[str] = []
