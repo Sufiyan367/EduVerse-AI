@@ -71,8 +71,8 @@ export function GuidedLearningModal({
   })
 
   const submitQuizMutation = useMutation({
-    mutationFn: (answers: Array<{ question_id: number; selected_option: string }>) =>
-      api.submitTopicKnowledgeCheck(courseId, topicId!, answers),
+    mutationFn: (payload: { answers: Array<{ question_id: number; selected_option: string }>; quiz_token: string }) =>
+      api.submitTopicKnowledgeCheck(courseId, topicId!, payload.answers, payload.quiz_token),
     onSuccess: (res: any) => {
       setQuizResult(res)
       setActiveStep('result')
@@ -81,10 +81,11 @@ export function GuidedLearningModal({
       queryClient.invalidateQueries({ queryKey: ['course-progress', courseId] })
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
       onStatusChange?.(res.new_status)
+      const formattedStatus = String(res.new_status || '').replace('_', ' ')
       if (res.passed) {
-        toast.success(`Knowledge check passed! Topic marked as ${res.new_status}.`)
+        toast.success(`Knowledge check passed! Topic status: ${formattedStatus}.`)
       } else {
-        toast.warning(`Knowledge check score: ${res.score_percent}%. Topic flagged for review.`)
+        toast.warning(`Knowledge check score: ${res.score_percent}%. Topic flagged as ${formattedStatus}.`)
       }
     },
   })
@@ -124,11 +125,24 @@ export function GuidedLearningModal({
 
   const handleSubmitQuiz = () => {
     const questions = quizData?.questions || []
+    if (questions.length === 0) {
+      toast.error('No questions available to submit.')
+      return
+    }
+    const unanswered = questions.filter((q: any) => !quizAnswers[q.id])
+    if (unanswered.length > 0) {
+      toast.error(`Please answer all ${questions.length} questions before submitting.`)
+      return
+    }
+    if (!quizData?.quiz_token) {
+      toast.error('Quiz security token missing. Please refresh questions.')
+      return
+    }
     const answers = questions.map((q: any) => ({
       question_id: q.id,
-      selected_option: quizAnswers[q.id] || 'A',
+      selected_option: quizAnswers[q.id],
     }))
-    submitQuizMutation.mutate(answers)
+    submitQuizMutation.mutate({ answers, quiz_token: quizData.quiz_token })
   }
 
   return (
@@ -387,7 +401,7 @@ export function GuidedLearningModal({
                   <span className="text-xs text-muted-foreground">
                     Answer all 3 questions to verify comprehension and advance topic mastery.
                   </span>
-                  <Badge tone="accent" className="text-[10px]">Pass threshold: 70%</Badge>
+                  <Badge tone="accent" className="text-[10px]">≥80% Mastered • 70-79% Practicing • &lt;70% Needs Review</Badge>
                 </div>
 
                 {isGeneratingQuiz ? (
@@ -453,18 +467,27 @@ export function GuidedLearningModal({
               <div className="space-y-4">
                 {/* Result Hero Banner */}
                 <div className={`p-4 rounded-xl border ${
-                  quizResult.passed
+                  quizResult.new_status === 'mastered'
                     ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                    : quizResult.new_status === 'practicing'
+                    ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
                     : 'border-rose-500/40 bg-rose-500/10 text-rose-300'
-                } space-y-1`}>
+                } space-y-2`}>
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-sm">
-                      {quizResult.passed ? '✓ Topic Mastered!' : 'Needs Further Review'}
+                    <span className="font-bold text-sm flex items-center gap-1.5">
+                      {quizResult.new_status === 'mastered' && '✓ Topic Mastered'}
+                      {quizResult.new_status === 'practicing' && '⚡ Topic Practicing'}
+                      {quizResult.new_status === 'needs_review' && '⚠ Needs Further Review'}
                     </span>
                     <span className="text-base font-bold font-mono">
                       {quizResult.score_percent}%
                     </span>
                   </div>
+                  {quizResult.status_reason && (
+                    <p className="text-xs text-foreground/90 font-medium leading-relaxed">
+                      {quizResult.status_reason}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     {quizResult.next_action}
                   </p>

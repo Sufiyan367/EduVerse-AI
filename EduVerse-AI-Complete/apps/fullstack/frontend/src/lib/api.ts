@@ -358,8 +358,9 @@ export const api = {
     courseId: number,
     topicId: number,
     answers: Array<{ question_id: number; selected_option: string }>,
+    quiz_token: string,
   ) =>
-    post<any>(`/courses/${courseId}/topics/${topicId}/learning/submit`, { answers }),
+    post<any>(`/courses/${courseId}/topics/${topicId}/learning/submit`, { answers, quiz_token }),
   scheduleTopicRevision: (courseId: number, topicId: number) =>
     post<any>(`/courses/${courseId}/topics/${topicId}/learning/revision`, {}),
 

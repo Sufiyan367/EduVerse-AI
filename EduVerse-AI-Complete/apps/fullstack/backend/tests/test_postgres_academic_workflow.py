@@ -38,6 +38,7 @@ def setup_postgres_env():
         engine = session_mod.get_engine()
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE student_topic_mastery ADD COLUMN IF NOT EXISTS status VARCHAR(32) DEFAULT 'not_started'"))
+            conn.execute(text("ALTER TABLE student_topic_mastery ALTER COLUMN last_evaluated_at DROP NOT NULL"))
     except Exception as exc:
         # Restore environment immediately if connection fails
         if old_url is not None:

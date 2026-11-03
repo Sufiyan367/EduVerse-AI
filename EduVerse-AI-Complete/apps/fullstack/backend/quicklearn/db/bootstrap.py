@@ -65,6 +65,35 @@ def init_database(config: Config | None = None) -> None:
         pass
 
     try:
+        from sqlalchemy import text
+        from .session import session_scope
+        with session_scope() as session:
+            res = session.execute(text("PRAGMA table_info(student_topic_mastery)")).fetchall()
+            col_map = {row[1]: row for row in res}
+            if col_map.get("last_evaluated_at") and col_map["last_evaluated_at"][3] == 1:
+                session.execute(text("""
+                    CREATE TABLE student_topic_mastery_new (
+                        id INTEGER PRIMARY KEY,
+                        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                        topic_id INTEGER NOT NULL REFERENCES syllabus_topics(id) ON DELETE CASCADE,
+                        mastery_score FLOAT DEFAULT 0.0,
+                        confidence_level VARCHAR(32) DEFAULT 'low',
+                        status VARCHAR(32) DEFAULT 'not_started',
+                        last_evaluated_at DATETIME,
+                        CONSTRAINT uq_user_topic_mastery UNIQUE (user_id, topic_id)
+                    )
+                """))
+                session.execute(text("""
+                    INSERT INTO student_topic_mastery_new (id, user_id, topic_id, mastery_score, confidence_level, status, last_evaluated_at)
+                    SELECT id, user_id, topic_id, mastery_score, confidence_level, status, last_evaluated_at FROM student_topic_mastery
+                """))
+                session.execute(text("DROP TABLE student_topic_mastery"))
+                session.execute(text("ALTER TABLE student_topic_mastery_new RENAME TO student_topic_mastery"))
+                session.commit()
+    except Exception as exc:
+        log.warning("Could not migrate student_topic_mastery nullability: %s", exc)
+
+    try:
         from ..rag.index import get_index
         get_index().ensure(384)
     except Exception as exc:

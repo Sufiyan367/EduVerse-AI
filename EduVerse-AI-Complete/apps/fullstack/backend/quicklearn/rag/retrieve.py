@@ -87,17 +87,13 @@ def _scope_source_ids(
 ) -> list[int] | None:
     """Resolve a chat scope to source ids with strict authenticated-user boundary enforcement.
 
-    If user_id is provided, only sources owned by that user (or public unowned demo sources)
-    can ever be returned. A student can NEVER retrieve or leak another student's materials.
+    If user_id is provided, only sources owned by that user can ever be returned.
+    A student can NEVER retrieve or leak another student's materials under any scope.
     """
     from sqlalchemy import or_
 
     with session_scope() as session:
-        user_filter = (
-            or_(Source.user_id == user_id, Source.user_id.is_(None))
-            if user_id is not None
-            else None
-        )
+        user_filter = (Source.user_id == user_id) if user_id is not None else None
 
         if scope_type == "source" and scope_id is not None:
             stmt = select(Source.id).where(Source.id == scope_id)
@@ -109,14 +105,20 @@ def _scope_source_ids(
         if scope_type == "folder" and scope_id is not None:
             from ..db.models import Folder
 
+            if user_id is not None:
+                folder_owned = session.execute(
+                    select(Folder.id).where(Folder.id == scope_id, Folder.user_id == user_id)
+                ).scalar_one_or_none()
+                if not folder_owned:
+                    return [-1]
+
             wanted = {scope_id}
             frontier = [scope_id]
             while frontier:
-                children = list(
-                    session.execute(
-                        select(Folder.id).where(Folder.parent_id.in_(frontier))
-                    ).scalars()
-                )
+                stmt_children = select(Folder.id).where(Folder.parent_id.in_(frontier))
+                if user_id is not None:
+                    stmt_children = stmt_children.where(Folder.user_id == user_id)
+                children = list(session.execute(stmt_children).scalars())
                 children = [c for c in children if c not in wanted]
                 wanted.update(children)
                 frontier = children
@@ -134,22 +136,40 @@ def _scope_source_ids(
             if not session.execute(course_check).scalar_one_or_none():
                 return [-1]
 
-            stmt = select(CourseMaterialLink.source_id).where(CourseMaterialLink.course_id == scope_id)
+            stmt = (
+                select(CourseMaterialLink.source_id)
+                .join(Source, Source.id == CourseMaterialLink.source_id)
+                .where(CourseMaterialLink.course_id == scope_id)
+            )
+            if user_filter is not None:
+                stmt = stmt.where(user_filter)
             source_ids = list(session.execute(stmt).scalars())
             return source_ids or [-1]
 
         if scope_type == "topic" and scope_id is not None:
-            from ..db.academic_models import SyllabusTopic, CourseMaterialLink
-            topic_row = session.execute(
-                select(SyllabusTopic.unit_id, SyllabusTopic.course_id).where(SyllabusTopic.id == scope_id)
-            ).first()
+            from ..db.academic_models import Course, CourseMaterialLink, SyllabusTopic
+            topic_stmt = (
+                select(SyllabusTopic.unit_id, SyllabusTopic.course_id)
+                .join(Course, Course.id == SyllabusTopic.course_id)
+                .where(SyllabusTopic.id == scope_id)
+            )
+            if user_id is not None:
+                topic_stmt = topic_stmt.where(Course.user_id == user_id)
+            topic_row = session.execute(topic_stmt).first()
             if not topic_row:
                 return [-1]
             unit_id, course_id = topic_row
-            stmt = select(CourseMaterialLink.source_id).where(
-                CourseMaterialLink.course_id == course_id,
-                or_(CourseMaterialLink.unit_id == unit_id, CourseMaterialLink.unit_id.is_(None))
+
+            stmt = (
+                select(CourseMaterialLink.source_id)
+                .join(Source, Source.id == CourseMaterialLink.source_id)
+                .where(
+                    CourseMaterialLink.course_id == course_id,
+                    or_(CourseMaterialLink.unit_id == unit_id, CourseMaterialLink.unit_id.is_(None)),
+                )
             )
+            if user_filter is not None:
+                stmt = stmt.where(user_filter)
             source_ids = list(session.execute(stmt).scalars())
             return source_ids or [-1]
 
@@ -174,7 +194,7 @@ def _load_excerpts(segment_ids: list[int], user_id: int | None = None) -> dict[i
             .where(Segment.id.in_(segment_ids))
         )
         if user_id is not None:
-            stmt = stmt.where(or_(Source.user_id == user_id, Source.user_id.is_(None)))
+            stmt = stmt.where(Source.user_id == user_id)
         rows = session.execute(stmt).all()
 
     return {
@@ -208,6 +228,9 @@ async def retrieve(
     top_k = top_k or settings.get_int("rag.top_k", 12)
     rerank_to = rerank_to or settings.get_int("rag.rerank_to", 6)
     source_ids = _scope_source_ids(scope_type, scope_id, user_id=user_id)
+    if source_ids == [-1]:
+        log.info("RAG search short-circuited: scope has 0 accessible sources for user_id=%s", user_id)
+        return []
 
     log.info(
         "RAG retrieve initiated: query='%s', scope_type=%s, scope_id=%s, top_k=%d, rerank_to=%d",

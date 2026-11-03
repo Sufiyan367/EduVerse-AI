@@ -83,21 +83,49 @@ def _query_manifest(
     else:
         stmt = stmt.where(Source.user_id.is_(None))
 
-    # 2. Scope filtering
+    # 2. Scope filtering with strict multi-tenant authorization
     if scope_type == "source" and scope_id is not None:
         stmt = stmt.where(Source.id == scope_id)
     elif scope_type == "folder" and scope_id is not None:
-        stmt = stmt.where(Source.folder_id == scope_id)
+        from ..db.models import Folder
+        if user_id is not None:
+            folder_owned = session.execute(
+                select(Folder.id).where(Folder.id == scope_id, Folder.user_id == user_id)
+            ).scalar_one_or_none()
+            if not folder_owned:
+                stmt = stmt.where(Source.id == -1)
+        wanted = {scope_id}
+        frontier = [scope_id]
+        while frontier:
+            stmt_f = select(Folder.id).where(Folder.parent_id.in_(frontier))
+            if user_id is not None:
+                stmt_f = stmt_f.where(Folder.user_id == user_id)
+            children = list(session.execute(stmt_f).scalars())
+            children = [c for c in children if c not in wanted]
+            wanted.update(children)
+            frontier = children
+        stmt = stmt.where(Source.folder_id.in_(list(wanted)))
     elif scope_type == "course" and scope_id is not None:
-        from ..db.academic_models import CourseMaterialLink
+        from ..db.academic_models import Course, CourseMaterialLink
+        if user_id is not None:
+            course_owned = session.execute(
+                select(Course.id).where(Course.id == scope_id, Course.user_id == user_id)
+            ).scalar_one_or_none()
+            if not course_owned:
+                stmt = stmt.where(Source.id == -1)
         course_source_ids = select(CourseMaterialLink.source_id).where(CourseMaterialLink.course_id == scope_id)
         stmt = stmt.where(Source.id.in_(course_source_ids))
     elif scope_type == "topic" and scope_id is not None:
-        from ..db.academic_models import SyllabusTopic, CourseMaterialLink
+        from ..db.academic_models import Course, CourseMaterialLink, SyllabusTopic
         from sqlalchemy import or_
-        topic_row = session.execute(
-            select(SyllabusTopic.unit_id, SyllabusTopic.course_id).where(SyllabusTopic.id == scope_id)
-        ).first()
+        topic_stmt = (
+            select(SyllabusTopic.unit_id, SyllabusTopic.course_id)
+            .join(Course, Course.id == SyllabusTopic.course_id)
+            .where(SyllabusTopic.id == scope_id)
+        )
+        if user_id is not None:
+            topic_stmt = topic_stmt.where(Course.user_id == user_id)
+        topic_row = session.execute(topic_stmt).first()
         if topic_row:
             unit_id, course_id = topic_row
             topic_sources = select(CourseMaterialLink.source_id).where(

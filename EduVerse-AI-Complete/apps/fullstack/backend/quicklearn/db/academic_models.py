@@ -297,7 +297,7 @@ class StudentTopicMastery(Base):
     mastery_score: Mapped[float] = mapped_column(Float, default=0.0)  # 0.0 to 1.0
     confidence_level: Mapped[str] = mapped_column(String(32), default="low")  # low, medium, high
     status: Mapped[str] = mapped_column(String(32), default="not_started")  # not_started, learning, practicing, needs_review, mastered
-    last_evaluated_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow)
+    last_evaluated_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime, nullable=True, default=None)
 
     __table_args__ = (UniqueConstraint("user_id", "topic_id", name="uq_user_topic_mastery"),)
 

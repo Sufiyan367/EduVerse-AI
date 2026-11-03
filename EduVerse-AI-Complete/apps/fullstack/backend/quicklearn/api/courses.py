@@ -296,7 +296,15 @@ def get_course_progress(
             if st not in status_counts:
                 st = "not_started"
             status_counts[st] += 1
-            if m and (st != "not_started" or m.mastery_score > 0):
+            # Separate study activity from demonstrated assessed performance:
+            # Merely starting a lesson (status 'learning' without evaluation) is study activity.
+            # Assessed topics are strictly those evaluated via knowledge check or exam attempt.
+            is_assessed = (
+                m is not None
+                and st in ("mastered", "practicing", "needs_review")
+                and getattr(m, "last_evaluated_at", None) is not None
+            )
+            if is_assessed:
                 assessed_topics.append(m.mastery_score)
                 u_assessed += 1
             if st == "mastered":
@@ -363,6 +371,13 @@ def get_course_progress(
                 f"Formula: 0.50*coverage + 0.50*mastery."
             )
 
+    coverage_ratio = (assessed_count / total_topics) if total_topics > 0 else 0.0
+    breakdown = {
+        "topic_coverage_rate": round(coverage_ratio, 3) if has_sufficient_data else 0.0,
+        "avg_topic_mastery": round(avg_mastery, 3) if has_sufficient_data else 0.0,
+        "exam_simulation_avg": average_exam_score,
+    }
+
     return {
         "course_id": course.id,
         "code": course.code,
@@ -375,9 +390,11 @@ def get_course_progress(
         "average_topic_mastery": avg_mastery,
         "exam_attempts_count": exam_attempts_count,
         "average_exam_score": average_exam_score,
+        "has_exam_data": exam_attempts_count > 0,
         "has_sufficient_data": has_sufficient_data,
         "readiness_percentage": readiness_pct,
         "calculation_basis": calculation_basis,
+        "breakdown": breakdown,
         "formula_documentation": "Readiness = 0.40 * (assessed_topics / total_topics) + 0.40 * avg_topic_mastery + 0.20 * (avg_exam_score / 100) [or 0.50/0.50 when no exam session taken]",
         "unit_progress": unit_progress,
     }
