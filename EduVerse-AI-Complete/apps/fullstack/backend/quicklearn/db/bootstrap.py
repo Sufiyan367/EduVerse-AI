@@ -94,6 +94,33 @@ def init_database(config: Config | None = None) -> None:
         log.warning("Could not migrate student_topic_mastery nullability: %s", exc)
 
     try:
+        from sqlalchemy import text
+        from .session import session_scope
+        with session_scope() as session:
+            session.execute(text("""
+                CREATE TABLE IF NOT EXISTS guided_quiz_sessions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_token VARCHAR(128) NOT NULL UNIQUE,
+                    quiz_id VARCHAR(64) NOT NULL,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+                    topic_id INTEGER NOT NULL REFERENCES syllabus_topics(id) ON DELETE CASCADE,
+                    question_ids JSON NOT NULL,
+                    answer_key JSON NOT NULL,
+                    explanations JSON NOT NULL,
+                    expires_at DATETIME NOT NULL,
+                    consumed_at DATETIME,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                );
+            """))
+            session.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_guided_quiz_sessions_token ON guided_quiz_sessions(session_token);"))
+            session.execute(text("CREATE INDEX IF NOT EXISTS ix_guided_quiz_sessions_user_id ON guided_quiz_sessions(user_id);"))
+            session.execute(text("CREATE INDEX IF NOT EXISTS ix_guided_quiz_sessions_topic_id ON guided_quiz_sessions(topic_id);"))
+            session.commit()
+    except Exception as exc:
+        log.warning("Could not ensure guided_quiz_sessions table: %s", exc)
+
+    try:
         from ..rag.index import get_index
         get_index().ensure(384)
     except Exception as exc:

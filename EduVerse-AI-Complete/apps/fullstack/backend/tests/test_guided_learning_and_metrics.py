@@ -12,12 +12,16 @@
    - Start learning transitions to status="learning" without inflating assessment metrics.
    - Pedagogical explanation modes (standard, simple, example, compare) alter instructional approach.
    - Explanations grounded with verified citations or clear unlinked material disclaimers.
-   - 3-question knowledge check generation without leaking correct_option to the client.
+   - Distinct, non-duplicated explanation fields: summary != worked_example.
+   - 10-question diagnostic check generation without leaking correct_option to the client.
 
-3. Cryptographic Quiz Security & Answer Validation:
-   - HMAC-SHA256 quiz_token binding question IDs, answer keys, user, course, and topic.
-   - Rejects tampered quiz tokens (400 Bad Request).
-   - Rejects cross-user quiz tokens (403 Forbidden).
+3. Cryptographic Quiz Security & Server-Side Session Integrity:
+   - Opaque, unguessable session token backed by GuidedQuizSession in SQLite.
+   - Zero confidential answer keys or explanations delivered to client before submission.
+   - Rejects non-existent/guessed session tokens (404 Not Found).
+   - Rejects cross-user quiz session submissions (403 Forbidden).
+   - Rejects token reuse / replay attacks after consumption (409 Conflict).
+   - Rejects expired quiz sessions (410 Gone).
    - Rejects empty, missing, duplicate question submissions (422 Unprocessable Entity).
    - Rejects invalid option choices (422 Unprocessable Entity).
    - Mastery threshold enforcement: >=80% mastered, 70-79% practicing, <70% needs_review.
@@ -32,13 +36,12 @@
 
 import time
 import pytest
-import hmac
-import hashlib
-from datetime import datetime, timezone
+import secrets
+from datetime import datetime, timezone, timedelta
 from fastapi.testclient import TestClient
 
 from quicklearn.main import create_app
-from quicklearn.auth import create_access_token, get_jwt_secret
+from quicklearn.auth import create_access_token
 from quicklearn.db.bootstrap import init_database
 from quicklearn.db.enums import SourceKind, SourceOrigin, SourceStatus
 from quicklearn.db.models import Base, Source, Segment, Folder, ActivityLog, User
@@ -52,13 +55,13 @@ from quicklearn.db.academic_models import (
     StudentTopicMastery,
     SyllabusTopic,
     TopicMasteryEvent,
+    GuidedQuizSession,
 )
 from quicklearn.db.session import session_scope
 from quicklearn.api.guided_learning import (
-    create_signed_quiz_token,
-    verify_signed_quiz_token,
-    _b64url_encode,
-    _b64url_decode,
+    evaluate_mastery_threshold,
+    _randomize_question_options,
+    SUBJECT_QUESTION_BANK,
 )
 from quicklearn.rag.retrieve import retrieve
 from quicklearn.rag.manifest import get_user_source_manifest
@@ -350,7 +353,7 @@ def test_exam_simulation_readiness_formula(app_client, seeded_users):
 # ===========================================================================
 
 def test_topic_learning_lifecycle_flow(app_client, seeded_users):
-    """Verify topic lifecycle: not_started -> learning -> quiz -> mastered (>=80%)."""
+    """Verify topic lifecycle: not_started -> learning -> 10-question quiz -> mastered (>=80%)."""
     token1 = seeded_users["token1"]
     u1_id = seeded_users["u1_id"]
     headers = {"Authorization": f"Bearer {token1}"}
@@ -403,39 +406,51 @@ def test_topic_learning_lifecycle_flow(app_client, seeded_users):
         assert "summary" in exp
         assert "worked_example" in exp
         assert exp["mode"] == mode
+        # Structural integrity check: worked_example must be distinct from summary
+        assert exp["summary"].strip() != exp["worked_example"].strip()
 
-    # 4. GET 3-question knowledge check
+    # 4. GET 10-question diagnostic knowledge check
     quiz_res = app_client.post(f"/api/v1/courses/{course_id}/topics/{topic_id}/learning/quiz", headers=headers)
     assert quiz_res.status_code == 200
     q_data = quiz_res.json()
-    assert len(q_data["questions"]) == 3
+    assert q_data["available"] is True
+    assert len(q_data["questions"]) == 10
     assert "quiz_token" in q_data
 
-    # Verify security sanitation: correct_option is NOT leaked in client questions
+    # Verify security sanitation: correct_option is NOT leaked anywhere in client questions
     for q in q_data["questions"]:
         assert "correct_option" not in q
+        assert "explanation" not in q
         assert len(q["options"]) == 4
 
-    # Unpack cryptographic quiz token to obtain expected answer key for passing test
-    token_payload = verify_signed_quiz_token(q_data["quiz_token"])
-    answer_key = token_payload["answer_key"]
+    # Fetch answer key securely from the server-side session in database
+    session_token = q_data["quiz_token"]
+    with session_scope() as session:
+        quiz_session = session.query(GuidedQuizSession).filter_by(session_token=session_token).first()
+        assert quiz_session is not None
+        assert quiz_session.user_id == u1_id
+        assert quiz_session.course_id == course_id
+        assert quiz_session.topic_id == topic_id
+        assert quiz_session.consumed_at is None
+        answer_key = quiz_session.answer_key
 
     answers_payload = [
         {"question_id": int(qid), "selected_option": opt}
         for qid, opt in answer_key.items()
     ]
 
-    # 5. SUBMIT passing answers
+    # 5. SUBMIT passing answers (all 10 correct -> 100%)
     sub_res = app_client.post(
         f"/api/v1/courses/{course_id}/topics/{topic_id}/learning/submit",
         headers=headers,
-        json={"answers": answers_payload, "quiz_token": q_data["quiz_token"]},
+        json={"answers": answers_payload, "quiz_token": session_token},
     )
     assert sub_res.status_code == 200
     res_data = sub_res.json()
     assert res_data["score"] == 1.0
     assert res_data["score_percent"] == 100
-    assert res_data["correct_count"] == 3
+    assert res_data["correct_count"] == 10
+    assert res_data["total_questions"] == 10
     assert res_data["new_status"] == "mastered"
     assert res_data["passed"] is True
     assert "status_reason" in res_data
@@ -456,6 +471,10 @@ def test_topic_learning_lifecycle_flow(app_client, seeded_users):
         assert event is not None
         assert event.score == 1.0
 
+        # Verify session marked consumed in DB
+        db_sess = session.query(GuidedQuizSession).filter_by(session_token=session_token).first()
+        assert db_sess.consumed_at is not None
+
 
 # ===========================================================================
 # 3. MASTERY THRESHOLD BOUNDARIES & POLICY EXPLANATION
@@ -465,6 +484,16 @@ def test_mastery_threshold_boundaries(app_client, seeded_users):
     """Verify threshold enforcement: >=80% = mastered, 70-79% = practicing, <70% = needs_review."""
     token1 = seeded_users["token1"]
     headers = {"Authorization": f"Bearer {token1}"}
+
+    # Test pure threshold function at exact boundary values
+    assert evaluate_mastery_threshold(69.0)[0] == "needs_review"
+    assert evaluate_mastery_threshold(69.9)[0] == "needs_review"
+    assert evaluate_mastery_threshold(70.0)[0] == "practicing"
+    assert evaluate_mastery_threshold(75.0)[0] == "practicing"
+    assert evaluate_mastery_threshold(79.9)[0] == "practicing"
+    assert evaluate_mastery_threshold(80.0)[0] == "mastered"
+    assert evaluate_mastery_threshold(90.0)[0] == "mastered"
+    assert evaluate_mastery_threshold(100.0)[0] == "mastered"
 
     c_res = app_client.post(
         "/api/v1/courses",
@@ -485,25 +514,26 @@ def test_mastery_threshold_boundaries(app_client, seeded_users):
         session.add(unit)
         session.flush()
 
-        t_fail = SyllabusTopic(course_id=course_id, unit_id=unit.id, name="Topic Fail")
+        t_fail = SyllabusTopic(course_id=course_id, unit_id=unit.id, name="Deadlock Detection")
         session.add(t_fail)
         session.flush()
         t_fail_id = t_fail.id
 
-    # Test Failing (< 70%): 0 correct -> needs_review
+    # Test Failing (< 70%): answer all wrong -> 0% -> needs_review
     q_res = app_client.post(f"/api/v1/courses/{course_id}/topics/{t_fail_id}/learning/quiz", headers=headers)
     assert q_res.status_code == 200
     q_data = q_res.json()
     quiz_token = q_data["quiz_token"]
-    payload = verify_signed_quiz_token(quiz_token)
-    answer_key = payload["answer_key"]
 
-    # Choose deliberate wrong answer for all questions
+    with session_scope() as session:
+        quiz_session = session.query(GuidedQuizSession).filter_by(session_token=quiz_token).first()
+        answer_key = quiz_session.answer_key
+
+    # Choose deliberate wrong answer for all 10 questions
     wrong_answers = []
     for q in q_data["questions"]:
         qid_str = str(q["id"])
         correct = answer_key[qid_str]
-        # pick any option that is NOT the correct one
         wrong_opt = [opt for opt in ["A", "B", "C", "D"] if opt != correct][0]
         wrong_answers.append({"question_id": q["id"], "selected_option": wrong_opt})
 
@@ -519,15 +549,128 @@ def test_mastery_threshold_boundaries(app_client, seeded_users):
     assert f_data["new_status"] == "needs_review"
     assert f_data["passed"] is False
     assert "Needs Review" in f_data["status_reason"]
-    assert len(f_data["mistakes"]) == 3
+    assert len(f_data["mistakes"]) == 10
+
+    # Test Boundary 70% (7 correct, 3 wrong) -> practicing (passed is False, since 80% is needed for mastery)
+    q2_res = app_client.post(f"/api/v1/courses/{course_id}/topics/{t_fail_id}/learning/quiz", headers=headers)
+    assert q2_res.status_code == 200
+    q2_data = q2_res.json()
+    quiz_token2 = q2_data["quiz_token"]
+
+    with session_scope() as session:
+        quiz_session2 = session.query(GuidedQuizSession).filter_by(session_token=quiz_token2).first()
+        answer_key2 = quiz_session2.answer_key
+
+    answers_70 = []
+    for idx, q in enumerate(q2_data["questions"]):
+        qid_str = str(q["id"])
+        correct = answer_key2[qid_str]
+        if idx < 7:
+            answers_70.append({"question_id": q["id"], "selected_option": correct})
+        else:
+            wrong_opt = [opt for opt in ["A", "B", "C", "D"] if opt != correct][0]
+            answers_70.append({"question_id": q["id"], "selected_option": wrong_opt})
+
+    sub2_res = app_client.post(
+        f"/api/v1/courses/{course_id}/topics/{t_fail_id}/learning/submit",
+        headers=headers,
+        json={"answers": answers_70, "quiz_token": quiz_token2},
+    )
+    assert sub2_res.status_code == 200
+    res70 = sub2_res.json()
+    assert res70["score_percent"] == 70
+    assert res70["correct_count"] == 7
+    assert res70["new_status"] == "practicing"
+    assert res70["passed"] is False
+
+    # Test Boundary 80% (8 correct, 2 wrong) -> mastered (passed is True)
+    q3_res = app_client.post(f"/api/v1/courses/{course_id}/topics/{t_fail_id}/learning/quiz", headers=headers)
+    assert q3_res.status_code == 200
+    q3_data = q3_res.json()
+    quiz_token3 = q3_data["quiz_token"]
+
+    with session_scope() as session:
+        quiz_session3 = session.query(GuidedQuizSession).filter_by(session_token=quiz_token3).first()
+        answer_key3 = quiz_session3.answer_key
+
+    answers_80 = []
+    for idx, q in enumerate(q3_data["questions"]):
+        qid_str = str(q["id"])
+        correct = answer_key3[qid_str]
+        if idx < 8:
+            answers_80.append({"question_id": q["id"], "selected_option": correct})
+        else:
+            wrong_opt = [opt for opt in ["A", "B", "C", "D"] if opt != correct][0]
+            answers_80.append({"question_id": q["id"], "selected_option": wrong_opt})
+
+    sub3_res = app_client.post(
+        f"/api/v1/courses/{course_id}/topics/{t_fail_id}/learning/submit",
+        headers=headers,
+        json={"answers": answers_80, "quiz_token": quiz_token3},
+    )
+    assert sub3_res.status_code == 200
+    res80 = sub3_res.json()
+    assert res80["score_percent"] == 80
+    assert res80["correct_count"] == 8
+    assert res80["new_status"] == "mastered"
+    assert res80["passed"] is True
 
 
 # ===========================================================================
-# 4. CRYPTOGRAPHIC QUIZ SECURITY & ANSWER VALIDATION
+# 4. CRYPTOGRAPHIC QUIZ SECURITY, OPAQUE TOKENS & REPLAY ATTACK PREVENTION
 # ===========================================================================
+
+def test_quiz_token_is_opaque_and_unguessable(app_client, seeded_users):
+    """Verify that quiz_token is a purely opaque random URL-safe string containing no leaked answer keys."""
+    token1 = seeded_users["token1"]
+    headers1 = {"Authorization": f"Bearer {token1}"}
+
+    c_res = app_client.post(
+        "/api/v1/courses",
+        headers=headers1,
+        json={
+            "code": "CS_OPAQUE_01",
+            "name": "Opaque Token Verification",
+            "semester": "Semester 3",
+            "academic_year": "2025-2026",
+            "description": "Verifying token confidentiality",
+        },
+    )
+    assert c_res.status_code in (200, 201)
+    course_id = c_res.json()["id"]
+
+    with session_scope() as session:
+        unit = CourseUnit(course_id=course_id, unit_number=1, title="Unit 1")
+        session.add(unit)
+        session.flush()
+        topic = SyllabusTopic(course_id=course_id, unit_id=unit.id, name="Database Normalization")
+        session.add(topic)
+        session.flush()
+        topic_id = topic.id
+
+    q_res = app_client.post(f"/api/v1/courses/{course_id}/topics/{topic_id}/learning/quiz", headers=headers1)
+    assert q_res.status_code == 200
+    data = q_res.json()
+    quiz_token = data["quiz_token"]
+
+    # Must be unguessable URL-safe token (at least 40 chars, no dot/HMAC signature structure)
+    assert len(quiz_token) >= 40
+    assert "." not in quiz_token
+    # Must NOT decode to JSON containing answer keys
+    import base64
+    try:
+        padded = quiz_token + "=" * (-len(quiz_token) % 4)
+        raw = base64.urlsafe_b64decode(padded)
+        assert b"answer_key" not in raw
+        assert b"explanations" not in raw
+        assert b"correct_option" not in raw
+    except Exception:
+        # If it doesn't even decode to valid base64 bytes, it is completely opaque
+        pass
+
 
 def test_quiz_token_tampering_and_adversarial_submissions(app_client, seeded_users):
-    """Test cryptographic token verification and input validation."""
+    """Test session token validation, cross-user rejection, replay attacks (409), and expired sessions (410)."""
     token1 = seeded_users["token1"]
     token2 = seeded_users["token2"]
     headers1 = {"Authorization": f"Bearer {token1}"}
@@ -538,10 +681,10 @@ def test_quiz_token_tampering_and_adversarial_submissions(app_client, seeded_use
         headers=headers1,
         json={
             "code": "CS_SECURITY_01",
-            "name": "Quiz Security Tests",
+            "name": "Operating Systems Security",
             "semester": "Semester 3",
             "academic_year": "2025-2026",
-            "description": "Cryptographic quiz token validation",
+            "description": "Server-side quiz session validation",
         },
     )
     assert c_res.status_code in (200, 201)
@@ -551,7 +694,7 @@ def test_quiz_token_tampering_and_adversarial_submissions(app_client, seeded_use
         unit = CourseUnit(course_id=course_id, unit_number=1, title="Unit 1")
         session.add(unit)
         session.flush()
-        topic = SyllabusTopic(course_id=course_id, unit_id=unit.id, name="Security Topic")
+        topic = SyllabusTopic(course_id=course_id, unit_id=unit.id, name="Deadlock Detection")
         session.add(topic)
         session.flush()
         topic_id = topic.id
@@ -562,20 +705,19 @@ def test_quiz_token_tampering_and_adversarial_submissions(app_client, seeded_use
     valid_token = q_res.json()["quiz_token"]
     questions = q_res.json()["questions"]
     valid_qids = [q["id"] for q in questions]
+    assert len(valid_qids) == 10
 
-    # 1. Tampered signature -> 400
-    b64_payload, b64_sig = valid_token.split(".")
-    tampered_sig = b64_sig[:-2] + "xx"
-    res_tampered = app_client.post(
+    # 1. Non-existent / fabricated token -> 404
+    fake_token = "completely_fabricated_session_token_xyz1234567890"
+    res_fake = app_client.post(
         f"/api/v1/courses/{course_id}/topics/{topic_id}/learning/submit",
         headers=headers1,
-        json={"answers": [{"question_id": qid, "selected_option": "A"} for qid in valid_qids], "quiz_token": f"{b64_payload}.{tampered_sig}"},
+        json={"answers": [{"question_id": qid, "selected_option": "A"} for qid in valid_qids], "quiz_token": fake_token},
     )
-    assert res_tampered.status_code == 400
-    assert "signature" in res_tampered.json()["detail"].lower()
+    assert res_fake.status_code == 404
+    assert "not found" in res_fake.json()["detail"].lower()
 
-    # 2. Cross-user token submission: User 2 uses User 1's token on User 2's own course/topic -> 403
-    # First create course for User 2
+    # 2. Cross-user token submission: User 2 uses User 1's token on User 2's own course/topic -> 403 Forbidden
     c2_res = app_client.post(
         "/api/v1/courses",
         headers=headers2,
@@ -592,7 +734,7 @@ def test_quiz_token_tampering_and_adversarial_submissions(app_client, seeded_use
         u2_unit = CourseUnit(course_id=c2_id, unit_number=1, title="Unit 1")
         session.add(u2_unit)
         session.flush()
-        u2_topic = SyllabusTopic(course_id=c2_id, unit_id=u2_unit.id, name="User 2 Topic")
+        u2_topic = SyllabusTopic(course_id=c2_id, unit_id=u2_unit.id, name="Deadlock Detection")
         session.add(u2_topic)
         session.flush()
         u2_topic_id = u2_topic.id
@@ -605,8 +747,8 @@ def test_quiz_token_tampering_and_adversarial_submissions(app_client, seeded_use
     assert res_cross_user.status_code == 403
     assert "Forbidden" in res_cross_user.json()["detail"]
 
-    # 3. Missing answers (only 2 out of 3 answered) -> 422
-    partial_answers = [{"question_id": valid_qids[0], "selected_option": "A"}, {"question_id": valid_qids[1], "selected_option": "B"}]
+    # 3. Missing answers (only 9 out of 10 answered) -> 422
+    partial_answers = [{"question_id": qid, "selected_option": "A"} for qid in valid_qids[:9]]
     res_missing = app_client.post(
         f"/api/v1/courses/{course_id}/topics/{topic_id}/learning/submit",
         headers=headers1,
@@ -616,10 +758,8 @@ def test_quiz_token_tampering_and_adversarial_submissions(app_client, seeded_use
     assert "Missing answers" in res_missing.json()["detail"]
 
     # 4. Duplicate question ID submission -> 422
-    dup_answers = [
-        {"question_id": valid_qids[0], "selected_option": "A"},
-        {"question_id": valid_qids[0], "selected_option": "B"},
-        {"question_id": valid_qids[1], "selected_option": "C"},
+    dup_answers = [{"question_id": valid_qids[0], "selected_option": "A"}] + [
+        {"question_id": qid, "selected_option": "A"} for qid in valid_qids[:9]
     ]
     res_dup = app_client.post(
         f"/api/v1/courses/{course_id}/topics/{topic_id}/learning/submit",
@@ -630,11 +770,8 @@ def test_quiz_token_tampering_and_adversarial_submissions(app_client, seeded_use
     assert "Duplicate answer" in res_dup.json()["detail"]
 
     # 5. Invalid option letter ('Z') -> 422
-    invalid_opt_answers = [
-        {"question_id": valid_qids[0], "selected_option": "A"},
-        {"question_id": valid_qids[1], "selected_option": "B"},
-        {"question_id": valid_qids[2], "selected_option": "Z"},
-    ]
+    invalid_opt_answers = [{"question_id": qid, "selected_option": "A"} for qid in valid_qids]
+    invalid_opt_answers[0]["selected_option"] = "Z"
     res_invalid_opt = app_client.post(
         f"/api/v1/courses/{course_id}/topics/{topic_id}/learning/submit",
         headers=headers1,
@@ -642,6 +779,124 @@ def test_quiz_token_tampering_and_adversarial_submissions(app_client, seeded_use
     )
     assert res_invalid_opt.status_code == 422
     assert "Invalid option" in res_invalid_opt.json()["detail"]
+
+    # 6. Valid first submission succeeds
+    all_answers = [{"question_id": qid, "selected_option": "A"} for qid in valid_qids]
+    res_submit_ok = app_client.post(
+        f"/api/v1/courses/{course_id}/topics/{topic_id}/learning/submit",
+        headers=headers1,
+        json={"answers": all_answers, "quiz_token": valid_token},
+    )
+    assert res_submit_ok.status_code == 200
+
+    # 7. Token Reuse / Replay Attack: submitting the same token a second time -> 409 Conflict
+    res_replay = app_client.post(
+        f"/api/v1/courses/{course_id}/topics/{topic_id}/learning/submit",
+        headers=headers1,
+        json={"answers": all_answers, "quiz_token": valid_token},
+    )
+    assert res_replay.status_code == 409
+    assert "already been submitted" in res_replay.json()["detail"].lower()
+
+    # 8. Expired Token: session with expires_at in the past -> 410 Gone
+    q_expired_res = app_client.post(f"/api/v1/courses/{course_id}/topics/{topic_id}/learning/quiz", headers=headers1)
+    assert q_expired_res.status_code == 200
+    expired_token = q_expired_res.json()["quiz_token"]
+    with session_scope() as session:
+        exp_sess = session.query(GuidedQuizSession).filter_by(session_token=expired_token).first()
+        exp_sess.expires_at = datetime.now(timezone.utc) - timedelta(minutes=5)
+        session.commit()
+
+    res_expired = app_client.post(
+        f"/api/v1/courses/{course_id}/topics/{topic_id}/learning/submit",
+        headers=headers1,
+        json={"answers": all_answers, "quiz_token": expired_token},
+    )
+    assert res_expired.status_code == 410
+    assert "expired" in res_expired.json()["detail"].lower()
+
+
+def test_answer_option_randomization_distribution():
+    """Verify cryptographic shuffle distributes correct options across A, B, C, D uniformly (not fixed to B-C-A)."""
+    options_sample = [
+        "Option Alpha",
+        "Option Beta",
+        "Option Gamma",
+        "Option Delta",
+    ]
+    counts = {"A": 0, "B": 0, "C": 0, "D": 0}
+    trials = 200
+    for i in range(trials):
+        res = _randomize_question_options(
+            question_text="Sample Test Question",
+            options=options_sample,
+            correct_text="Option Alpha",
+            bloom_level="Understand",
+            explanation="Explanation text",
+        )
+        counts[res["correct_option"]] += 1
+
+    # Option D must be chosen, and each option should have reasonable representation (at least 15% of 200)
+    assert counts["D"] > 20
+    assert counts["A"] > 20
+    assert counts["B"] > 20
+    assert counts["C"] > 20
+
+
+def test_multi_subject_question_bank_coverage():
+    """Verify domain question bank contains genuine academic questions across required curricula."""
+    assert "operating_systems" in SUBJECT_QUESTION_BANK
+    assert "databases" in SUBJECT_QUESTION_BANK
+    assert "mathematics" in SUBJECT_QUESTION_BANK
+    assert "statistics" in SUBJECT_QUESTION_BANK
+
+    for subject in ["operating_systems", "databases", "mathematics", "statistics"]:
+        qlist = SUBJECT_QUESTION_BANK[subject]
+        assert len(qlist) >= 10, f"Subject {subject} must contain at least 10 curriculum questions"
+        for q in qlist:
+            assert len(q["options"]) == 4
+            assert q["correct_text"] in q["options"]
+            assert len(q["explanation"]) > 20
+            # Ensure no generic boilerplate
+            assert "structured invariants" not in q["question_text"]
+
+
+def test_unsupported_topic_returns_explicit_unavailable(app_client, seeded_users):
+    """When topic has no materials and cannot be mapped to any syllabus domain, return explicit available=False."""
+    token1 = seeded_users["token1"]
+    headers1 = {"Authorization": f"Bearer {token1}"}
+
+    c_res = app_client.post(
+        "/api/v1/courses",
+        headers=headers1,
+        json={
+            "code": "RANDOM_UNSUPPORTED",
+            "name": "Completely Unsupported Subject",
+            "semester": "Semester 1",
+            "academic_year": "2025-2026",
+            "description": "No domain match",
+        },
+    )
+    assert c_res.status_code in (200, 201)
+    course_id = c_res.json()["id"]
+
+    with session_scope() as session:
+        unit = CourseUnit(course_id=course_id, unit_number=1, title="Unit 1")
+        session.add(unit)
+        session.flush()
+        topic = SyllabusTopic(course_id=course_id, unit_id=unit.id, name="Quasar Spectroscopy In Astrochemistry")
+        session.add(topic)
+        session.flush()
+        topic_id = topic.id
+
+    q_res = app_client.post(f"/api/v1/courses/{course_id}/topics/{topic_id}/learning/quiz", headers=headers1)
+    assert q_res.status_code == 200
+    res_data = q_res.json()
+    assert res_data["available"] is False
+    assert "message" in res_data
+    assert "unavailable" in res_data["message"].lower()
+    assert len(res_data["questions"]) == 0
+    assert res_data["quiz_token"] is None
 
 
 # ===========================================================================

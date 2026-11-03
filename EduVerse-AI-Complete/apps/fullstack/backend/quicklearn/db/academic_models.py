@@ -424,3 +424,20 @@ class EvidenceAuditIssue(Base):
     status: Mapped[str] = mapped_column(String(32), default="open", index=True)  # open, resolved, dismissed
     created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow)
     resolved_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime, nullable=True)
+
+class GuidedQuizSession(Base):
+    __tablename__ = "guided_quiz_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    session_token: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    quiz_id: Mapped[str] = mapped_column(String(64), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), index=True)
+    topic_id: Mapped[int] = mapped_column(ForeignKey("syllabus_topics.id", ondelete="CASCADE"), index=True)
+    question_ids: Mapped[list[int]] = mapped_column(JSON)
+    answer_key: Mapped[dict[str, str]] = mapped_column(JSON)
+    explanations: Mapped[dict[str, str]] = mapped_column(JSON)
+    expires_at: Mapped[dt.datetime] = mapped_column(UTCDateTime)
+    consumed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime, nullable=True, default=None)
+    created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow)
+

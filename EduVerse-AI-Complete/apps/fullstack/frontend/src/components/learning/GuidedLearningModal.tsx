@@ -88,6 +88,10 @@ export function GuidedLearningModal({
         toast.warning(`Knowledge check score: ${res.score_percent}%. Topic flagged as ${formattedStatus}.`)
       }
     },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.detail || err?.message || 'Failed to submit quiz session'
+      toast.error(msg)
+    },
   })
 
   const revisionMutation = useMutation({
@@ -397,20 +401,30 @@ export function GuidedLearningModal({
             {/* STEP 3: KNOWLEDGE CHECK */}
             {activeStep === 'quiz' && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <span className="text-xs text-muted-foreground">
-                    Answer all 3 questions to verify comprehension and advance topic mastery.
+                    Answer all {quizData?.questions?.length || 10} questions to verify comprehension and advance topic mastery.
                   </span>
-                  <Badge tone="accent" className="text-[10px]">≥80% Mastered • 70-79% Practicing • &lt;70% Needs Review</Badge>
+                  <Badge tone="accent" className="text-[10px]">≥80% Mastered (8+ / 10) • 70-79% Practicing (7 / 10) • &lt;70% Needs Review (≤6 / 10)</Badge>
                 </div>
 
                 {isGeneratingQuiz ? (
                   <div className="py-12 flex flex-col items-center justify-center gap-2">
                     <Spinner className="h-5 w-5 text-primary" />
-                    <p className="text-xs text-muted-foreground">Generating topic questions...</p>
+                    <p className="text-xs text-muted-foreground">Generating diagnostic questions...</p>
+                  </div>
+                ) : quizData?.available === false ? (
+                  <div className="p-4 rounded-xl border border-dashed border-amber-500/40 bg-amber-500/5 text-xs text-amber-300 space-y-2">
+                    <div className="flex items-center gap-2 font-semibold text-amber-200">
+                      <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
+                      Diagnostic Questions Currently Unavailable
+                    </div>
+                    <p className="text-muted-foreground leading-relaxed">
+                      {quizData.message || 'Diagnostic questions cannot be reliably formed without course materials or an active LLM provider. Please upload course materials or connect an LLM provider.'}
+                    </p>
                   </div>
                 ) : quizData ? (
-                  <div className="space-y-4">
+                  <div className="max-h-[55vh] overflow-y-auto pr-1 space-y-4">
                     {quizData.questions.map((q: any, idx: number) => {
                       const selected = quizAnswers[q.id]
                       const optionLetters = ['A', 'B', 'C', 'D']

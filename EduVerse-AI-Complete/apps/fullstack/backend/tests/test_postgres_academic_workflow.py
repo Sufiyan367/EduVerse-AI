@@ -39,6 +39,8 @@ def setup_postgres_env():
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE student_topic_mastery ADD COLUMN IF NOT EXISTS status VARCHAR(32) DEFAULT 'not_started'"))
             conn.execute(text("ALTER TABLE student_topic_mastery ALTER COLUMN last_evaluated_at DROP NOT NULL"))
+            from quicklearn.db.models import GuidedQuizSession
+            GuidedQuizSession.__table__.create(bind=conn, checkfirst=True)
     except Exception as exc:
         # Restore environment immediately if connection fails
         if old_url is not None:

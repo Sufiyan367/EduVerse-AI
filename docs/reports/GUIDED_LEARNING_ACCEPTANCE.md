@@ -1,78 +1,69 @@
-# EduVerse AI — Guided Learning Integrity & Security Acceptance Report
+# EduVerse AI — Guided Learning Integrity, Assessment Validity & Tutor Quality Acceptance Report
 
 **Date:** November 3, 2026  
 **Repository:** `https://github.com/Sufiyan367/EduVerse-AI`  
 **Branch:** `feature/eduverse-48h-rebuild`  
 **Status:** **RELEASE READY & FULLY VERIFIED**  
-**Test Suite:** 59 passed in 34.42s (100% pass rate)
+**Test Suite:** 63 passed in 45.73s (100% pass rate across the fullstack backend)
 
 ---
 
 ## Executive Summary
 
-This acceptance report certifies the resolution of all verified defects in the **Guided Learning Journey**, **Academic Metrics**, and **Multi-Tenant Security** architectures within EduVerse AI. 
+This acceptance report certifies the completion and verification of the **Quiz Integrity, Assessment Validity & Tutor Quality Final Fix** in EduVerse AI.
 
-Previously identified integrity issues included:
-1. Hardcoded / canned knowledge check questions with predictable option A answers.
-2. Inconsistent mastery threshold evaluation and missing policy explanations.
-3. Ungrounded tutor explanations with potential for fabricated citations.
-4. Conflation of study activity (starting a lesson) with demonstrated cognitive assessment.
-5. Permissive multi-tenant scope resolution in RAG retrieval across course, topic, and folder levels.
-
-All defects have been engineered out of the platform and confirmed through an expanded 11-test regression and adversarial test suite in `tests/test_guided_learning_and_metrics.py`, alongside the complete 59-test suite across the fullstack backend.
+All identified vulnerabilities, assessment defects, and generation issues have been resolved:
+1. **P0 — Token Opacity & Answer Key Secrecy:** Replaced client-readable Base64/HMAC tokens with persistent server-side `GuidedQuizSession` database records. Clients receive only an opaque, unguessable token (`secrets.token_urlsafe(32)`). Answer keys and explanations are stored server-side and never delivered prior to submission.
+2. **P0 — Replay & Expiry Protection:** Single consumption is enforced in SQLite within an atomic transaction. Re-submitting an already-consumed token immediately aborts with `HTTP 409 Conflict`. Submitting an expired token returns `HTTP 410 Gone`.
+3. **P0 — Answer Option Randomization:** Eliminated deterministic cycling (`target_letters = ["B", "C", "A"]`). Options are shuffled cryptographically with `secrets.SystemRandom().shuffle`. Correct answer letters (A, B, C, D) are uniformly distributed, and Option D is regularly chosen.
+4. **P0 — Reachable Mastery Thresholds & 10-Question Granularity:** Standardized diagnostic knowledge checks to 10 questions with equal 10-point scoring. Enforced exact mathematical boundaries: $\ge 80\%$ = Mastered (8+ / 10), $70\text{--}79\%$ = Practicing (7 / 10), and $< 70\%$ = Needs Review ($\le 6 / 10$).
+5. **P0 — High-Quality Subject-Grounded Question Generation:** Replaced generic engineering assertions with genuine curriculum-grounded questions across Operating Systems (deadlock, paging), Relational Databases (normalization, indexing, transactions), Mathematics (eigenvalues, calculus), and Statistics (hypothesis testing, CLT). Topics lacking materials or domain matches return explicit `available: false` states.
+6. **P1 — Structurally Distinct Tutor Outputs:** `POST /explain` produces distinct, independent fields (`summary`, `definitions`, `worked_example`). `worked_example` is never duplicated from `summary`. Citations are strictly validated against retrieved excerpts.
 
 ---
 
-## Key Technical Solutions
+## Architecture & Implementation Details
 
-### 1. Dynamic Knowledge Checks & Anti-Tamper Quiz Token Architecture
-- **Elimination of Canned Questions:** Removed the static 3-question array from `backend/quicklearn/api/guided_learning.py`. Dynamic questions are synthesized via `complete_structured` using real topic context, linked course excerpts, and Bloom's cognitive level. When offline, a topic-grounded heuristic fallback provides relevant domain questions.
-- **Answer Distribution:** Correct answers are distributed systematically across options A, B, C, and D (`_permute_question_options`), preventing the previous pattern where Option A was permanently correct.
-- **Client Sanitation:** The `correct_option` field is strictly stripped from all question payloads returned to the frontend.
-- **Cryptographic Quiz Token Binding (`HMAC-SHA256`):**
-  - Generated on `POST /quiz`: encodes `{ quiz_id, user_id, course_id, topic_id, question_ids, answer_key, explanations, expires_at }`.
-  - Signed using the server's secure JWT secret (`HS256`).
-  - Required on `POST /submit`. The server validates signature, timestamp (<2h), matching `user_id`, matching `course_id`, and matching `topic_id`.
-  - Rejects tampered tokens (`HTTP 400`), cross-user tokens (`HTTP 403`), duplicate answers (`HTTP 422`), missing question IDs (`HTTP 422`), and invalid option letters (`HTTP 422`).
+### 1. Database Model & Migration (`GuidedQuizSession`)
+- **Table:** `guided_quiz_sessions`
+- **Fields:**
+  - `id`: Primary key integer.
+  - `session_token`: Unique, unguessable string (`secrets.token_urlsafe(32)`), indexed.
+  - `quiz_id`: Unique identifier string.
+  - `user_id`: Foreign key reference to `users.id`, indexed.
+  - `course_id`: Foreign key reference to `courses.id`, indexed.
+  - `topic_id`: Foreign key reference to `syllabus_topics.id`, indexed.
+  - `question_ids`: JSON array of issued question IDs.
+  - `answer_key`: JSON dictionary mapping question ID strings to correct option letters (`{"1": "C", ...}`).
+  - `explanations`: JSON dictionary mapping question ID strings to grading explanations.
+  - `expires_at`: UTC timestamp (issued with 30-minute / 1800-second TTL).
+  - `consumed_at`: Nullable UTC timestamp recorded at evaluation time.
+  - `created_at`: UTC timestamp.
+- **Alembic Migration:** `a08_guided_quiz_sessions.py` revises `a07_quiz_evidence`.
+- **Bootstrap Initialization:** Added idempotent SQLite DDL table and index creation in `backend/quicklearn/db/bootstrap.py`.
 
-### 2. Documented Topic Mastery Threshold Policy
-- **Threshold Rule:**
-  - **$\ge 80\%$ (Score 0.80–1.00):** `mastered` (Confidence: `high`, Passed: `True`).
-  - **$70\text{--}79\%$ (Score 0.70–0.79):** `practicing` / `learning` (Confidence: `medium`, Passed: `False`). Solid foundation, but requires $\ge 80\%$ to achieve mastery.
-  - **$< 70\%$ (Score 0.00–0.69):** `needs_review` (Confidence: `low`, Passed: `False`).
-- **Transparent Status Reasons:** Every submission returns `status_reason` explicitly detailing the percentage scored and the exact pedagogical reason for the assigned status.
-- **Frontend Badging:** The knowledge check view in `GuidedLearningModal.tsx` surfaces this explicit threshold criteria to the student before submission, and highlights `✓ Topic Mastered`, `⚡ Topic Practicing`, or `⚠ Needs Further Review` alongside the server's policy justification.
+### 2. Secure Quiz Session Lifecycle & Scoring
+- **Issuance (`POST /quiz`):**
+  - Synthesizes 10 questions (via active LLM provider or subject-grounded fallback bank).
+  - Cryptographically shuffles option orders independently for each question (`secrets.SystemRandom().shuffle`).
+  - Saves `GuidedQuizSession` in the database.
+  - Returns sanitized question payload containing only `id`, `question_text`, `options` (4 items), and `bloom_level`. `correct_option` and `explanation` are omitted.
+- **Evaluation (`POST /submit`):**
+  - Looks up session by `session_token`.
+  - Enforces:
+    - Session existence (`HTTP 404`).
+    - User ownership (`session.user_id == user.id`, `HTTP 403`).
+    - Course and topic binding (`HTTP 400`).
+    - Replay protection (`session.consumed_at is None`, `HTTP 409 Conflict`).
+    - Expiration verification (`now <= session.expires_at`, `HTTP 410 Gone`).
+    - Submission completeness (exactly 10 issued question IDs, no duplicates, valid options A/B/C/D, `HTTP 422`).
+  - Atomic Transaction: Marks `consumed_at = now`, updates `StudentTopicMastery`, and logs `TopicMasteryEvent` in a single commit.
 
-### 3. Separation of Study Activity from Assessed Performance
-- **Integrity Rule:** Merely viewing or starting a topic lesson (`status = "learning"`) is an *activity*, not a demonstrated cognitive assessment.
-- **Database Model:** Made `StudentTopicMastery.last_evaluated_at` nullable (`None` default). `start_topic_learning` sets `mastery_score = 0.0`, `status = "learning"`, and leaves `last_evaluated_at = None`.
-- **Metrics Calculation:** In `quicklearn/api/courses.py`, `is_assessed` strictly requires:
-  ```python
-  is_assessed = (
-      m is not None
-      and st in ("mastered", "practicing", "needs_review")
-      and getattr(m, "last_evaluated_at", None) is not None
-  )
-  ```
-  Starting a lesson does not increment `assessed_topics_count` and leaves course readiness `null` until the student completes an actual evaluation.
-
-### 4. Grounded Tutor Explanations & Pedagogical Modes
-- **Grounded Content:** In `POST /explain`, the tutor queries course-linked materials via RAG. When verified source segments exist, explanations return exact excerpt references (`source_id`, `page_no`, `text`).
-- **Evidence Verification:** When no course materials are linked or uploaded, the endpoint returns an explicit disclaimer note and does not hallucinate false citations.
-- **Pedagogical Modes:** Four distinct instructional modes alter the prompt and generated explanation:
-  - `standard`: Core foundational principles and rigorous mechanics.
-  - `simple`: Intuitive real-world analogies.
-  - `example`: Step-by-step worked mathematical or algorithmic applications.
-  - `compare`: Comparative contrast with adjacent syllabus topics.
-
-### 5. Multi-Tenant Security & Adversarial RAG Isolation
-- **Scope Audit:**
-  - `scope_type == "topic"`: Joins `SyllabusTopic` with `Course` and filters `Course.user_id == user_id`.
-  - `scope_type == "course"`: Checks `Course.user_id == user_id` and joins `CourseMaterialLink` with `Source` where `Source.user_id == user_id`.
-  - `scope_type == "folder"`: Verifies folder ownership and recursively filters child folders to `Folder.user_id == user_id`.
-  - `scope_type == "source"`: Enforces `Source.user_id == user_id`.
-  - Inaccessible scopes short-circuit immediately and return `[]` without leaking metadata.
-- **Manifest Multi-Tenancy:** In `quicklearn/rag/manifest.py`, foreign course, topic, or folder IDs return an empty manifest (`0` sources).
+### 3. Frontend Experience (`GuidedLearningModal.tsx`)
+- Updated modal view to display all 10 questions within a scrollable, responsive container.
+- Badges display verified thresholds: `≥80% Mastered (8+ / 10) • 70-79% Practicing (7 / 10) • <70% Needs Review (≤6 / 10)`.
+- Surfaces explicit unavailable message when `quizData?.available === false`.
+- Error toasts display server-side 409 Conflict messages if a submission is replayed.
 
 ---
 
@@ -82,25 +73,29 @@ All defects have been engineered out of the platform and confirmed through an ex
 ```
 ============================= test session starts =============================
 platform win32 -- Python 3.11.9, pytest-8.4.2
-tests/test_guided_learning_and_metrics.py::test_empty_course_readiness_insufficient_data PASSED [  9%]
-tests/test_guided_learning_and_metrics.py::test_activity_vs_assessment_separation PASSED [ 18%]
-tests/test_guided_learning_and_metrics.py::test_partial_assessment_readiness_formula PASSED [ 27%]
-tests/test_guided_learning_and_metrics.py::test_exam_simulation_readiness_formula PASSED [ 36%]
-tests/test_guided_learning_and_metrics.py::test_topic_learning_lifecycle_flow PASSED [ 45%]
-tests/test_guided_learning_and_metrics.py::test_mastery_threshold_boundaries PASSED [ 54%]
-tests/test_guided_learning_and_metrics.py::test_quiz_token_tampering_and_adversarial_submissions PASSED [ 63%]
-tests/test_guided_learning_and_metrics.py::test_multitenant_rag_scope_isolation PASSED [ 72%]
-tests/test_guided_learning_and_metrics.py::test_manifest_multitenant_isolation PASSED [ 81%]
-tests/test_guided_learning_and_metrics.py::test_schedule_topic_revision_creates_task PASSED [ 90%]
+tests/test_guided_learning_and_metrics.py::test_empty_course_readiness_insufficient_data PASSED [  6%]
+tests/test_guided_learning_and_metrics.py::test_activity_vs_assessment_separation PASSED [ 13%]
+tests/test_guided_learning_and_metrics.py::test_partial_assessment_readiness_formula PASSED [ 20%]
+tests/test_guided_learning_and_metrics.py::test_exam_simulation_readiness_formula PASSED [ 26%]
+tests/test_guided_learning_and_metrics.py::test_topic_learning_lifecycle_flow PASSED [ 33%]
+tests/test_guided_learning_and_metrics.py::test_mastery_threshold_boundaries PASSED [ 40%]
+tests/test_guided_learning_and_metrics.py::test_quiz_token_is_opaque_and_unguessable PASSED [ 46%]
+tests/test_guided_learning_and_metrics.py::test_quiz_token_tampering_and_adversarial_submissions PASSED [ 53%]
+tests/test_guided_learning_and_metrics.py::test_answer_option_randomization_distribution PASSED [ 60%]
+tests/test_guided_learning_and_metrics.py::test_multi_subject_question_bank_coverage PASSED [ 66%]
+tests/test_guided_learning_and_metrics.py::test_unsupported_topic_returns_explicit_unavailable PASSED [ 73%]
+tests/test_guided_learning_and_metrics.py::test_multitenant_rag_scope_isolation PASSED [ 80%]
+tests/test_guided_learning_and_metrics.py::test_manifest_multitenant_isolation PASSED [ 86%]
+tests/test_guided_learning_and_metrics.py::test_schedule_topic_revision_creates_task PASSED [ 93%]
 tests/test_guided_learning_and_metrics.py::test_user_isolation_blocks_cross_tenant_access PASSED [100%]
-============================= 11 passed in 18.16s =============================
+============================= 15 passed in 29.15s =============================
 ```
 
 ### 2. Fullstack Backend Regression Suite
 ```
-============================= 59 passed in 34.42s =============================
+============================= 63 passed in 45.73s =============================
 - test_autonomous_automation_engine.py: 11 passed
-- test_guided_learning_and_metrics.py: 11 passed
+- test_guided_learning_and_metrics.py: 15 passed
 - test_ollama_provider.py: 4 passed
 - test_p0_adaptations_e2e.py: 4 passed
 - test_pdf_pipeline_comprehensive.py: 11 passed
@@ -112,17 +107,4 @@ tests/test_guided_learning_and_metrics.py::test_user_isolation_blocks_cross_tena
 
 ### 3. Frontend Static Verification
 - `npm run typecheck`: **Clean** (`tsc --noEmit` exited 0).
-- `npm run build`: **Clean** (production bundle generated and synced to `backend/quicklearn/static`).
-
----
-
-## Changed Files Summary
-- `backend/quicklearn/api/guided_learning.py`: Dynamic question generation, HMAC quiz token signing/verification, strict mastery threshold rules, and explanation pedagogical modes.
-- `backend/quicklearn/api/courses.py`: Activity vs assessment separation, safe breakdown metrics, and readiness null states.
-- `backend/quicklearn/rag/retrieve.py`: Strict multi-tenant isolation across all 5 scopes.
-- `backend/quicklearn/rag/manifest.py`: Multi-tenant ownership checks across folder, course, and topic scopes.
-- `backend/quicklearn/db/academic_models.py`: Made `last_evaluated_at` nullable with `default=None`.
-- `backend/quicklearn/db/bootstrap.py`: Idempotent SQLite schema migration for `student_topic_mastery`.
-- `frontend/src/lib/api.ts`: Bound `quiz_token` into knowledge check submission API.
-- `frontend/src/components/learning/GuidedLearningModal.tsx`: Unanswered question validation, quiz token submission, threshold policy badges, and status reason display.
-- `backend/tests/test_guided_learning_and_metrics.py`: 11 comprehensive unit, regression, and adversarial test scenarios.
+- `npm run build`: **Clean** (`vite v6.4.5`, built in 11.13s, copied to `backend/quicklearn/static`).

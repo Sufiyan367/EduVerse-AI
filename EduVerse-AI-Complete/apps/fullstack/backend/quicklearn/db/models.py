@@ -674,4 +674,5 @@ from .academic_models import (
     WeeklyReport,
     Notification,
     EvidenceAuditIssue,
+    GuidedQuizSession,
 )
