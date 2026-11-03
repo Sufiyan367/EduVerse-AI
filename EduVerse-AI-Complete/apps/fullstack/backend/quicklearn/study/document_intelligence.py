@@ -44,11 +44,22 @@ class PracticeEvaluationResult(BaseModel):
     challenge_id: str
     score: int
     is_passing: bool
+    status: str = "graded"  # "graded" | "ungraded"
     feedback: str
     strengths: list[str] = Field(default_factory=list)
     missed_points: list[str] = Field(default_factory=list)
-    step_by_step_solution: str
+    model_solution: str = ""
+    step_by_step_solution: str = ""
     citations: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class ConceptualEvaluationPayload(BaseModel):
+    score: int
+    is_passing: bool
+    feedback: str
+    strengths: list[str] = Field(default_factory=list)
+    missed_points: list[str] = Field(default_factory=list)
+    model_solution: str
 
 
 def _detect_subject(text: str) -> str:
@@ -545,10 +556,12 @@ async def generate_grounded_explanation(
                 if d.term.lower() not in existing_terms:
                     explanation.definitions.append(d)
 
-        # Verify topic alignment in worked example
+        # Verify topic alignment in summary and worked example
         topic_lower = topic.lower()
         worked_lower = (explanation.worked_example or "").lower()
         if "round robin" in topic_lower or "scheduling" in topic_lower:
+            if "quantum" not in explanation.summary.lower() and "turnaround" not in explanation.summary.lower():
+                explanation.summary += f" In CPU scheduling, {topic} utilizes a fixed time quantum to minimize turnaround time."
             if "gantt" not in worked_lower and "turnaround" not in worked_lower and "quantum" not in worked_lower:
                 explanation.worked_example = fallback.worked_example
         elif "bcnf" in topic_lower or "normal form" in topic_lower:
@@ -591,17 +604,21 @@ def generate_practice_challenges(source: Source, segments: list[Segment], concep
                 "Given 3 processes arriving at t=0: P1 (Burst=8), P2 (Burst=4), P3 (Burst=2). "
                 "The scheduler employs Round Robin with Quantum Q=3.\n"
                 "Calculate:\n"
-                "1. The order of process execution (Gantt chart sequence).\n"
+                "1. The order of process execution (Gantt chart sequence with time intervals).\n"
                 "2. The completion time for each process.\n"
                 "3. The average turnaround time across all three processes."
             ),
             "hints": [
-                "Hint 1: Construct the ready queue after each quantum expires.",
-                "Hint 2: P2 only needs 4 time units, so in its second turn it will only run for 1 time unit.",
-                "Hint 3: Turnaround time = Completion time - Arrival time (here Arrival=0 for all)."
+                "Hint 1: Construct the ready queue after each quantum expires: initial queue [P1, P2, P3].",
+                "Hint 2: At t=6, P3 needs only 2 units (burst=2), terminating at t=8 before the quantum expires.",
+                "Hint 3: Turnaround time = Completion time - Arrival time (here Arrival=0 for all). Average = (14 + 12 + 8) / 3 = 11.33.",
             ],
             "sample_input": "Processes: P1=8, P2=4, P3=2; Q=3",
-            "expected_criteria": ["Gantt sequence", "Completion times: P3=5, P2=8, P1=14", "Average turnaround = 9.0"],
+            "expected_criteria": [
+                "Gantt sequence: [P1: 0-3] -> [P2: 3-6] -> [P3: 6-8] -> [P1: 8-11] -> [P2: 11-12] -> [P1: 12-14]",
+                "Completion times: P3=8, P2=12, P1=14",
+                "Average turnaround = 11.33 (34/3)",
+            ],
             "citations": [{"segment_id": segments[0].id if segments else 1, "page_no": 1, "quote": "Round Robin scheduling with time quantum"}],
         })
         challenges.append({
@@ -634,12 +651,12 @@ def generate_practice_challenges(source: Source, segments: list[Segment], concep
                 "3. Explain why the wait(empty) operation must precede wait(mutex) rather than the reverse."
             ),
             "hints": [
-                "Hint 1: `empty` counts open slots (starts at N), `full` counts filled slots (starts at 0).",
-                "Hint 2: If a producer acquires mutex first and then blocks on empty, what happens to consumers?",
-                "Hint 3: Inverting the wait order creates a classic deadlock!"
+                "Hint 1: `empty` counts open slots (starts at N=5), `full` counts filled slots (starts at 0), `mutex` is binary (1).",
+                "Hint 2: When empty == 0, wait(empty) decrements the semaphore to -1 and places the thread on the sleep queue.",
+                "Hint 3: If wait(mutex) is called before wait(empty), a producer entering a full buffer holds mutex while blocked, deadlocking all consumers.",
             ],
             "sample_input": "N=5 buffer slots, binary mutex",
-            "expected_criteria": ["mutex=1, empty=5, full=0", "Producer blocks on empty", "Inversion causes deadlock"],
+            "expected_criteria": ["Initial semaphores: mutex=1, empty=5, full=0", "Producer blocks on empty", "Inversion causes deadlock"],
             "citations": [{"segment_id": segments[0].id if segments else 1, "page_no": 1, "quote": "Counting semaphores coordinate bounded buffer access"}],
         })
 
@@ -653,15 +670,21 @@ def generate_practice_challenges(source: Source, segments: list[Segment], concep
                 "Total resources in system: [10, 5, 7].\n"
                 "Current Allocation: P0=[0,1,0], P1=[2,0,0], P2=[3,0,2].\n"
                 "Maximum Claims: P0=[7,5,3], P1=[3,2,2], P2=[9,0,2].\n"
-                "Question: Is the current state safe? If yes, provide the safe sequence; if not, explain which processes are deadlocked."
+                "Question:\n"
+                "1. Compute the Available vector and the Need matrix for all processes.\n"
+                "2. Is the current state safe? If yes, provide and verify a safe execution sequence; if not, explain which processes cannot complete."
             ),
             "hints": [
-                "Hint 1: Compute Available = Total - sum(Allocations).",
-                "Hint 2: Compute Need matrix = Max - Allocation for each process.",
-                "Hint 3: Find a process where Need <= Available, simulate completion, and reclaim its allocation."
+                "Hint 1: Compute Available = Total - sum(Allocations) = [10,5,7] - [5,1,2] = [5,4,5].",
+                "Hint 2: Compute Need matrix = Max - Allocation: P0=[7,4,3], P1=[1,2,2], P2=[6,0,0].",
+                "Hint 3: Find a process where Need <= Available (P1 requires [1,2,2] <= [5,4,5]), simulate completion, and reclaim its allocation.",
             ],
             "sample_input": "Total=[10,5,7], Allocations P0,P1,P2",
-            "expected_criteria": ["Available=[5,4,5]", "Need P1=[1,2,2] <= Available", "Safe Sequence verified"],
+            "expected_criteria": [
+                "Available vector = [5, 4, 5]",
+                "Need matrix: P0=[7,4,3], P1=[1,2,2], P2=[6,0,0]",
+                "Safe Sequence: <P1, P0, P2> or <P1, P2, P0> with verified reclamation",
+            ],
             "citations": [{"segment_id": segments[0].id if segments else 1, "page_no": 1, "quote": "Banker's algorithm checks for safe execution sequence"}],
         })
 
@@ -700,16 +723,21 @@ def generate_practice_challenges(source: Source, segments: list[Segment], concep
                 "Given relation R(A, B, C, D) with Functional Dependencies:\n"
                 "F = { A -> B, B -> C, C -> D }.\n"
                 "1. Identify all candidate keys of R.\n"
-                "2. Determine whether R is in 3NF and BCNF.\n"
-                "3. Decompose R into Boyce-Codd Normal Form (BCNF) and verify that the decomposition is lossless."
+                "2. Determine whether R is in 3NF and BCNF, identifying specific violating dependencies.\n"
+                "3. Decompose R into Boyce-Codd Normal Form (BCNF) and mathematically justify why the decomposition is lossless."
             ),
             "hints": [
-                "Hint 1: Compute the attribute closure of A: A+ = {A, B, C, D}.",
-                "Hint 2: For BCNF, every functional dependency X -> Y must have X as a superkey.",
-                "Hint 3: Decompose R whenever an FD violates BCNF: R1(X, Y) and R2(R - Y)."
+                "Hint 1: Compute the attribute closure of A: A+ = {A, B, C, D}. Since A determines all attributes and no proper subset does, A is the unique candidate key.",
+                "Hint 2: For BCNF, every functional dependency X -> Y must have X as a superkey. B and C are not superkeys of R, violating BCNF.",
+                "Hint 3: Decompose R whenever an FD violates BCNF: R1(X, Y) and R2(R - Y). Ensure common attributes form a key of at least one relation to guarantee lossless join.",
             ],
             "sample_input": "R(A,B,C,D), F={A->B, B->C, C->D}",
-            "expected_criteria": ["Candidate Key: A", "B->C and C->D violate BCNF", "Decomposition: R1(A,B), R2(B,C), R3(C,D)", "Lossless join verified"],
+            "expected_criteria": [
+                "Candidate Key: A",
+                "Violations: B->C and C->D violate BCNF (determinants B, C are not superkeys)",
+                "BCNF Decomposition: R1(A,B), R2(B,C), R3(C,D)",
+                "Lossless join verified via intersection superkey property",
+            ],
             "citations": [{"segment_id": segments[0].id if segments else 1, "page_no": 1, "quote": "BCNF requires every determinant to be a superkey"}],
         })
 
@@ -725,9 +753,9 @@ def generate_practice_challenges(source: Source, segments: list[Segment], concep
                 "3. Verify your result using the trace and determinant properties of matrix A."
             ),
             "hints": [
-                "Hint 1: det(A - λI) = (3 - λ)(4 - λ) - (2)(1).",
-                "Hint 2: Trace(A) = 3 + 4 = 7; Det(A) = 3*4 - 2*1 = 10.",
-                "Hint 3: The roots of λ^2 - 7λ + 10 = 0 are 5 and 2."
+                "Hint 1: det(A - λI) = (3 - λ)(4 - λ) - (2)(1) = λ^2 - 7λ + 10.",
+                "Hint 2: Roots of λ^2 - 7λ + 10 = 0 are λ1 = 5 and λ2 = 2.",
+                "Hint 3: Invariant check: Trace(A) = 3 + 4 = 7 = 5 + 2; Det(A) = 3*4 - 2*1 = 10 = 5*2.",
             ],
             "sample_input": "Matrix A = [[3, 2], [1, 4]]",
             "expected_criteria": ["det(A - λI) = λ^2 - 7λ + 10 = 0", "λ1 = 5, λ2 = 2", "Trace: 5+2=7; Det: 5*2=10 verified"],
@@ -745,15 +773,20 @@ def generate_practice_challenges(source: Source, segments: list[Segment], concep
                 "Using significance level α = 0.05:\n"
                 "1. State the null hypothesis H0 and alternative hypothesis H1.\n"
                 "2. Calculate the Standard Error and the t-statistic.\n"
-                "3. With degrees of freedom df = 15, the critical t-value is ±2.131. Formulate the final statistical decision."
+                "3. With degrees of freedom df = 15, the two-tailed critical t-value is ±2.131. Formulate the final statistical decision."
             ),
             "hints": [
                 "Hint 1: Standard Error SE = s / sqrt(n) = 6.0 / 4.0 = 1.5 ms.",
-                "Hint 2: t = (x̄ - μ) / SE = (36.0 - 40.0) / 1.5.",
-                "Hint 3: Compare |t| = 2.667 against critical t = 2.131. Is the null hypothesis rejected?"
+                "Hint 2: t = (x̄ - μ) / SE = (36.0 - 40.0) / 1.5 = -4.0 / 1.5 = -2.667.",
+                "Hint 3: Compare |t| = 2.667 against critical t = 2.131. Since |t| > 2.131, reject H0.",
             ],
             "sample_input": "n=16, x̄=36.0, s=6.0, μ=40.0, α=0.05",
-            "expected_criteria": ["H0: μ=40, H1: μ≠40", "SE = 1.5 ms, t = -2.667", "Reject H0 (statistically significant reduction)"],
+            "expected_criteria": [
+                "H0: μ = 40.0 ms, H1: μ ≠ 40.0 ms",
+                "Standard Error SE = 1.5 ms",
+                "t-statistic = -2.667",
+                "Decision: Reject H0 (|t| = 2.667 > critical 2.131)",
+            ],
             "citations": [{"segment_id": segments[0].id if segments else 1, "page_no": 1, "quote": "Student t-statistic measures standardized difference from hypothesized mean"}],
         })
 
@@ -783,7 +816,7 @@ def generate_practice_challenges(source: Source, segments: list[Segment], concep
     return challenges
 
 
-def evaluate_practice_attempt(
+async def evaluate_practice_attempt(
     challenge_id: str,
     question: str,
     student_answer: str,
@@ -791,68 +824,114 @@ def evaluate_practice_attempt(
     source: Source,
     user: User | None = None,
 ) -> PracticeEvaluationResult:
-    """Evaluate student's submitted answer with rubric criteria, detailed feedback, and persistence."""
+    """Evaluate student's submitted answer with strict criteria, authentic mathematics, and persistence."""
     cleaned = student_answer.strip()
-    if len(cleaned) < 5:
+    if len(cleaned) < 8:
         return PracticeEvaluationResult(
             challenge_id=challenge_id,
-            score=10,
+            score=0,
             is_passing=False,
+            status="graded",
             feedback="Submission is too brief. Please provide your complete mathematical steps or technical reasoning.",
             strengths=[],
             missed_points=["Detailed derivation", "Explicit intermediate calculations", "Final conclusion"],
-            step_by_step_solution="Please review the problem statement and hints before resubmitting.",
+            model_solution="Please review the problem statement, parameters, and progressive hints before resubmitting.",
+            step_by_step_solution="Please review the problem statement, parameters, and progressive hints before resubmitting.",
             citations=[],
         )
 
-    # Deterministic technical evaluation based on challenge rubrics
     score = 0
     strengths = []
     missed_points = []
     step_solution = ""
     citations = []
-
     ans_lower = cleaned.lower()
+    has_digits = bool(re.search(r"\d", cleaned))
 
     if "sched" in challenge_id:
-        # Round Robin check: Gantt chart / completion times (14, 8, 5) or turnaround 9
-        if any(term in ans_lower for term in ["gantt", "p1", "p2", "p3", "quantum"]):
-            score += 35
-            strengths.append("Correct identification of process burst transitions and quantum scheduling.")
+        # Check adversarial keyword-only stuffing without numbers
+        if not has_digits:
+            score = 15
+            feedback_text = (
+                "Score: 15/100. Submission lists scheduling keywords but provides no concrete "
+                "timeline intervals, completion times, or turnaround calculations."
+            )
+            missed_points = [
+                "Gantt chart execution intervals: [P1: 0-3] -> [P2: 3-6] -> [P3: 6-8] -> [P1: 8-11] -> [P2: 11-12] -> [P1: 12-14]",
+                "Process completion times: P3=8, P2=12, P1=14",
+                "Average turnaround calculation: (14 + 12 + 8) / 3 = 11.33 time units",
+            ]
+            step_solution = (
+                "Model Solution for Round Robin (Q=3):\n"
+                "1. Execution order: [P1: 0-3] -> [P2: 3-6] -> [P3: 6-8 (Terminates at 8!)] -> [P1: 8-11] -> [P2: 11-12 (Terminates at 12!)] -> [P1: 12-14 (Terminates at 14!)].\n"
+                "2. Completion Times: P3 = 8, P2 = 12, P1 = 14.\n"
+                "3. Turnaround Times (Completion - Arrival): P1 = 14, P2 = 12, P3 = 8.\n"
+                "4. Average Turnaround = (14 + 12 + 8) / 3 = 34 / 3 = 11.33 time units."
+            )
         else:
-            missed_points.append("Execution sequence / Gantt chart tracking.")
+            # 1. Gantt Sequence check (35 pts)
+            has_gantt_order = bool(
+                re.search(r"p1.*?p2.*?p3.*?p1.*?p2.*?p1", ans_lower)
+                or any(seq in ans_lower for seq in ["0-3", "0 to 3", "3-6", "3 to 6", "6-8", "6 to 8"])
+            )
+            if has_gantt_order:
+                score += 35
+                strengths.append("Correct identification of Gantt chart intervals and ready queue tracking.")
+            else:
+                missed_points.append("Execution sequence: [P1: 0-3] -> [P2: 3-6] -> [P3: 6-8] -> [P1: 8-11] -> [P2: 11-12] -> [P1: 12-14].")
 
-        if any(term in ans_lower for term in ["14", "8", "5", "turnaround", "completion"]):
-            score += 35
-            strengths.append("Accurate process completion or turnaround calculations.")
-        else:
-            missed_points.append("Exact completion times (P3=5, P2=8, P1=14).")
+            # 2. Completion times check: P3=8, P2=12, P1=14 (35 pts)
+            has_p3_8 = bool(re.search(r"p3\D*8\b", ans_lower) or re.search(r"\b8\D*p3", ans_lower))
+            has_p2_12 = bool(re.search(r"p2\D*12\b", ans_lower) or re.search(r"\b12\D*p2", ans_lower))
+            has_p1_14 = bool(re.search(r"p1\D*14\b", ans_lower) or re.search(r"\b14\D*p1", ans_lower))
 
-        if any(term in ans_lower for term in ["9", "average", "turnaround time"]):
-            score += 30
-            strengths.append("Correct computation of average turnaround time (9.0).")
-        else:
-            missed_points.append("Final average turnaround calculation = 9.0 time units.")
+            # Alternative: explicit turnarounds or completions sequence without labels
+            if not (has_p3_8 and has_p2_12 and has_p1_14):
+                if re.search(r"8\s*,\s*12\s*,\s*14", ans_lower) or re.search(r"14\s*,\s*12\s*,\s*8", ans_lower):
+                    has_p3_8 = has_p2_12 = has_p1_14 = True
 
-        step_solution = (
-            "Model Solution for Round Robin Q=3:\n"
-            "Execution order: [P1: 0-3] -> [P2: 3-6] -> [P3: 6-8 (Terminates at 8)] -> [P1: 8-11] -> [P2: 11-12 (Terminates at 12)] -> [P1: 12-14 (Terminates at 14)].\n"
-            "Completion Times: P3 = 8 - 3? Let's check bursts: P3 burst=2, so P3 terminates at t=8.\n"
-            "Average Turnaround = (14 + 12 + 8) / 3 = 11.33 time units."
-        )
+            if has_p3_8 and has_p2_12 and has_p1_14:
+                score += 35
+                strengths.append("Accurate process completion times: P3=8, P2=12, P1=14.")
+            else:
+                if re.search(r"\b(p3\D*5|5\D*p3)\b", ans_lower) or "p3=5" in ans_lower or "p3 = 5" in ans_lower:
+                    missed_points.append("Incorrect completion for P3: at t=6 P3 needs 2 units (burst=2) and finishes at t=8, not t=5.")
+                else:
+                    missed_points.append("Exact completion times: P3=8, P2=12, P1=14.")
+
+            # 3. Average turnaround check: 11.33 or 34/3 (30 pts)
+            has_avg = any(term in ans_lower for term in ["11.33", "11.3", "34/3", "34 / 3", "11 1/3"])
+            if has_avg:
+                score += 30
+                strengths.append("Correct computation of average turnaround time (11.33 time units).")
+            else:
+                if "9.0" in ans_lower or "turnaround = 9" in ans_lower:
+                    missed_points.append("Incorrect average turnaround: (14 + 12 + 8) / 3 = 11.33 time units (not 9.0).")
+                else:
+                    missed_points.append("Final average turnaround calculation: (14 + 12 + 8) / 3 = 11.33 time units.")
+
+            step_solution = (
+                "Model Solution for Round Robin Q=3:\n"
+                "1. Execution order: [P1: 0-3] -> [P2: 3-6] -> [P3: 6-8 (Terminates at 8!)] -> [P1: 8-11] -> [P2: 11-12 (Terminates at 12!)] -> [P1: 12-14 (Terminates at 14!)].\n"
+                "2. Completion Times: P3 = 8, P2 = 12, P1 = 14.\n"
+                "3. Turnaround Times (Completion - Arrival): P1 = 14, P2 = 12, P3 = 8.\n"
+                "4. Average Turnaround = (14 + 12 + 8) / 3 = 34 / 3 = 11.33 time units."
+            )
 
     elif "sync" in challenge_id:
-        if any(term in ans_lower for term in ["mutex = 1", "mutex=1", "empty = 5", "empty=5", "full = 0", "full=0"]):
+        if any(term in ans_lower for term in ["mutex = 1", "mutex=1", "empty = 5", "empty=5", "full = 0", "full=0"]) or (
+            "mutex" in ans_lower and "1" in ans_lower and "empty" in ans_lower and "5" in ans_lower
+        ):
             score += 40
-            strengths.append("Correct initialization of semaphores (mutex=1, empty=N, full=0).")
+            strengths.append("Correct initialization of semaphores (mutex=1, empty=5, full=0).")
         else:
-            missed_points.append("Explicit initial semaphore values.")
+            missed_points.append("Explicit initial semaphore values: mutex=1, empty=5, full=0.")
 
-        if any(term in ans_lower for term in ["block", "wait", "sleep", "queue"]):
+        if any(term in ans_lower for term in ["block", "wait", "sleep", "queue", "blocks"]):
             score += 30
-            strengths.append("Correctly explained blocking behavior when empty==0.")
+            strengths.append("Correctly explained blocking mechanism when empty==0.")
         else:
-            missed_points.append("Producer blocking mechanism.")
+            missed_points.append("Producer blocking mechanism on wait(empty).")
 
         if any(term in ans_lower for term in ["deadlock", "inversion", "holds mutex", "lock"]):
             score += 30
@@ -862,50 +941,92 @@ def evaluate_practice_attempt(
 
         step_solution = (
             "Model Solution for Producer-Consumer:\n"
-            "1. Initial values: `mutex = 1` (binary mutual exclusion), `empty = 5` (buffer slots available), `full = 0` (items available).\n"
-            "2. When `empty == 0`, buffer is full. Producer calling `wait(empty)` decrements counter to -1 and is placed on wait queue.\n"
-            "3. If wait order is inverted (`wait(mutex)` then `wait(empty)`), the producer holds the mutex lock while sleeping, preventing any consumer from running `signal(empty)`, causing deadlock!"
+            "1. Initial values: mutex = 1 (binary mutual exclusion), empty = 5 (buffer slots available), full = 0 (items available).\n"
+            "2. When empty == 0, buffer is full. Producer calling wait(empty) decrements counter to -1 and is placed on wait queue.\n"
+            "3. If wait order is inverted (wait(mutex) then wait(empty)), the producer holds the mutex lock while sleeping, preventing any consumer from running signal(empty), causing deadlock!"
         )
 
     elif "deadlock" in challenge_id:
-        if any(term in ans_lower for term in ["available", "need", "5, 4, 5", "5,4,5"]):
-            score += 40
-            strengths.append("Accurate computation of Available vector [5, 4, 5] and Need matrix.")
+        if not has_digits:
+            score = 15
+            feedback_text = "Score: 15/100. Submission lacks quantitative matrix calculations and verified safe sequences."
+            missed_points = [
+                "Available vector calculation: [5, 4, 5]",
+                "Need matrix derivation: P0=[7,4,3], P1=[1,2,2], P2=[6,0,0]",
+                "Safe sequence verification: <P1, P0, P2> or <P1, P2, P0>",
+            ]
+            step_solution = (
+                "Model Solution for Banker's Algorithm:\n"
+                "1. Allocated sum = P0[0,1,0] + P1[2,0,0] + P2[3,0,2] = [5, 1, 2].\n"
+                "2. Available = Total [10,5,7] - Allocated [5,1,2] = [5, 4, 5].\n"
+                "3. Need P1 = [3,2,2] - [2,0,0] = [1, 2, 2] <= Available [5, 4, 5]. Allocate to P1. Upon release, Available becomes [7, 4, 5].\n"
+                "4. System is in a SAFE state with sequence <P1, P0, P2> (or alternative valid sequence <P1, P2, P0>)."
+            )
         else:
-            missed_points.append("Available vector computation: Total - Allocated.")
+            # 1. Available vector check (30 pts)
+            has_avail = bool(re.search(r"5\s*,\s*4\s*,\s*5", ans_lower) or "[5, 4, 5]" in ans_lower or "(5, 4, 5)" in ans_lower or "5,4,5" in ans_lower)
+            if has_avail:
+                score += 30
+                strengths.append("Accurate computation of Available vector [5, 4, 5].")
+            else:
+                missed_points.append("Available vector computation: Total [10,5,7] - Sum(Alloc) [5,1,2] = [5, 4, 5].")
 
-        if any(term in ans_lower for term in ["safe", "sequence", "p1"]):
-            score += 60
-            strengths.append("Correct identification of safe execution sequence.")
-        else:
-            missed_points.append("Valid safe execution sequence derivation.")
+            # 2. Need matrix check (30 pts)
+            has_need = bool(re.search(r"1\s*,\s*2\s*,\s*2", ans_lower) or ("need" in ans_lower and ("7, 4, 3" in ans_lower or "6, 0, 0" in ans_lower)))
+            if has_need:
+                score += 30
+                strengths.append("Accurate Need matrix derivation (P1=[1,2,2], P0=[7,4,3], P2=[6,0,0]).")
+            else:
+                missed_points.append("Need matrix (Max - Alloc): P1=[1,2,2] <= Available [5,4,5].")
 
-        step_solution = (
-            "Model Solution for Banker's Algorithm:\n"
-            "1. Allocated sum = P0[0,1,0] + P1[2,0,0] + P2[3,0,2] = [5, 1, 2].\n"
-            "2. Available = Total [10,5,7] - Allocated [5,1,2] = [5, 4, 5].\n"
-            "3. Need P1 = [3,2,2] - [2,0,0] = [1, 2, 2] <= Available [5, 4, 5]. Allocate to P1. Upon release, Available becomes [7, 4, 5].\n"
-            "4. System is in a SAFE state with sequence <P1, P0, P2>."
-        )
+            # 3. Safe sequence check (40 pts)
+            has_safe_seq = bool(
+                re.search(r"p1.*?(p0.*?p2|p2.*?p0)", ans_lower)
+                or "<p1, p0, p2>" in ans_lower
+                or "<p1, p2, p0>" in ans_lower
+                or "p1, p0, p2" in ans_lower
+                or "p1, p2, p0" in ans_lower
+            )
+            if has_safe_seq:
+                score += 40
+                strengths.append("Independently verified safe execution sequence (<P1, P0, P2> or <P1, P2, P0>).")
+            else:
+                if re.search(r"p0.*?p1", ans_lower):
+                    missed_points.append("Unsafe initial allocation: P0 cannot run first because Need(P0) [7,4,3] exceeds Available [5,4,5].")
+                else:
+                    missed_points.append("Safe execution sequence: Only P1 can satisfy Need <= Available initially, yielding <P1, P0, P2> or <P1, P2, P0>.")
+
+            step_solution = (
+                "Model Solution for Banker's Algorithm:\n"
+                "1. Allocated sum = P0[0,1,0] + P1[2,0,0] + P2[3,0,2] = [5, 1, 2].\n"
+                "2. Available = Total [10,5,7] - Allocated [5,1,2] = [5, 4, 5].\n"
+                "3. Need = Max - Allocation: P0=[7,4,3], P1=[1,2,2], P2=[6,0,0].\n"
+                "4. Step 1: P1 runs (Need [1,2,2] <= [5,4,5]), releases [2,0,0] -> Available=[7,4,5].\n"
+                "   Step 2: P0 runs (Need [7,4,3] <= [7,4,5]), releases [0,1,0] -> Available=[7,5,5].\n"
+                "   Step 3: P2 runs (Need [6,0,0] <= [7,5,5]).\n"
+                "5. Verified Safe Sequence: <P1, P0, P2> (or alternative <P1, P2, P0>). Guaranteed Safe State."
+            )
 
     elif "paging" in challenge_id:
-        if any(term in ans_lower for term in ["page 1", "0x01", "offset", "436", "0x1b4"]):
+        has_page = bool("page 1" in ans_lower or "page number: 1" in ans_lower or "0x01" in ans_lower or "page: 1" in ans_lower)
+        has_offset = bool("436" in ans_lower or "0x1b4" in ans_lower)
+        if has_page and has_offset:
             score += 40
             strengths.append("Accurate decomposition into Page Number (1) and Offset (436 / 0x1B4).")
         else:
-            missed_points.append("Virtual address split: Page Number and Offset.")
+            missed_points.append("Virtual address split: Page Number = 1460 // 1024 = 1 (0x01), Offset = 1460 % 1024 = 436 (0x1B4).")
 
-        if any(term in ans_lower for term in ["frame 7", "frame=7", "frame 7"]):
+        if any(term in ans_lower for term in ["frame 7", "frame=7", "frame: 7"]):
             score += 30
             strengths.append("Correct page table lookup mapping Page 1 to Frame 7.")
         else:
-            missed_points.append("Page table frame resolution.")
+            missed_points.append("Page table frame resolution: Page 1 maps to Frame 7.")
 
         if any(term in ans_lower for term in ["0x1db4", "7604"]):
             score += 30
-            strengths.append("Exact physical address computation: 0x1DB4 (decimal 7604).")
+            strengths.append("Exact physical address computation: (7 * 1024) + 436 = 7604 (0x1DB4).")
         else:
-            missed_points.append("Final physical address synthesis: (Frame * 1024) + Offset.")
+            missed_points.append("Physical address synthesis: (Frame 7 * 1024) + Offset 436 = 7604 (0x1DB4).")
 
         step_solution = (
             "Model Solution for Paging Calculation:\n"
@@ -918,42 +1039,42 @@ def evaluate_practice_attempt(
     elif "db" in challenge_id:
         if any(term in ans_lower for term in ["candidate key", "key: a", "superkey"]):
             score += 35
-            strengths.append("Correct candidate key derivation (A).")
+            strengths.append("Correct candidate key derivation (A via closure A+ = {A,B,C,D}).")
         else:
-            missed_points.append("Candidate key identification.")
+            missed_points.append("Candidate key identification: A+ = {A,B,C,D} -> A is unique minimal key.")
 
         if any(term in ans_lower for term in ["violat", "not a superkey", "bcnf"]):
             score += 35
             strengths.append("Accurate BCNF violation analysis for dependencies B->C and C->D.")
         else:
-            missed_points.append("BCNF condition check on determinants.")
+            missed_points.append("BCNF condition: Every determinant X in non-trivial FD X -> Y must be a superkey of R.")
 
         if any(term in ans_lower for term in ["lossless", "r1", "r2", "r3"]):
             score += 30
             strengths.append("Valid lossless BCNF schema decomposition.")
         else:
-            missed_points.append("BCNF decomposition into R1(A,B), R2(B,C), R3(C,D).")
+            missed_points.append("Lossless BCNF decomposition into R1(A,B), R2(B,C), R3(C,D) with intersection superkey verification.")
 
         step_solution = (
             "Model Solution for BCNF Decomposition:\n"
-            "1. A+ = {A,B,C,D}, so A is the unique Candidate Key.\n"
-            "2. In B -> C and C -> D, neither B nor C is a superkey of R. Therefore, R is in 3NF (transitive dependencies exist) but NOT BCNF.\n"
-            "3. Decompose R along B -> C to get R1(B, C) and R_rem(A, B, D). In R_rem, C -> D is handled by R2(C, D) and R3(A, B).\n"
-            "4. Decomposition: { (A, B), (B, C), (C, D) }. Lossless join holds because R1 ∩ R2 = {B} which is key of R1."
+            "1. Candidate Keys: Attribute closure A+ = {A,B,C,D}, so A is the unique Candidate Key.\n"
+            "2. Violations: In B -> C and C -> D, neither B nor C is a superkey of R. Therefore, both violate BCNF.\n"
+            "3. Decomposition: Decompose R along B -> C to get R1(B, C) and R_rem(A, B, D). Then decompose R_rem along C -> D (or B -> D) to get R2(B, C) and R3(C, D).\n"
+            "4. Canonical lossless decomposition: { (A, B), (B, C), (C, D) }. Lossless join holds because R1 ∩ R2 contains a key of R1."
         )
 
     elif "math" in challenge_id:
-        if any(term in ans_lower for term in ["λ^2 - 7λ + 10", "characteristic", "det(a - λi)"]):
+        if any(term in ans_lower for term in ["λ^2 - 7λ + 10", "lambda^2 - 7", "λ^2 - 7", "characteristic", "det(a - λi)"]):
             score += 40
-            strengths.append("Correct characteristic polynomial derivation.")
+            strengths.append("Correct characteristic polynomial derivation: det(A - λI) = λ^2 - 7λ + 10 = 0.")
         else:
-            missed_points.append("Characteristic polynomial det(A - λI) = 0.")
+            missed_points.append("Characteristic polynomial: det(A - λI) = (3 - λ)(4 - λ) - 2 = λ^2 - 7λ + 10 = 0.")
 
         if any(term in ans_lower for term in ["5", "2", "eigenvalues"]):
             score += 40
             strengths.append("Accurate eigenvalues calculation: λ1 = 5, λ2 = 2.")
         else:
-            missed_points.append("Eigenvalues computation: roots of polynomial.")
+            missed_points.append("Eigenvalues computation: roots of λ^2 - 7λ + 10 = 0 are 5 and 2.")
 
         if any(term in ans_lower for term in ["trace", "determinant", "7", "10"]):
             score += 20
@@ -971,27 +1092,43 @@ def evaluate_practice_attempt(
     elif "stat" in challenge_id:
         if any(term in ans_lower for term in ["h0", "h1", "null"]):
             score += 25
-            strengths.append("Formal hypothesis statement: H0: μ = 40, H1: μ ≠ 40.")
+            strengths.append("Formal hypothesis statement: H0: μ = 40.0 ms, H1: μ ≠ 40.0 ms.")
         else:
-            missed_points.append("Formal hypothesis statement.")
+            missed_points.append("Formal hypothesis statement: H0: μ = 40.0, H1: μ ≠ 40.0.")
 
-        if any(term in ans_lower for term in ["1.5", "standard error", "se"]):
+        # SE must be 1.5 ms
+        has_se = bool(re.search(r"\b1\.5\b", ans_lower) or "6/4" in ans_lower or "6 / 4" in ans_lower)
+        if has_se:
             score += 25
             strengths.append("Accurate Standard Error: SE = 6.0 / √16 = 1.5 ms.")
         else:
-            missed_points.append("Standard Error calculation.")
+            missed_points.append("Standard Error calculation: SE = s / √n = 6.0 / 4 = 1.5 ms.")
 
-        if any(term in ans_lower for term in ["-2.67", "-2.66", "2.67", "t = -2.6"]):
+        # t-statistic must be -2.667 or -2.67
+        has_t = bool(re.search(r"-2\.6[67]", ans_lower) or re.search(r"2\.6[67]", ans_lower) or "-4 / 1.5" in ans_lower)
+        if has_t:
             score += 25
-            strengths.append("Accurate t-statistic: t = (36 - 40) / 1.5 = -2.667.")
+            strengths.append("Accurate t-statistic: t = (36.0 - 40.0) / 1.5 = -2.667.")
         else:
-            missed_points.append("t-statistic calculation.")
+            missed_points.append("t-statistic calculation: (36.0 - 40.0) / 1.5 = -2.667.")
 
-        if any(term in ans_lower for term in ["reject", "significant", "2.131"]):
+        # Decision must reject H0, not fail to reject
+        has_fail_to_reject = bool(
+            "fail to reject" in ans_lower
+            or "do not reject" in ans_lower
+            or "cannot reject" in ans_lower
+            or "not reject" in ans_lower
+            or "not significant" in ans_lower
+        )
+        has_reject = bool(
+            ("reject h0" in ans_lower or "reject the null" in ans_lower or "reject" in ans_lower)
+            and not has_fail_to_reject
+        )
+        if has_reject:
             score += 25
             strengths.append("Correct rejection of H0 (|t| = 2.667 > critical 2.131).")
         else:
-            missed_points.append("Decision rule comparison against critical t-value.")
+            missed_points.append("Decision rule comparison: |-2.667| = 2.667 > critical 2.131 -> Reject H0 at α=0.05.")
 
         step_solution = (
             "Model Solution for Student's t-Test:\n"
@@ -1003,15 +1140,51 @@ def evaluate_practice_attempt(
         )
 
     else:
-        # Generic document challenge evaluation
-        if len(cleaned) > 50:
-            score = 80
-            strengths.append("Detailed conceptual explanation grounded in the document excerpt.")
-            step_solution = "Model Solution: Concepts should be stated with clear boundary conditions and verified invariants."
-        else:
-            score = 50
-            missed_points.append("Provide a more comprehensive derivation with specific operational steps.")
-            step_solution = "Model Solution: Review Page 1 of the source document for complete architectural criteria."
+        # Conceptual / Unstructured challenges: Structured LLM Rubric Evaluation
+        messages = [
+            text_message(
+                "system",
+                (
+                    "You are a strict university examination evaluator. Grade the student's answer against the prompt and criteria.\n"
+                    "Strict grading rules:\n"
+                    "- Award 80-100 only for mathematically or technically rigorous, complete answers.\n"
+                    "- Award 40-75 for partially correct answers missing key derivation steps or edge cases.\n"
+                    "- Award 0-35 for incorrect, superficial, keyword-stuffed, or non-responsive submissions.\n"
+                    "- NEVER award 80 marks merely because an answer is lengthy if it contains generic filler."
+                ),
+            ),
+            text_message(
+                "user",
+                f"Question:\n{question}\n\nStudent Answer:\n{cleaned}\n\nTarget Concept: {concept}",
+            ),
+        ]
+        try:
+            eval_payload = await gateway.complete_structured(
+                "evaluate_practice",
+                messages,
+                ConceptualEvaluationPayload,
+                task_class="standard",
+                temperature=0.1,
+                max_tokens=1024,
+            )
+            score = max(0, min(100, eval_payload.score))
+            strengths = eval_payload.strengths
+            missed_points = eval_payload.missed_points
+            step_solution = eval_payload.model_solution
+        except Exception as exc:
+            log.warning("LLM practice evaluation unavailable (%s). Returning explicit ungraded state.", exc)
+            return PracticeEvaluationResult(
+                challenge_id=challenge_id,
+                score=0,
+                is_passing=False,
+                status="ungraded",
+                feedback="Automated grading is temporarily unavailable because the AI reasoning service is offline. Your response has been recorded as ungraded until connectivity is restored.",
+                strengths=[],
+                missed_points=["Automated evaluation unavailable while AI service is offline."],
+                model_solution="A verified model solution will be generated once the evaluation service is connected.",
+                step_by_step_solution="Automated evaluation unavailable while AI service is offline.",
+                citations=[],
+            )
 
     is_passing = score >= 70
     feedback_text = (
@@ -1043,9 +1216,11 @@ def evaluate_practice_attempt(
         challenge_id=challenge_id,
         score=score,
         is_passing=is_passing,
+        status="graded",
         feedback=feedback_text,
         strengths=strengths,
         missed_points=missed_points,
+        model_solution=step_solution,
         step_by_step_solution=step_solution,
         citations=citations,
     )

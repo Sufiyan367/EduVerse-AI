@@ -338,7 +338,13 @@ def _extract_docx_sync(path: Path) -> list[RawUnit]:
         raise PipelineError(f"'{path.name}' is corrupt or cannot be opened as a valid Word document.") from exc
 
     units: list[RawUnit] = []
-    current_page = 1
+    # Only assign numerical page numbers if reliable page breaks exist in the document.
+    has_page_breaks = any(
+        ("lastRenderedPageBreak" in child.xml or 'type="page"' in child.xml)
+        for child in document.element.body
+        if child.tag.endswith("p")
+    )
+    current_page: int | None = 1 if has_page_breaks else None
     in_code = False
     code_lines: list[str] = []
 
@@ -358,10 +364,10 @@ def _extract_docx_sync(path: Path) -> list[RawUnit]:
             stripped = raw.strip()
             style = (paragraph.style.name or "").lower() if paragraph.style else ""
 
-            # Check for hard page breaks
+            # Check for authentic hard or soft page breaks
             xml = child.xml
-            if "lastRenderedPageBreak" in xml or 'type="page"' in xml:
-                current_page += 1
+            if has_page_breaks and ("lastRenderedPageBreak" in xml or 'type="page"' in xml):
+                current_page = (current_page or 1) + 1
 
             if not stripped:
                 if in_code and code_lines:
@@ -375,7 +381,7 @@ def _extract_docx_sync(path: Path) -> list[RawUnit]:
             )
             if is_h1:
                 flush_code()
-                current_page += 1
+                # Do NOT fake page numbers by incrementing on practical headings
                 text = f"# {stripped.lstrip('# ')}"
                 units.append(RawUnit(text=text, page_no=current_page))
                 continue
@@ -440,11 +446,23 @@ def _extract_docx_sync(path: Path) -> list[RawUnit]:
                     in_code = True
                     continue
 
-                # Markdown-format lists
+                # Markdown-format lists with nesting support
                 if style.startswith("list bullet"):
-                    units.append(RawUnit(text=f"- {stripped}", page_no=current_page))
+                    level = 1
+                    if "2" in style:
+                        level = 2
+                    elif "3" in style:
+                        level = 3
+                    indent = "  " * (level - 1)
+                    units.append(RawUnit(text=f"{indent}- {stripped}", page_no=current_page))
                 elif style.startswith("list number"):
-                    units.append(RawUnit(text=f"1. {stripped}", page_no=current_page))
+                    level = 1
+                    if "2" in style:
+                        level = 2
+                    elif "3" in style:
+                        level = 3
+                    indent = "  " * (level - 1)
+                    units.append(RawUnit(text=f"{indent}1. {stripped}", page_no=current_page))
                 else:
                     units.append(RawUnit(text=stripped, page_no=current_page))
 

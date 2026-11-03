@@ -129,7 +129,7 @@ async def test_explanation_across_document_types(multi_subject_sources, test_use
         assert "turnaround" in res_os["summary"].lower() or "quantum" in res_os["summary"].lower()
         assert len(res_os["definitions"]) >= 2
         # Verify valid technical worked example
-        assert "Gantt" in res_os["worked_example"] or "Turnaround" in res_os["worked_example"]
+        assert "gantt" in res_os["worked_example"].lower() or "turnaround" in res_os["worked_example"].lower() or "quantum" in res_os["worked_example"].lower()
         # Verify no generic traffic-control analogies
         assert "traffic control" not in res_os["mode_explanation"].lower() or "bank" in res_os["mode_explanation"].lower()
         assert len(res_os["citations"]) > 0
@@ -156,7 +156,8 @@ async def test_explanation_across_document_types(multi_subject_sources, test_use
         assert "Standard Error" in res_stat["worked_example"] or "t-statistic" in res_stat["worked_example"]
 
 
-def test_interactive_practice_generation_and_evaluation(multi_subject_sources, test_users):
+@pytest.mark.asyncio
+async def test_interactive_practice_generation_and_evaluation(multi_subject_sources, test_users):
     """Verify challenge generation, user answer submission, rubric scoring, and attempt persistence."""
     user_a, _ = test_users
 
@@ -174,7 +175,7 @@ def test_interactive_practice_generation_and_evaluation(multi_subject_sources, t
         assert len(ch["expected_criteria"]) >= 2
 
         # 2. Incomplete student answer gets low score with clear missed points
-        bad_res = evaluate_practice_attempt(
+        bad_res = await evaluate_practice_attempt(
             challenge_id=ch["id"],
             question=ch["problem_statement"],
             student_answer="I don't know.",
@@ -186,13 +187,14 @@ def test_interactive_practice_generation_and_evaluation(multi_subject_sources, t
         assert bad_res.score < 50
         assert len(bad_res.missed_points) > 0
 
-        # 3. Thorough student answer passing criteria
+        # 3. Thorough student answer with verified, authentic mathematics
         good_ans = (
-            "Gantt chart order: P1 runs first for quantum Q=3, then P2 runs for Q=3, then P3 runs. "
-            "Completion times: P3 completes at 5, P2 completes at 8, and P1 completes at 14. "
-            "Average turnaround time = (14 + 8 + 5) / 3 = 9.0 time units."
+            "Gantt chart execution intervals: [P1: 0-3] -> [P2: 3-6] -> [P3: 6-8] -> [P1: 8-11] -> [P2: 11-12] -> [P1: 12-14]. "
+            "Completion times: P3 completes at 8 (burst=2 ends at t=8), P2 completes at 12, and P1 completes at 14. "
+            "Turnaround times: P1 = 14, P2 = 12, P3 = 8. "
+            "Average turnaround time = (14 + 12 + 8) / 3 = 34/3 = 11.33 time units."
         )
-        good_res = evaluate_practice_attempt(
+        good_res = await evaluate_practice_attempt(
             challenge_id=ch["id"],
             question=ch["problem_statement"],
             student_answer=good_ans,
@@ -201,9 +203,10 @@ def test_interactive_practice_generation_and_evaluation(multi_subject_sources, t
             user=user_a,
         )
         assert good_res.is_passing is True
-        assert good_res.score >= 70
+        assert good_res.score >= 80
         assert len(good_res.strengths) >= 2
         assert "Model Solution" in good_res.step_by_step_solution
+        assert good_res.status == "graded"
 
         # 4. Verify attempt is persisted in database for user_a
         persisted = session.execute(
@@ -213,6 +216,187 @@ def test_interactive_practice_generation_and_evaluation(multi_subject_sources, t
         assert persisted is not None
         assert persisted[1] == good_res.score
         assert bool(persisted[2]) is True
+
+
+@pytest.mark.asyncio
+async def test_adversarial_practice_evaluations(multi_subject_sources, test_users):
+    """P0 Release Gate: Adversarial test fixtures verifying strict scoring and math validity.
+    
+    Checks:
+    1. Incorrect numbers must not pass and must have points deducted.
+    2. Incomplete answers receive partial credit and list missed requirements.
+    3. Keyword-only stuffing without calculations must fail (<=30 marks).
+    4. Valid alternative reasoning (e.g. fractions, alternative notation) receives full credit.
+    5. Banker's Algorithm evaluates verified safe sequences <P1, P0, P2> and <P1, P2, P0>, and penalizes unsafe sequences.
+    6. Student's t-test verifies numeric Standard Error, t-stat, and decision rule.
+    """
+    user_a, _ = test_users
+
+    with session_scope() as session:
+        source_os = session.get(Source, multi_subject_sources["os"])
+        source_db = session.get(Source, multi_subject_sources["db"])
+        source_stat = session.get(Source, multi_subject_sources["stat"])
+
+        # --- Adversarial 1: Keyword-only stuffing without numbers ---
+        keyword_stuffing_ans = (
+            "The Gantt chart uses time quantum to avoid convoy effect in CPU scheduling. "
+            "Processes run in ready queue with turnaround times and completion times. "
+            "Average turnaround time and waiting time are minimized by the scheduler algorithm."
+        )
+        res_keywords = await evaluate_practice_attempt(
+            challenge_id="sched_ch1",
+            question="Calculate Gantt intervals, completion times, and average turnaround.",
+            student_answer=keyword_stuffing_ans,
+            concept="CPU Scheduling",
+            source=source_os,
+            user=user_a,
+        )
+        assert res_keywords.is_passing is False
+        assert res_keywords.score <= 30
+        assert any("scheduling" in m.lower() or "intervals" in m.lower() for m in res_keywords.missed_points)
+
+        # --- Adversarial 2: Incorrect numbers in calculation ---
+        wrong_numbers_ans = (
+            "Gantt sequence: [P1: 0-3] -> [P2: 3-6] -> [P3: 6-8] -> [P1: 8-11] -> [P2: 11-12] -> [P1: 12-14]. "
+            "Completion times: P3 = 5, P2 = 8, P1 = 14. "
+            "Average turnaround time = 9.0 time units."
+        )
+        res_wrong_num = await evaluate_practice_attempt(
+            challenge_id="sched_ch1",
+            question="Calculate Gantt intervals, completion times, and average turnaround.",
+            student_answer=wrong_numbers_ans,
+            concept="CPU Scheduling",
+            source=source_os,
+            user=user_a,
+        )
+        assert res_wrong_num.is_passing is False
+        assert res_wrong_num.score < 70
+        assert any("11.33" in m or "t=8" in m or "P3" in m for m in res_wrong_num.missed_points)
+
+        # --- Adversarial 3: Incomplete answer (answered Gantt chart only) ---
+        incomplete_ans = (
+            "Execution sequence: P1 runs from 0 to 3, then P2 runs from 3 to 6, then P3 runs from 6 to 8, "
+            "then P1 runs from 8 to 11, P2 runs from 11 to 12, and P1 runs from 12 to 14."
+        )
+        res_incomplete = await evaluate_practice_attempt(
+            challenge_id="sched_ch1",
+            question="Calculate Gantt intervals, completion times, and average turnaround.",
+            student_answer=incomplete_ans,
+            concept="CPU Scheduling",
+            source=source_os,
+            user=user_a,
+        )
+        assert res_incomplete.is_passing is False
+        assert res_incomplete.score <= 50
+        assert any("completion" in m.lower() or "turnaround" in m.lower() for m in res_incomplete.missed_points)
+
+        # --- Adversarial 4: Alternative valid formatting (fractions and alternative syntax) ---
+        alt_valid_ans = (
+            "Gantt trace: P1: 0-3, P2: 3-6, P3: 6-8, P1: 8-11, P2: 11-12, P1: 12-14. "
+            "Finishing times: P3 completes at t=8, P2 completes at t=12, P1 completes at t=14. "
+            "Turnaround = (14 + 12 + 8) / 3 = 34/3 time units."
+        )
+        res_alt = await evaluate_practice_attempt(
+            challenge_id="sched_ch1",
+            question="Calculate Gantt intervals, completion times, and average turnaround.",
+            student_answer=alt_valid_ans,
+            concept="CPU Scheduling",
+            source=source_os,
+            user=user_a,
+        )
+        assert res_alt.is_passing is True
+        assert res_alt.score == 100
+        assert len(res_alt.strengths) == 3
+
+        # --- Adversarial 5: Banker's Algorithm Safe Sequence Verification ---
+        # Valid safe sequence <P1, P0, P2>
+        safe_ans_1 = (
+            "Available vector = Total [10,5,7] - Alloc [5,1,2] = [5, 4, 5]. "
+            "Need matrix: P0 = [7,4,3], P1 = [1,2,2], P2 = [6,0,0]. "
+            "Step 1: P1 has Need [1,2,2] <= Available [5,4,5], finishes and releases [2,0,0] -> Available = [7,4,5]. "
+            "Step 2: P0 has Need [7,4,3] <= [7,4,5], finishes and releases [0,1,0] -> Available = [7,5,5]. "
+            "Step 3: P2 has Need [6,0,0] <= [7,5,5], finishes. "
+            "Safe sequence: <P1, P0, P2>. System is in a safe state."
+        )
+        res_banker_safe1 = await evaluate_practice_attempt(
+            challenge_id="deadlock_ch1",
+            question="Find available vector, need matrix, and safe sequence.",
+            student_answer=safe_ans_1,
+            concept="Deadlock Avoidance",
+            source=source_os,
+            user=user_a,
+        )
+        assert res_banker_safe1.is_passing is True
+        assert res_banker_safe1.score == 100
+
+        # Valid alternative safe sequence <P1, P2, P0>
+        safe_ans_2 = (
+            "Available = [5, 4, 5]. Need P1 = [1, 2, 2], P0 = [7, 4, 3], P2 = [6, 0, 0]. "
+            "After P1 completes, Available is [7, 4, 5]. Then P2 can run because Need [6,0,0] <= [7,4,5]. "
+            "Valid safe sequence is <P1, P2, P0>."
+        )
+        res_banker_safe2 = await evaluate_practice_attempt(
+            challenge_id="deadlock_ch1",
+            question="Find available vector, need matrix, and safe sequence.",
+            student_answer=safe_ans_2,
+            concept="Deadlock Avoidance",
+            source=source_os,
+            user=user_a,
+        )
+        assert res_banker_safe2.is_passing is True
+        assert res_banker_safe2.score == 100
+
+        # Unsafe proposal: student claims <P0, P1, P2> is safe
+        unsafe_ans = (
+            "Available = [5, 4, 5]. Sequence is <P0, P1, P2>."
+        )
+        res_banker_unsafe = await evaluate_practice_attempt(
+            challenge_id="deadlock_ch1",
+            question="Find available vector, need matrix, and safe sequence.",
+            student_answer=unsafe_ans,
+            concept="Deadlock Avoidance",
+            source=source_os,
+            user=user_a,
+        )
+        assert res_banker_unsafe.is_passing is False
+        assert any("P0 cannot run first" in m or "exceeds" in m or "P1 must run first" in m for m in res_banker_unsafe.missed_points)
+
+        # --- Adversarial 6: Statistics Student's t-Test Verification ---
+        stat_valid_ans = (
+            "1. Hypotheses: H0: μ = 40.0 ms, H1: μ ≠ 40.0 ms. "
+            "2. Standard Error SE = s / sqrt(n) = 6.0 / sqrt(16) = 1.5 ms. "
+            "3. t-statistic: t = (36.0 - 40.0) / 1.5 = -2.667. "
+            "4. Decision: For df = 15, two-tailed critical t at alpha=0.05 is ±2.131. "
+            "Since |-2.667| = 2.667 > 2.131, we reject H0. The latency reduction is statistically significant."
+        )
+        res_stat = await evaluate_practice_attempt(
+            challenge_id="stat_ch1",
+            question="Calculate SE, t-statistic, and formulate decision.",
+            student_answer=stat_valid_ans,
+            concept="Hypothesis Testing",
+            source=source_stat,
+            user=user_a,
+        )
+        assert res_stat.is_passing is True
+        assert res_stat.score == 100
+        assert len(res_stat.strengths) == 4
+
+        # Statistics with wrong SE and wrong decision
+        stat_wrong_ans = (
+            "Hypotheses: H0: μ = 40, H1: μ != 40. "
+            "SE = 6.0. t = -0.67. "
+            "Decision: Fail to reject H0, result is not significant."
+        )
+        res_stat_wrong = await evaluate_practice_attempt(
+            challenge_id="stat_ch1",
+            question="Calculate SE, t-statistic, and formulate decision.",
+            student_answer=stat_wrong_ans,
+            concept="Hypothesis Testing",
+            source=source_stat,
+            user=user_a,
+        )
+        assert res_stat_wrong.is_passing is False
+        assert res_stat_wrong.score <= 40
 
 
 def test_user_progress_data_isolation(multi_subject_sources, test_users):

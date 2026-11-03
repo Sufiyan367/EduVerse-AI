@@ -865,7 +865,7 @@ def get_practice_challenges(
 
 
 @router.post("/{source_id}/practice/evaluate")
-def evaluate_practice(
+async def evaluate_practice(
     source_id: int,
     payload: PracticeEvaluateRequest,
     user: User | None = Depends(get_optional_user),
@@ -879,7 +879,7 @@ def evaluate_practice(
             raise NotFoundError(f"Source {source_id} not found.")
         check_source_access(source, user)
 
-    result = evaluate_practice_attempt(
+    result = await evaluate_practice_attempt(
         challenge_id=payload.challenge_id,
         question=payload.question,
         student_answer=payload.student_answer,
