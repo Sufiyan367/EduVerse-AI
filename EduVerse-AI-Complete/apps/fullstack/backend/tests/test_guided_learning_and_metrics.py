@@ -845,12 +845,16 @@ def test_answer_option_randomization_distribution():
 
 def test_multi_subject_question_bank_coverage():
     """Verify domain question bank contains genuine academic questions across required curricula."""
+    assert "scheduling" in SUBJECT_QUESTION_BANK
+    assert "synchronization" in SUBJECT_QUESTION_BANK
+    assert "deadlock" in SUBJECT_QUESTION_BANK
+    assert "paging" in SUBJECT_QUESTION_BANK
     assert "operating_systems" in SUBJECT_QUESTION_BANK
     assert "databases" in SUBJECT_QUESTION_BANK
     assert "mathematics" in SUBJECT_QUESTION_BANK
     assert "statistics" in SUBJECT_QUESTION_BANK
 
-    for subject in ["operating_systems", "databases", "mathematics", "statistics"]:
+    for subject in ["scheduling", "synchronization", "deadlock", "paging", "operating_systems", "databases", "mathematics", "statistics"]:
         qlist = SUBJECT_QUESTION_BANK[subject]
         assert len(qlist) >= 10, f"Subject {subject} must contain at least 10 curriculum questions"
         for q in qlist:
@@ -859,6 +863,53 @@ def test_multi_subject_question_bank_coverage():
             assert len(q["explanation"]) > 20
             # Ensure no generic boilerplate
             assert "structured invariants" not in q["question_text"]
+
+
+def test_concurrent_quiz_submissions_atomic_single_winner(app_client, seeded_users):
+    """Verify that concurrent requests with the same quiz_token allow exactly one to succeed (200) and one to fail (409 Conflict)."""
+    import concurrent.futures
+
+    token1 = seeded_users["token1"]
+    headers1 = {"Authorization": f"Bearer {token1}"}
+
+    c_res = app_client.post(
+        "/api/v1/courses",
+        headers=headers1,
+        json={"code": "CS_CONCURRENCY", "name": "Concurrency Test Course", "semester": "Sem 3", "academic_year": "2025-2026", "description": "Course"},
+    )
+    course_id = c_res.json()["id"]
+
+    with session_scope() as session:
+        unit = CourseUnit(course_id=course_id, unit_number=1, title="Unit 1")
+        session.add(unit)
+        session.flush()
+        topic = SyllabusTopic(course_id=course_id, unit_id=unit.id, name="Critical Section Problem")
+        session.add(topic)
+        session.flush()
+        topic_id = topic.id
+
+    q_res = app_client.post(f"/api/v1/courses/{course_id}/topics/{topic_id}/learning/quiz", headers=headers1)
+    assert q_res.status_code == 200
+    q_data = q_res.json()
+    assert q_data["expires_in_seconds"] == 1800
+    quiz_token = q_data["quiz_token"]
+    answers = [{"question_id": q["id"], "selected_option": "A"} for q in q_data["questions"]]
+
+    def submit_attempt():
+        return app_client.post(
+            f"/api/v1/courses/{course_id}/topics/{topic_id}/learning/submit",
+            headers=headers1,
+            json={"answers": answers, "quiz_token": quiz_token},
+        )
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        f1 = executor.submit(submit_attempt)
+        f2 = executor.submit(submit_attempt)
+        r1 = f1.result()
+        r2 = f2.result()
+
+    status_codes = sorted([r1.status_code, r2.status_code])
+    assert status_codes == [200, 409], f"Expected one 200 and one 409 Conflict, got {status_codes}"
 
 
 def test_unsupported_topic_returns_explicit_unavailable(app_client, seeded_users):
@@ -1134,3 +1185,45 @@ def test_user_isolation_blocks_cross_tenant_access(app_client, seeded_users):
         json={"answers": [{"question_id": 1, "selected_option": "A"}], "quiz_token": "valid.token"},
     )
     assert res_sub.status_code == 404
+
+def test_source_workspace_and_explain_endpoints(app_client, seeded_users):
+    """Verify GET /sources/{id}/workspace and POST /sources/{id}/explain endpoints."""
+    token1 = seeded_users["token1"]
+    headers1 = {"Authorization": f"Bearer {token1}"}
+
+    # 1. Create a source
+    src_res = app_client.post(
+        "/api/v1/sources/text",
+        headers=headers1,
+        json={
+            "title": "Virtual Memory and Paging",
+            "content": "Virtual memory decouples logical address space from physical DRAM frames. The MMU uses a TLB to cache page-to-frame translations. Page faults occur when a page present bit is 0.",
+        },
+    )
+    assert src_res.status_code in (200, 201)
+    source_id = src_res.json()["source_id"]
+
+    # 2. Query unified workspace state
+    ws_res = app_client.get(f"/api/v1/sources/{source_id}/workspace", headers=headers1)
+    assert ws_res.status_code == 200
+    ws = ws_res.json()
+    assert ws["source"]["id"] == source_id
+    assert "processing" in ws
+    assert ws["processing"]["segments_count"] >= 0
+    assert "outline" in ws
+    assert "progress" in ws
+    assert ws["progress"]["mastery_score"] == 0.0  # Real initial mastery, no fake 65%
+
+    # 3. Call grounded topic explanation
+    exp_res = app_client.post(
+        f"/api/v1/sources/{source_id}/explain",
+        headers=headers1,
+        json={"topic": "Virtual Memory", "depth": "principle"},
+    )
+    assert exp_res.status_code == 200
+    exp = exp_res.json()
+    assert exp["topic"] == "Virtual Memory"
+    assert "summary" in exp
+    assert "definitions" in exp
+    assert "worked_example" in exp
+    assert "citations" in exp

@@ -476,3 +476,60 @@ export interface LlmStatus {
   message?: string
   models?: string[]
 }
+
+export interface DocumentOutlineItem {
+  title: string
+  level: number
+  index: number
+  page_no?: number | null
+  segment_id?: number | null
+}
+
+export interface DocumentProcessingState {
+  status: SourceStatus
+  error: string | null
+  page_count: number | null
+  segments_count: number
+  unreadable_pages: number[]
+  is_unreadable: boolean
+  has_media: boolean
+  size_bytes: number | null
+}
+
+export interface DocumentLearningProgress {
+  cards_total: number
+  cards_reviewed: number
+  quiz_items_total: number
+  quiz_attempts: number
+  quiz_correct: number
+  quiz_accuracy_pct: number | null
+  mastery_score: number
+}
+
+export interface SourceWorkspaceResponse {
+  source: Source
+  processing: DocumentProcessingState
+  outline: DocumentOutlineItem[]
+  concepts: Concept[]
+  progress: DocumentLearningProgress
+  note: Note | null
+}
+
+export interface SourceExplanationCitation {
+  segment_id: number
+  page_no: number | null
+  quote: string
+  source_title: string
+}
+
+export interface SourceExplanationResponse {
+  source_id: number
+  source_title: string
+  topic: string
+  depth: 'principle' | 'analogy' | 'worked_example' | 'compare'
+  summary: string
+  definitions: { term: string; definition: string }[]
+  worked_example: string
+  citations: SourceExplanationCitation[]
+  has_source_evidence: boolean
+}

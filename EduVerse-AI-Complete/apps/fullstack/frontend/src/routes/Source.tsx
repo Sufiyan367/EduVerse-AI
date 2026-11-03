@@ -3,13 +3,17 @@ import { useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import {
   AlertTriangle, Brain, Download, FileText, Layers, ListChecks,
   Pencil, Printer, RefreshCw, Sparkles, Trash2, Send, Search as SearchIcon,
-  ChevronLeft, ChevronRight, LayoutGrid, Maximize2,
+  ChevronLeft, ChevronRight, LayoutGrid, Maximize2, Lightbulb, TrendingUp,
+  CheckCircle2, XCircle, ArrowRight, Eye, RotateCcw,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { api, ApiError } from '../lib/api'
 import { useJobs, usePlayer } from '../lib/store'
-import type { ChatMessage, Excerpt, NoteStyle } from '../lib/types'
+import type {
+  Concept, DocumentOutlineItem, Excerpt,
+  NoteStyle, QuizDone, QuizQuestion, SourceExplanationResponse,
+} from '../lib/types'
 import { openChatSocket } from '../lib/ws'
 import { cn, formatDuration, kindLabel } from '../lib/utils'
 import { NoteEditor } from '../components/editor/NoteEditor'
@@ -35,12 +39,14 @@ export function SourcePage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  // View Layout Modes: 'studio' (Google NotebookLM 3-column) or 'reader' (full notes)
+  // Layout mode: 'studio' (3-column) or 'reader' (full notes)
   const [layoutMode, setLayoutMode] = useState<'studio' | 'reader'>('studio')
   const [leftOpen, setLeftOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
 
-  const [tab, setTab] = useState(search.tab ?? 'notes')
+  // Active studio tool tab
+  const [tab, setTab] = useState(search.tab ?? 'outline')
+  const [selectedTopic, setSelectedTopic] = useState<string>('')
   const [highlightIds, setHighlightIds] = useState<number[]>([])
   const [segmentQuery, setSegmentQuery] = useState('')
   const [regenOpen, setRegenOpen] = useState(false)
@@ -62,11 +68,12 @@ export function SourcePage() {
     [jobs, id],
   )
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['source', id],
-    queryFn: () => api.getSource(id),
+  // Unified Document Workspace query
+  const { data: workspaceData, isLoading, refetch: refetchWorkspace } = useQuery({
+    queryKey: ['source-workspace', id],
+    queryFn: () => api.getSourceWorkspace(id),
     refetchInterval: (query) => {
-      const status = query.state.data?.source?.status
+      const status = query.state.data?.processing?.status
       if (status === 'pending' || status === 'processing' || activeJob) {
         return 2000
       }
@@ -74,10 +81,11 @@ export function SourcePage() {
     },
   })
 
+  // Segments query for passage viewer
   const { data: segmentData } = useQuery({
     queryKey: ['segments', id],
     queryFn: () => api.getSegments(id),
-    enabled: !!data && data.counts.segments > 0,
+    enabled: !!workspaceData && workspaceData.processing.segments_count > 0,
   })
 
   // Scoped chat for this source
@@ -97,7 +105,7 @@ export function SourcePage() {
   useEffect(() => {
     if (existingChat) {
       setScopedChatId(existingChat.id)
-    } else if (data && !scopedChatId) {
+    } else if (workspaceData && !scopedChatId) {
       api.createChat('source', id).then((created) => {
         setScopedChatId(created.id)
         void queryClient.invalidateQueries({ queryKey: ['chats'] })
@@ -105,7 +113,7 @@ export function SourcePage() {
         // Fallback or offline
       })
     }
-  }, [existingChat, data, id, scopedChatId, queryClient])
+  }, [existingChat, workspaceData, id, scopedChatId, queryClient])
 
   useEffect(() => {
     setPlayerSource(id)
@@ -127,6 +135,15 @@ export function SourcePage() {
     onError: (error) => toast.error(error instanceof ApiError ? error.message : 'Failed.'),
   })
 
+  const reprocess = useMutation({
+    mutationFn: () => api.reprocess(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries()
+      toast.success('Reprocessing document extraction pipeline...')
+    },
+    onError: (error) => toast.error(error instanceof ApiError ? error.message : 'Failed to reprocess.'),
+  })
+
   const rename = useMutation({
     mutationFn: () => api.updateSource(id, { title: titleDraft.trim() }),
     onSuccess: () => {
@@ -144,7 +161,7 @@ export function SourcePage() {
     },
   })
 
-  if (isLoading || !data) {
+  if (isLoading || !workspaceData) {
     return (
       <div className="mx-auto max-w-6xl space-y-4 p-6">
         <Skeleton className="h-10 w-2/3" />
@@ -154,7 +171,7 @@ export function SourcePage() {
     )
   }
 
-  const { source, note, counts } = data
+  const { source, processing, outline, concepts, progress, note } = workspaceData
   const segments = segmentData?.segments ?? []
   const isMedia = source.kind === 'audio' || source.kind === 'video' || source.kind === 'youtube'
   const printMode = search.print === true
@@ -168,6 +185,12 @@ export function SourcePage() {
       const el = document.getElementById(`segment-${ids[0]}`)
       el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }, 50)
+  }
+
+  const handleExplainTopic = (topicName: string) => {
+    setSelectedTopic(topicName)
+    setTab('explain')
+    setRightOpen(true)
   }
 
   const filteredSegments = segmentQuery.trim()
@@ -233,11 +256,13 @@ export function SourcePage() {
             <div className="hidden sm:flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
               <StatusBadge status={source.status} />
               <span>· {kindLabel(source.kind)}</span>
-              {source.page_count ? <span>· {source.page_count} pgs</span> : null}
+              {processing.page_count ? <span>· {processing.page_count} pgs</span> : null}
               {source.duration_sec ? <span>· {formatDuration(source.duration_sec)}</span> : null}
-              <span>· {counts.segments} passages</span>
-              {Array.isArray(source.metadata?.unreadable_pages) && (source.metadata.unreadable_pages as number[]).length > 0 && (
-                <span className="text-amber-500 font-medium">· {(source.metadata.unreadable_pages as number[]).length} unreadable pgs</span>
+              <span>· {processing.segments_count} passages</span>
+              {progress.mastery_score > 0 && (
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                  · {progress.mastery_score}% mastery
+                </span>
               )}
             </div>
           </div>
@@ -255,10 +280,10 @@ export function SourcePage() {
                     ? 'bg-[var(--bg-raised)] text-[var(--accent)] font-semibold shadow-xs'
                     : 'text-[var(--text-muted)] hover:text-[var(--text)]',
                 )}
-                title="NotebookLM 3-column Studio workspace"
+                title="DeepTutor 3-column Studio workspace"
               >
                 <LayoutGrid className="h-3.5 w-3.5" />
-                <span className="hidden md:inline">NotebookLM Studio</span>
+                <span className="hidden md:inline">Workspace</span>
               </button>
               <button
                 type="button"
@@ -275,27 +300,6 @@ export function SourcePage() {
                 <span className="hidden md:inline">Reader</span>
               </button>
             </div>
-
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => navigate({ to: '/quiz', search: { source: id } })}
-              title="Practice adaptive quiz on this source"
-            >
-              <ListChecks className="h-3.5 w-3.5 mr-1" />
-              <span className="hidden sm:inline">Quiz</span>
-            </Button>
-
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={counts.cards === 0}
-              onClick={() => navigate({ to: '/review', search: { source: id } })}
-              title="Review FSRS spaced repetition cards"
-            >
-              <Brain className="h-3.5 w-3.5 mr-1" />
-              <span className="hidden sm:inline">Cards</span>
-            </Button>
 
             <Button size="sm" onClick={() => setRegenOpen(true)} title="Regenerate notes or study assets">
               <RefreshCw className="h-3.5 w-3.5 mr-1" />
@@ -340,7 +344,43 @@ export function SourcePage() {
           </div>
         )}
 
-        {source.status === 'partially_processed' && source.error && (
+        {/* Unreadable / Scanned Document Error Banner */}
+        {processing.is_unreadable && (
+          <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-red-500" />
+              <span>
+                <strong>Document Extraction Alert:</strong> No extractable digital text was found in this file (0 passages indexed).
+                Scanned images require digital OCR or a text-selectable PDF for AI tutoring and quiz generation.
+              </span>
+            </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => reprocess.mutate()}
+              loading={reprocess.isPending}
+              className="shrink-0 text-xs"
+            >
+              <RefreshCw className="h-3 w-3 mr-1" /> Retry Processing
+            </Button>
+          </div>
+        )}
+
+        {/* Partial Unreadable Pages Notice */}
+        {!processing.is_unreadable && processing.unreadable_pages.length > 0 && (
+          <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-600 dark:text-amber-400">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+              <span>
+                <strong>Partial scan notice:</strong> Pages {processing.unreadable_pages.join(', ')} contain image scans with limited text. Digital pages were successfully indexed for grounded learning.
+              </span>
+            </div>
+            <span className="text-[11px] opacity-80 shrink-0">{processing.segments_count} readable passages</span>
+          </div>
+        )}
+
+        {/* Partial Processed Notice */}
+        {!processing.is_unreadable && source.status === 'partially_processed' && source.error && (
           <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-600 dark:text-amber-400">
             <span><strong>Partial extraction notice:</strong> {source.error}</span>
             <span className="text-[11px] opacity-80 shrink-0">Indexed passages available for chat & study</span>
@@ -360,37 +400,33 @@ export function SourcePage() {
                     noteId={note.id}
                     doc={note.doc}
                     onAnchorClick={jumpToSource}
-                    onDirty={() => queryClient.setQueryData(['source', id], (old: typeof data) =>
+                    onDirty={() => queryClient.setQueryData(['source-workspace', id], (old: typeof workspaceData) =>
                       old?.note ? { ...old, note: { ...old.note, is_dirty: true } } : old,
                     )}
                   />
                 </CardBody>
               </Card>
 
-              {note.outline.length > 0 && (
+              {outline.length > 0 && (
                 <aside className="hidden lg:block">
                   <div className="sticky top-4 space-y-2">
                     <p className="px-2 text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
                       Outline
                     </p>
                     <nav className="space-y-0.5">
-                      {note.outline.map((item, index) => (
-                        <a
+                      {outline.map((item, index) => (
+                        <button
                           key={index}
-                          href={`#heading-${item.index}`}
-                          onClick={(e) => {
-                            e.preventDefault()
-                            const headings = document.querySelectorAll('.ProseMirror h1, .ProseMirror h2, .ProseMirror h3')
-                            const seen = Array.from(headings).find((h) => h.textContent === item.text)
-                            seen?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                          onClick={() => {
+                            if (item.segment_id) jumpToSource([item.segment_id])
                           }}
                           className={cn(
-                            'block truncate rounded px-2 py-1 text-xs text-[var(--text-muted)] hover:bg-[var(--bg-sunken)] hover:text-[var(--text)] transition-colors',
+                            'block w-full text-left truncate rounded px-2 py-1 text-xs text-[var(--text-muted)] hover:bg-[var(--bg-sunken)] hover:text-[var(--text)] transition-colors',
                             item.level >= 3 && 'pl-4 text-[11px]',
                           )}
                         >
-                          {item.text}
-                        </a>
+                          {item.title}
+                        </button>
                       ))}
                     </nav>
                   </div>
@@ -413,7 +449,7 @@ export function SourcePage() {
           )}
         </div>
       ) : (
-        // Google NotebookLM 3-Column Studio Workspace
+        // DeepTutor 3-Column Studio Workspace
         <div className="flex-1 flex overflow-hidden min-h-0">
           {/* Column 1: Source & Excerpts Inspector (Collapsible Left) */}
           <div
@@ -562,45 +598,70 @@ export function SourcePage() {
             )}
           </div>
 
-          {/* Column 3: Studio & Study Tools (Collapsible Right) */}
+          {/* Column 3: DeepTutor Interactive Learning Workspace (Right Column) */}
           <div
             className={cn(
               'shrink-0 bg-[var(--bg-raised)] flex flex-col transition-all duration-200',
-              rightOpen ? 'w-96 xl:w-[28rem]' : 'w-10 items-center border-l border-[var(--border)]',
+              rightOpen ? 'w-96 xl:w-[30rem]' : 'w-10 items-center border-l border-[var(--border)]',
             )}
           >
             {rightOpen ? (
               <div className="flex flex-col h-full overflow-hidden">
-                <div className="flex items-center justify-between p-2.5 border-b border-[var(--border)] bg-[var(--bg-sunken)]/40">
-                  <Tabs value={tab} onValueChange={setTab} className="w-full">
-                    <div className="flex items-center justify-between">
-                      <TabsList className="h-8">
-                        <TabsTrigger value="notes" className="text-xs px-2.5 py-1">
-                          <FileText className="h-3 w-3 mr-1" /> Notes
-                        </TabsTrigger>
-                        <TabsTrigger value="concepts" className="text-xs px-2.5 py-1">
-                          <Sparkles className="h-3 w-3 mr-1" /> Concepts
-                          <Badge className="ml-1 text-[9px] px-1">{counts.concepts}</Badge>
-                        </TabsTrigger>
-                        <TabsTrigger value="cards" className="text-xs px-2.5 py-1">
-                          <Brain className="h-3 w-3 mr-1" /> Cards
-                          <Badge className="ml-1 text-[9px] px-1">{counts.cards}</Badge>
-                        </TabsTrigger>
-                      </TabsList>
+                <div className="p-2 border-b border-[var(--border)] bg-[var(--bg-sunken)]/40">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                      Learning Workspace
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-[var(--text-muted)]"
+                      onClick={() => setRightOpen(false)}
+                      title="Collapse workspace panel"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
 
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-[var(--text-muted)]"
-                        onClick={() => setRightOpen(false)}
-                        title="Collapse studio panel"
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </div>
+                  <Tabs value={tab} onValueChange={setTab} className="w-full">
+                    <TabsList className="h-8 w-full justify-start overflow-x-auto no-scrollbar gap-1">
+                      <TabsTrigger value="outline" className="text-xs px-2 py-1">
+                        <Layers className="h-3 w-3 mr-1" /> Outline
+                      </TabsTrigger>
+                      <TabsTrigger value="notes" className="text-xs px-2 py-1">
+                        <FileText className="h-3 w-3 mr-1" /> Notes
+                      </TabsTrigger>
+                      <TabsTrigger value="explain" className="text-xs px-2 py-1">
+                        <Sparkles className="h-3 w-3 mr-1" /> Explain
+                      </TabsTrigger>
+                      <TabsTrigger value="quiz" className="text-xs px-2 py-1">
+                        <ListChecks className="h-3 w-3 mr-1" /> Quiz
+                      </TabsTrigger>
+                      <TabsTrigger value="cards" className="text-xs px-2 py-1">
+                        <Brain className="h-3 w-3 mr-1" /> Cards
+                        <Badge className="ml-1 text-[9px] px-1">{progress.cards_total}</Badge>
+                      </TabsTrigger>
+                      <TabsTrigger value="practice" className="text-xs px-2 py-1">
+                        <Lightbulb className="h-3 w-3 mr-1" /> Practice
+                      </TabsTrigger>
+                      <TabsTrigger value="progress" className="text-xs px-2 py-1">
+                        <TrendingUp className="h-3 w-3 mr-1" /> Progress
+                      </TabsTrigger>
+                    </TabsList>
 
                     <div className="mt-2" />
 
+                    {/* Tab 1: Outline & Topics */}
+                    <TabsContent value="outline" className="m-0 flex-1 overflow-y-auto p-3">
+                      <OutlineTab
+                        outline={outline}
+                        concepts={concepts}
+                        onJump={jumpToSource}
+                        onExplain={handleExplainTopic}
+                      />
+                    </TabsContent>
+
+                    {/* Tab 2: Structured Notes */}
                     <TabsContent value="notes" className="m-0 flex-1 overflow-y-auto">
                       {note ? (
                         <div className="p-4 space-y-4">
@@ -617,7 +678,7 @@ export function SourcePage() {
                             noteId={note.id}
                             doc={note.doc}
                             onAnchorClick={jumpToSource}
-                            onDirty={() => queryClient.setQueryData(['source', id], (old: typeof data) =>
+                            onDirty={() => queryClient.setQueryData(['source-workspace', id], (old: typeof workspaceData) =>
                               old?.note ? { ...old, note: { ...old.note, is_dirty: true } } : old,
                             )}
                           />
@@ -643,20 +704,49 @@ export function SourcePage() {
                       )}
                     </TabsContent>
 
-                    <TabsContent value="concepts" className="m-0 flex-1 overflow-y-auto p-3">
-                      <ConceptsTab
+                    {/* Tab 3: Explain This Concept */}
+                    <TabsContent value="explain" className="m-0 flex-1 overflow-y-auto p-3">
+                      <ExplainTab
                         sourceId={id}
+                        initialTopic={selectedTopic}
+                        concepts={concepts}
                         onJump={jumpToSource}
-                        onExtract={() => regenerate.mutate({ target: 'concepts' })}
-                        isExtracting={regenerate.isPending || !!activeJob}
                       />
                     </TabsContent>
 
-                    <TabsContent value="cards" className="m-0 flex-1 overflow-y-auto p-3">
-                      <CardsTab
+                    {/* Tab 4: In-Workspace Interactive Quiz */}
+                    <TabsContent value="quiz" className="m-0 flex-1 overflow-y-auto p-3">
+                      <DocumentQuizTab
                         sourceId={id}
-                        count={counts.cards}
+                        onJump={jumpToSource}
+                        onQuizCompleted={() => refetchWorkspace()}
+                      />
+                    </TabsContent>
+
+                    {/* Tab 5: Active Recall Flashcards */}
+                    <TabsContent value="cards" className="m-0 flex-1 overflow-y-auto p-3">
+                      <DocumentCardsTab
+                        sourceId={id}
+                        cardsTotal={progress.cards_total}
                         onGenerate={() => regenerate.mutate({ target: 'cards' })}
+                        onReviewDone={() => refetchWorkspace()}
+                      />
+                    </TabsContent>
+
+                    {/* Tab 6: Practice Mode */}
+                    <TabsContent value="practice" className="m-0 flex-1 overflow-y-auto p-3">
+                      <PracticeTab
+                        sourceId={id}
+                        concepts={concepts}
+                        onJump={jumpToSource}
+                      />
+                    </TabsContent>
+
+                    {/* Tab 7: Document Learning Progress */}
+                    <TabsContent value="progress" className="m-0 flex-1 overflow-y-auto p-3">
+                      <DocumentProgressTab
+                        progress={progress}
+                        processing={processing}
                       />
                     </TabsContent>
                   </Tabs>
@@ -669,12 +759,12 @@ export function SourcePage() {
                   size="icon"
                   className="h-7 w-7 text-[var(--text-muted)]"
                   onClick={() => setRightOpen(true)}
-                  title="Expand studio panel"
+                  title="Expand workspace panel"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <span className="[writing-mode:vertical-rl] text-xs font-semibold text-[var(--text-muted)] tracking-wider">
-                  STUDIO TOOLS
+                  STUDY WORKSPACE
                 </span>
               </div>
             )}
@@ -695,7 +785,903 @@ export function SourcePage() {
 }
 
 /**
- * Embedded Grounded AI Tutor Chat component inside the NotebookLM Studio
+ * Tab 1: Outline & Document Structure
+ */
+function OutlineTab({
+  outline,
+  concepts,
+  onJump,
+  onExplain,
+}: {
+  outline: DocumentOutlineItem[]
+  concepts: Concept[]
+  onJump: (ids: number[]) => void
+  onExplain: (topic: string) => void
+}) {
+  return (
+    <div className="space-y-4">
+      {/* Document Headings / Chapters */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+            Document Outline ({outline.length})
+          </span>
+        </div>
+
+        {outline.length === 0 ? (
+          <p className="text-xs text-[var(--text-muted)] italic py-2">
+            No explicit outline detected. Passages have been indexed by page number.
+          </p>
+        ) : (
+          <div className="space-y-1.5">
+            {outline.map((item, idx) => (
+              <div
+                key={idx}
+                className={cn(
+                  'group flex items-center justify-between p-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] hover:border-[var(--accent)] text-xs transition-colors',
+                  item.level >= 2 && 'ml-3',
+                )}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-[10px] font-mono text-[var(--text-muted)] shrink-0">#{idx + 1}</span>
+                  <span className="truncate text-[var(--text)] font-medium">{item.title}</span>
+                  {item.page_no && (
+                    <Badge className="text-[9px] px-1 py-0 shrink-0">P.{item.page_no}</Badge>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {item.segment_id && (
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={() => onJump([item.segment_id!])}
+                      title="Jump to passage"
+                    >
+                      <Layers className="h-3 w-3 text-[var(--accent)]" />
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => onExplain(item.title.replace(/^Page \d+:\s*/, ''))}
+                    className="h-6 text-[10px] px-1.5 text-[var(--accent)]"
+                    title="Explain this topic"
+                  >
+                    Explain
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Extracted Key Concepts */}
+      {concepts.length > 0 && (
+        <div className="space-y-2 pt-2 border-t border-[var(--border)]">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+            Key Concepts ({concepts.length})
+          </span>
+          <div className="space-y-1.5">
+            {concepts.slice(0, 15).map((concept) => (
+              <div
+                key={concept.id}
+                className="flex items-start justify-between gap-2 p-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-xs"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-[var(--text)]">{concept.name}</span>
+                    <Badge tone={concept.importance >= 4 ? 'accent' : 'neutral'} className="text-[9px]">
+                      {'★'.repeat(concept.importance)}
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-[var(--text-muted)] line-clamp-2 mt-0.5">
+                    {concept.definition}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onExplain(concept.name)}
+                  className="h-6 text-[10px] px-1.5 text-[var(--accent)] shrink-0"
+                >
+                  Explain
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Tab 3: Explain This Concept
+ */
+function ExplainTab({
+  sourceId,
+  initialTopic,
+  concepts,
+  onJump,
+}: {
+  sourceId: number
+  initialTopic: string
+  concepts: Concept[]
+  onJump: (ids: number[]) => void
+}) {
+  const [topic, setTopic] = useState(initialTopic)
+  const [depth, setDepth] = useState<'principle' | 'analogy' | 'worked_example' | 'compare'>('principle')
+  const [result, setResult] = useState<SourceExplanationResponse | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (initialTopic) {
+      setTopic(initialTopic)
+      void handleExplain(initialTopic, depth)
+    }
+  }, [initialTopic])
+
+  const handleExplain = async (t: string, d: 'principle' | 'analogy' | 'worked_example' | 'compare') => {
+    if (!t.trim()) return
+    setLoading(true)
+    try {
+      const res = await api.explainSourceTopic(sourceId, { topic: t.trim(), depth: d })
+      setResult(res)
+    } catch (err) {
+      toast.error('Failed to generate document-grounded explanation.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Topic selection and depth controls */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Input
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            placeholder="Enter any concept from this document..."
+            className="h-8 text-xs bg-[var(--bg-sunken)] flex-1"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void handleExplain(topic, depth)
+            }}
+          />
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={() => void handleExplain(topic, depth)}
+            disabled={!topic.trim() || loading}
+            loading={loading}
+          >
+            Explain
+          </Button>
+        </div>
+
+        {/* Depth Selector Pills */}
+        <div className="flex flex-wrap gap-1.5 pt-1">
+          {[
+            { id: 'principle', label: 'Core Principle' },
+            { id: 'analogy', label: 'Simple Analogy' },
+            { id: 'worked_example', label: 'Worked Example' },
+            { id: 'compare', label: 'Compare & Contrast' },
+          ].map((mode) => (
+            <button
+              key={mode.id}
+              onClick={() => {
+                const nextDepth = mode.id as typeof depth
+                setDepth(nextDepth)
+                if (topic.trim()) void handleExplain(topic, nextDepth)
+              }}
+              className={cn(
+                'rounded-md px-2 py-1 text-[11px] font-medium border transition-colors',
+                depth === mode.id
+                  ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)] font-semibold'
+                  : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-muted)] hover:text-[var(--text)]',
+              )}
+            >
+              {mode.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Suggested concepts shortcut pills */}
+      {concepts.length > 0 && !result && (
+        <div className="space-y-1.5 pt-2">
+          <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+            Suggested Document Topics
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {concepts.slice(0, 8).map((c) => (
+              <button
+                key={c.id}
+                onClick={() => {
+                  setTopic(c.name)
+                  void handleExplain(c.name, depth)
+                }}
+                className="rounded-full border border-[var(--border)] bg-[var(--bg)] px-2.5 py-0.5 text-xs text-[var(--text)] hover:border-[var(--accent)] hover:bg-[var(--bg-sunken)] transition-colors"
+              >
+                {c.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Loading indicator */}
+      {loading && (
+        <div className="flex items-center justify-center p-8 text-xs text-[var(--text-muted)] gap-2">
+          <Spinner className="h-4 w-4 text-[var(--accent)]" />
+          <span>Searching document and synthesizing {depth} explanation...</span>
+        </div>
+      )}
+
+      {/* Structured Explanation Output */}
+      {result && !loading && (
+        <div className="space-y-4">
+          <Card>
+            <CardBody className="p-3.5 space-y-3">
+              <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
+                <h3 className="text-xs font-bold text-[var(--text)]">{result.topic}</h3>
+                <Badge tone="accent" className="text-[10px] capitalize">{result.depth.replace('_', ' ')}</Badge>
+              </div>
+
+              {/* Summary */}
+              <div className="text-xs leading-relaxed text-[var(--text)] whitespace-pre-wrap">
+                {result.summary}
+              </div>
+
+              {/* Key Definitions */}
+              {result.definitions.length > 0 && (
+                <div className="space-y-1.5 pt-2 border-t border-[var(--border)]">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                    Key Definitions
+                  </span>
+                  <div className="grid gap-1.5">
+                    {result.definitions.map((def, idx) => (
+                      <div key={idx} className="p-2 rounded bg-[var(--bg-sunken)] text-xs">
+                        <span className="font-bold text-[var(--accent)]">{def.term}: </span>
+                        <span className="text-[var(--text)]">{def.definition}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Worked Example */}
+              {result.worked_example && (
+                <div className="space-y-1.5 pt-2 border-t border-[var(--border)]">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                    Step-by-Step Scenario Analysis
+                  </span>
+                  <div className="p-2.5 rounded bg-[var(--bg-sunken)] border border-[var(--border)] text-xs font-mono text-[var(--text)] leading-relaxed whitespace-pre-wrap">
+                    {result.worked_example}
+                  </div>
+                </div>
+              )}
+
+              {/* Verified Citations */}
+              {result.citations.length > 0 && (
+                <div className="space-y-1.5 pt-2 border-t border-[var(--border)]">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                    Verified Citations ({result.citations.length})
+                  </span>
+                  <div className="space-y-1">
+                    {result.citations.map((cite, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-2 rounded border border-[var(--border)] bg-[var(--bg)] text-xs"
+                      >
+                        <div className="min-w-0 pr-2">
+                          <span className="font-semibold text-[var(--accent)]">
+                            {cite.page_no ? `Page ${cite.page_no}` : `Passage #${cite.segment_id}`}
+                          </span>
+                          <p className="text-[11px] text-[var(--text-muted)] truncate">{cite.quote}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => onJump([cite.segment_id])}
+                          className="h-6 text-[10px] px-1.5 text-[var(--accent)] shrink-0"
+                        >
+                          Jump ↗
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardBody>
+          </Card>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Tab 4: In-Workspace Interactive Quiz
+ */
+function DocumentQuizTab({
+  sourceId,
+  onJump,
+  onQuizCompleted,
+}: {
+  sourceId: number
+  onJump: (ids: number[]) => void
+  onQuizCompleted: () => void
+}) {
+  const [sessionId, setSessionId] = useState<number | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion | null>(null)
+  const [quizDone, setQuizDone] = useState<QuizDone | null>(null)
+  const [selectedOption, setSelectedOption] = useState<string>('')
+  const [submitting, setSubmitting] = useState(false)
+  const [lastFeedback, setLastFeedback] = useState<{
+    is_correct: boolean
+    feedback: string
+    correct_answer: string
+    explanation: string
+    segment_ids?: number[]
+  } | null>(null)
+  const [scoreCount, setScoreCount] = useState(0)
+  const [totalAnswered, setTotalAnswered] = useState(0)
+
+  const startQuiz = async () => {
+    setLoading(true)
+    setLastFeedback(null)
+    setScoreCount(0)
+    setTotalAnswered(0)
+    setQuizDone(null)
+    try {
+      const sess = await api.createQuizSession({ mode: 'practice', source_ids: [sourceId] })
+      setSessionId(sess.session_id)
+      const firstQ = await api.nextQuestion(sess.session_id)
+      if ('done' in firstQ && firstQ.done) {
+        setQuizDone(firstQ as QuizDone)
+      } else {
+        setCurrentQuestion(firstQ as QuizQuestion)
+      }
+    } catch (err) {
+      toast.error('Unable to start quiz. Check if concepts have been extracted.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const submitAnswer = async () => {
+    if (!sessionId || !currentQuestion || !selectedOption) return
+    setSubmitting(true)
+    try {
+      const res = await api.answerQuestion(sessionId, currentQuestion.id, selectedOption)
+      setLastFeedback({
+        is_correct: !!res.is_correct,
+        feedback: res.feedback || (res.is_correct ? 'Correct answer!' : 'Incorrect.'),
+        correct_answer: res.correct_answer || '',
+        explanation: res.explanation || '',
+        segment_ids: res.segment_ids,
+      })
+      if (res.is_correct) setScoreCount((s) => s + 1)
+      setTotalAnswered((t) => t + 1)
+      onQuizCompleted()
+    } catch (err) {
+      toast.error('Failed to submit answer.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleNext = async () => {
+    if (!sessionId) return
+    setLoading(true)
+    setLastFeedback(null)
+    setSelectedOption('')
+    try {
+      const next = await api.nextQuestion(sessionId)
+      if ('done' in next && next.done) {
+        setQuizDone(next as QuizDone)
+        setCurrentQuestion(null)
+      } else {
+        setCurrentQuestion(next as QuizQuestion)
+      }
+    } catch (err) {
+      toast.error('Failed to fetch next question.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (!sessionId) {
+    return (
+      <Card>
+        <EmptyState
+          icon={ListChecks}
+          title="Interactive Document Quiz"
+          description="Take an assessment generated directly from this document's text and concepts."
+          action={
+            <Button variant="primary" size="sm" onClick={startQuiz} loading={loading}>
+              <ListChecks className="h-4 w-4 mr-1.5" /> Start Assessment
+            </Button>
+          }
+        />
+      </Card>
+    )
+  }
+
+  if (quizDone) {
+    const accuracy = totalAnswered > 0 ? Math.round((scoreCount / totalAnswered) * 100) : 0
+    return (
+      <Card>
+        <CardBody className="p-4 text-center space-y-3">
+          <div className="grid h-12 w-12 place-items-center rounded-full bg-emerald-500/10 text-emerald-500 mx-auto">
+            <CheckCircle2 className="h-6 w-6" />
+          </div>
+          <h3 className="text-sm font-bold text-[var(--text)]">Assessment Complete</h3>
+          <p className="text-xs text-[var(--text-muted)]">
+            You scored {scoreCount} out of {totalAnswered} questions ({accuracy}%).
+          </p>
+          <Badge tone={accuracy >= 80 ? 'accent' : accuracy >= 70 ? 'neutral' : 'danger'}>
+            {accuracy >= 80 ? 'Mastered (80%+)' : accuracy >= 70 ? 'Practicing (70–79%)' : 'Needs Review (<70%)'}
+          </Badge>
+          <div className="pt-2">
+            <Button size="sm" variant="primary" onClick={startQuiz}>
+              <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Retake Quiz
+            </Button>
+          </div>
+        </CardBody>
+      </Card>
+    )
+  }
+
+  if (!currentQuestion) {
+    return (
+      <div className="p-6 text-center">
+        <Spinner className="h-5 w-5 text-[var(--accent)] mx-auto" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Quiz Progress Header */}
+      <div className="flex items-center justify-between text-xs text-[var(--text-muted)] border-b border-[var(--border)] pb-2">
+        <span>Question #{totalAnswered + 1}</span>
+        <div className="flex items-center gap-2">
+          {currentQuestion.concept?.name && (
+            <Badge className="text-[9px] px-1 py-0">{currentQuestion.concept.name}</Badge>
+          )}
+          <span className="font-semibold text-[var(--accent)]">Score: {scoreCount}/{totalAnswered}</span>
+        </div>
+      </div>
+
+      {/* Question Card */}
+      <Card>
+        <CardBody className="p-4 space-y-3">
+          <h4 className="text-xs font-bold text-[var(--text)] leading-relaxed">
+            {currentQuestion.question}
+          </h4>
+
+          {/* Multiple choice options */}
+          <div className="space-y-1.5">
+            {currentQuestion.options.map((opt, idx) => {
+              const letter = ['A', 'B', 'C', 'D'][idx] || String(idx)
+              const isSelected = selectedOption === opt
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  disabled={!!lastFeedback}
+                  onClick={() => setSelectedOption(opt)}
+                  className={cn(
+                    'w-full text-left p-2.5 rounded-lg border text-xs transition-all flex items-start gap-2',
+                    isSelected
+                      ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--text)] font-medium ring-1 ring-[var(--accent)]/30'
+                      : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text)] hover:bg-[var(--bg-sunken)]',
+                    lastFeedback && opt === lastFeedback.correct_answer && 'border-emerald-500 bg-emerald-500/10 font-semibold',
+                    lastFeedback && isSelected && !lastFeedback.is_correct && 'border-red-500 bg-red-500/10 line-through',
+                  )}
+                >
+                  <span className="font-mono font-bold text-[var(--accent)]">{letter}.</span>
+                  <span className="flex-1">{opt}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Action buttons */}
+          {!lastFeedback ? (
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={submitAnswer}
+              disabled={!selectedOption || submitting}
+              loading={submitting}
+              className="w-full"
+            >
+              Submit Answer
+            </Button>
+          ) : (
+            <div className="space-y-3 pt-2">
+              <div
+                className={cn(
+                  'p-3 rounded-lg border text-xs',
+                  lastFeedback.is_correct
+                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                    : 'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400',
+                )}
+              >
+                <div className="flex items-center gap-2 font-bold mb-1">
+                  {lastFeedback.is_correct ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                      <span>Correct!</span>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="h-4 w-4 text-red-500" />
+                      <span>Incorrect — Correct Answer: {lastFeedback.correct_answer}</span>
+                    </>
+                  )}
+                </div>
+                <p className="text-[11px] leading-relaxed text-[var(--text)] mt-1">{lastFeedback.explanation}</p>
+                {lastFeedback.segment_ids && lastFeedback.segment_ids.length > 0 && (
+                  <div className="mt-2 pt-1 border-t border-[var(--border)] flex items-center justify-between">
+                    <span className="text-[10px] text-[var(--text-muted)] italic">Grounded in source passages</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onJump(lastFeedback.segment_ids!)}
+                      className="h-5 text-[10px] text-[var(--accent)] px-1"
+                    >
+                      View Passage #{lastFeedback.segment_ids[0]} ↗
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <Button size="sm" variant="primary" onClick={handleNext} className="w-full">
+                Next Question <ArrowRight className="h-3.5 w-3.5 ml-1" />
+              </Button>
+            </div>
+          )}
+        </CardBody>
+      </Card>
+    </div>
+  )
+}
+
+/**
+ * Tab 5: Active Recall Flashcards
+ */
+function DocumentCardsTab({
+  sourceId,
+  cardsTotal,
+  onGenerate,
+  onReviewDone,
+}: {
+  sourceId: number
+  cardsTotal: number
+  onGenerate: () => void
+  onReviewDone: () => void
+}) {
+  const { data, refetch } = useQuery({
+    queryKey: ['cards-due', sourceId],
+    queryFn: () => api.dueCards({ source_id: sourceId, limit: 30 }),
+  })
+  const cards = data?.cards ?? []
+
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [revealed, setRevealed] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+
+  const currentCard = cards[currentIndex]
+
+  const handleRating = async (rating: number) => {
+    if (!currentCard) return
+    setSubmitting(true)
+    try {
+      await api.reviewCard(currentCard.id, rating)
+      setRevealed(false)
+      if (currentIndex + 1 < cards.length) {
+        setCurrentIndex((i) => i + 1)
+      } else {
+        await refetch()
+        setCurrentIndex(0)
+      }
+      onReviewDone()
+    } catch (err) {
+      toast.error('Failed to submit card review.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (cardsTotal === 0) {
+    return (
+      <Card>
+        <EmptyState
+          icon={Brain}
+          title="No flashcards generated yet"
+          description="Flashcards are synthesized from syllabus concepts with FSRS scheduling."
+          action={<Button size="sm" variant="primary" onClick={onGenerate}>Generate flashcards</Button>}
+        />
+      </Card>
+    )
+  }
+
+  if (cards.length === 0) {
+    return (
+      <Card>
+        <CardBody className="p-4 text-center space-y-2">
+          <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto" />
+          <h3 className="text-xs font-bold text-[var(--text)]">All Flashcards Reviewed!</h3>
+          <p className="text-[11px] text-[var(--text-muted)]">
+            You are completely caught up on your spaced repetition queue for this document.
+          </p>
+        </CardBody>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between text-xs text-[var(--text-muted)] border-b border-[var(--border)] pb-2">
+        <span>Card {currentIndex + 1} of {cards.length}</span>
+        <Badge className="text-[9px]">{currentCard.type}</Badge>
+      </div>
+
+      {/* Interactive Flip Card */}
+      <Card className="min-h-[12rem] flex flex-col justify-between">
+        <CardBody className="p-4 space-y-3">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Question</span>
+            <p className="text-xs font-bold text-[var(--text)] mt-1 leading-relaxed">
+              {currentCard.front}
+            </p>
+          </div>
+
+          {revealed && (
+            <div className="pt-3 border-t border-[var(--border)] animate-in fade-in">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--accent)]">Answer</span>
+              <p className="text-xs text-[var(--text)] mt-1 leading-relaxed">
+                {currentCard.back}
+              </p>
+            </div>
+          )}
+        </CardBody>
+
+        <div className="p-3 border-t border-[var(--border)] bg-[var(--bg-sunken)]/40">
+          {!revealed ? (
+            <Button
+              size="sm"
+              variant="primary"
+              className="w-full"
+              onClick={() => setRevealed(true)}
+            >
+              <Eye className="h-3.5 w-3.5 mr-1" /> Reveal Answer
+            </Button>
+          ) : (
+            <div className="space-y-2">
+              <span className="text-[10px] text-center block text-[var(--text-muted)]">Rate Recall (FSRS):</span>
+              <div className="grid grid-cols-4 gap-1.5">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={submitting}
+                  onClick={() => handleRating(1)}
+                  className="text-red-500 text-[10px] px-1"
+                >
+                  Again (1)
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={submitting}
+                  onClick={() => handleRating(2)}
+                  className="text-amber-500 text-[10px] px-1"
+                >
+                  Hard (2)
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={submitting}
+                  onClick={() => handleRating(3)}
+                  className="text-blue-500 text-[10px] px-1"
+                >
+                  Good (3)
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={submitting}
+                  onClick={() => handleRating(4)}
+                  className="text-emerald-500 text-[10px] px-1"
+                >
+                  Easy (4)
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+/**
+ * Tab 6: Practice Mode
+ */
+function PracticeTab({
+  concepts,
+  onJump,
+}: {
+  sourceId?: number
+  concepts: Concept[]
+  onJump: (ids: number[]) => void
+}) {
+  const [revealedIdx, setRevealedIdx] = useState<number | null>(null)
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between text-xs text-[var(--text-muted)] border-b border-[var(--border)] pb-2">
+        <span>Conceptual Scenarios ({concepts.length})</span>
+        <span className="text-[10px]">Self-guided practice</span>
+      </div>
+
+      {concepts.length === 0 ? (
+        <p className="text-xs text-[var(--text-muted)] italic py-4">
+          No concepts extracted yet for practice scenarios.
+        </p>
+      ) : (
+        concepts.slice(0, 10).map((concept, idx) => {
+          const isRevealed = revealedIdx === idx
+          return (
+            <Card key={concept.id}>
+              <CardBody className="p-3.5 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <h4 className="text-xs font-bold text-[var(--text)]">
+                    Challenge #{idx + 1}: {concept.name}
+                  </h4>
+                  {concept.segment_ids.length > 0 && (
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={() => onJump(concept.segment_ids)}
+                      title="View passage"
+                    >
+                      <Layers className="h-3 w-3 text-[var(--accent)]" />
+                    </Button>
+                  )}
+                </div>
+
+                <p className="text-xs text-[var(--text)]">
+                  How does {concept.name} ensure state correctness or resolve concurrency/computational constraints in this document?
+                </p>
+
+                {isRevealed ? (
+                  <div className="p-2.5 rounded bg-[var(--bg-sunken)] border border-[var(--border)] text-xs text-[var(--text-muted)] mt-2 animate-in fade-in">
+                    <span className="font-bold text-[var(--accent)]">Model Explanation: </span>
+                    {concept.definition}
+                  </div>
+                ) : null}
+
+                <div className="pt-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setRevealedIdx(isRevealed ? null : idx)}
+                    className="text-[11px] text-[var(--accent)]"
+                  >
+                    {isRevealed ? 'Hide Explanation' : 'Reveal Solution'}
+                  </Button>
+                </div>
+              </CardBody>
+            </Card>
+          )
+        })
+      )}
+    </div>
+  )
+}
+
+/**
+ * Tab 7: Document Learning Progress
+ */
+function DocumentProgressTab({
+  progress,
+  processing,
+}: {
+  progress: {
+    cards_total: number
+    cards_reviewed: number
+    quiz_items_total: number
+    quiz_attempts: number
+    quiz_correct: number
+    quiz_accuracy_pct: number | null
+    mastery_score: number
+  }
+  processing: {
+    page_count: number | null
+    segments_count: number
+  }
+}) {
+  return (
+    <div className="space-y-4">
+      {/* Overall Mastery Gauge */}
+      <Card>
+        <CardBody className="p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                Document Mastery
+              </span>
+              <h3 className="text-xl font-bold text-[var(--text)] mt-0.5">
+                {progress.mastery_score}%
+              </h3>
+            </div>
+            <Badge
+              tone={progress.mastery_score >= 80 ? 'accent' : progress.mastery_score >= 70 ? 'neutral' : 'danger'}
+            >
+              {progress.mastery_score >= 80 ? 'Mastered' : progress.mastery_score >= 70 ? 'Practicing' : 'Needs Study'}
+            </Badge>
+          </div>
+
+          <Progress value={progress.mastery_score} className="h-2" />
+          <p className="text-[10px] text-[var(--text-muted)]">
+            Computed strictly from verified flashcard retention and quiz accuracy.
+          </p>
+        </CardBody>
+      </Card>
+
+      {/* Metric Breakdown Grid */}
+      <div className="grid grid-cols-2 gap-2">
+        <Card>
+          <CardBody className="p-3">
+            <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase">Passages Indexed</span>
+            <p className="text-sm font-bold text-[var(--text)] mt-0.5">{processing.segments_count}</p>
+            <span className="text-[10px] text-[var(--text-muted)]">Across {processing.page_count ?? 1} pages</span>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardBody className="p-3">
+            <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase">Flashcards</span>
+            <p className="text-sm font-bold text-[var(--text)] mt-0.5">
+              {progress.cards_reviewed} / {progress.cards_total}
+            </p>
+            <span className="text-[10px] text-[var(--text-muted)]">Reviewed</span>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardBody className="p-3">
+            <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase">Quiz Attempts</span>
+            <p className="text-sm font-bold text-[var(--text)] mt-0.5">{progress.quiz_attempts}</p>
+            <span className="text-[10px] text-[var(--text-muted)]">Questions answered</span>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardBody className="p-3">
+            <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase">Quiz Accuracy</span>
+            <p className="text-sm font-bold text-[var(--text)] mt-0.5">
+              {progress.quiz_accuracy_pct !== null ? `${progress.quiz_accuracy_pct}%` : 'N/A'}
+            </p>
+            <span className="text-[10px] text-[var(--text-muted)]">Correct answers</span>
+          </CardBody>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Embedded Grounded AI Tutor Chat component inside the Studio
  */
 function SourceChatArea({
   chatId,
@@ -748,58 +1734,37 @@ function SourceChatArea({
   }, [messages.length, streaming])
 
   const send = (text: string) => {
-    const trimmed = text.trim()
-    if (!trimmed || busy) return
-    const socket = socketRef.current
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
-      toast.error('Connecting to AI Tutor... Try again in a moment.')
+    if (!text.trim() || busy) return
+    const ws = socketRef.current
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      toast.error('Chat connection offline. Reconnecting...')
       return
     }
     setBusy(true)
     setStreaming('')
     setExcerpts([])
+    ws.send(JSON.stringify({ text: text.trim() }))
     setInput('')
-
-    // Optimistic user bubble
-    queryClient.setQueryData(['chat', chatId], (old: typeof data) =>
-      old
-        ? {
-            ...old,
-            messages: [
-              ...old.messages,
-              {
-                id: -Date.now(),
-                chat_id: chatId,
-                role: 'user',
-                content: trimmed,
-                citations: [],
-                followups: [],
-                created_at: new Date().toISOString(),
-              } as ChatMessage,
-            ],
-          }
-        : old,
-    )
-    socket.send(JSON.stringify({ content: trimmed }))
   }
 
   const SUGGESTED_PROMPTS = [
-    'Summarize key ideas in this document',
-    'What formulas or definitions are introduced?',
-    'Create 3 practice questions from this material',
+    `Summarize the key principles and formulas in ${sourceTitle}`,
+    'What are the core definitions and their prerequisites?',
+    'What failure modes or edge cases are discussed in this document?',
+    'Generate 3 practice questions with step-by-step reasoning',
   ]
 
   return (
-    <div className="flex-1 flex flex-col h-full min-h-0">
-      {/* Scrollable messages container */}
+    <div className="flex-1 flex flex-col min-h-0 bg-[var(--bg)]">
+      {/* Messages Scroll Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && !streaming && (
-          <div className="max-w-md mx-auto text-center py-8 space-y-4">
-            <div className="grid h-10 w-10 mx-auto place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
-              <Sparkles className="h-5 w-5" />
+          <div className="mx-auto max-w-md text-center py-8 space-y-3">
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--accent)]/10 text-[var(--accent)] mx-auto">
+              <Sparkles className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-[var(--text)]">NotebookLM Grounded Tutor</h3>
+              <h3 className="text-sm font-bold text-[var(--text)]">DeepTutor Grounded Assistant</h3>
               <p className="text-xs text-[var(--text-muted)] mt-1">
                 Ask any question about “{sourceTitle}”. Answers are grounded strictly in your source excerpts.
               </p>
@@ -1062,148 +2027,5 @@ function RegenerateDialog({
         </div>
       </DialogContent>
     </Dialog>
-  )
-}
-
-function ConceptsTab({
-  sourceId,
-  onJump,
-  onExtract,
-  isExtracting,
-}: {
-  sourceId: number
-  onJump: (ids: number[]) => void
-  onExtract?: () => void
-  isExtracting?: boolean
-}) {
-  const { data } = useQuery({
-    queryKey: ['concepts', sourceId],
-    queryFn: () => api.getConcepts(sourceId),
-  })
-  const concepts = data?.concepts ?? []
-
-  if (concepts.length === 0) {
-    return (
-      <Card>
-        <EmptyState
-          icon={Sparkles}
-          title="No concepts extracted yet"
-          description="Concepts are key curriculum units flashcards and quiz questions are built from."
-          action={
-            onExtract && (
-              <Button variant="primary" size="sm" disabled={isExtracting} onClick={onExtract}>
-                <Sparkles className="h-4 w-4 mr-1" /> Extract concepts
-              </Button>
-            )
-          }
-        />
-      </Card>
-    )
-  }
-
-  return (
-    <div className="space-y-2.5">
-      {concepts.map((concept) => (
-        <Card key={concept.id}>
-          <CardBody className="p-3">
-            <div className="flex items-start justify-between gap-2">
-              <h3 className="text-xs font-bold text-[var(--text)]">{concept.name}</h3>
-              <Badge tone={concept.importance >= 4 ? 'accent' : 'neutral'} className="text-[10px]">
-                {'★'.repeat(concept.importance)}
-              </Badge>
-            </div>
-            <p className="mt-1 text-xs text-[var(--text-muted)] line-clamp-2">{concept.definition}</p>
-            <div className="mt-2.5 flex items-center gap-2">
-              <Progress
-                value={concept.mastery * 100}
-                tone={concept.mastery >= 0.8 ? 'success' : concept.mastery < 0.35 ? 'danger' : 'accent'}
-                className="flex-1 h-1.5"
-              />
-              <span className="tabular-nums text-[10px] text-[var(--text-muted)]">
-                {Math.round(concept.mastery * 100)}%
-              </span>
-              {concept.segment_ids.length > 0 && (
-                <Button variant="ghost" size="icon-sm" onClick={() => onJump(concept.segment_ids)} title="View in source">
-                  <Layers className="h-3 w-3 text-[var(--accent)]" />
-                </Button>
-              )}
-            </div>
-          </CardBody>
-        </Card>
-      ))}
-    </div>
-  )
-}
-
-function CardsTab({
-  sourceId, count, onGenerate,
-}: {
-  sourceId: number
-  count: number
-  onGenerate: () => void
-}) {
-  const { data } = useQuery({
-    queryKey: ['cards', sourceId],
-    queryFn: () => api.listCards(sourceId),
-    enabled: count > 0,
-  })
-  const navigate = useNavigate()
-
-  if (count === 0) {
-    return (
-      <Card>
-        <EmptyState
-          icon={Brain}
-          title="No flashcards yet"
-          description="Cards are generated from syllabus concepts and scheduled with FSRS."
-          action={<Button size="sm" variant="primary" onClick={onGenerate}>Generate flashcards</Button>}
-        />
-      </Card>
-    )
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="primary" onClick={() => navigate({ to: '/review', search: { source: sourceId } })}>
-          <Brain className="h-3.5 w-3.5 mr-1" /> Practice Now
-        </Button>
-        <Button
-          size="sm"
-          onClick={async () => {
-            try {
-              const { blob } = await api.exportAnki({ source_ids: [sourceId] })
-              const { downloadBlob } = await import('../lib/utils')
-              downloadBlob(blob, 'eduverse_cards.apkg')
-              toast.success('Exported to Anki.')
-            } catch (error) {
-              toast.error(error instanceof ApiError ? error.message : 'Export failed.')
-            }
-          }}
-        >
-          <Download className="h-3.5 w-3.5 mr-1" /> Anki
-        </Button>
-      </div>
-
-      <div className="space-y-2">
-        {(data?.cards ?? []).map((card) => (
-          <Card key={card.id}>
-            <CardBody className="p-3">
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-xs font-semibold text-[var(--text)]">{card.front}</p>
-                <Badge className="text-[9px] px-1">{card.type}</Badge>
-              </div>
-              <p className="mt-1 border-t border-[var(--border)] pt-1 text-xs text-[var(--text-muted)]">
-                {card.back}
-              </p>
-              <div className="mt-1.5 flex items-center justify-between text-[10px] text-[var(--text-muted)]">
-                <span>{card.state}</span>
-                <span>{card.reps} reviews {card.lapses > 0 && `· ${card.lapses} lapses`}</span>
-              </div>
-            </CardBody>
-          </Card>
-        ))}
-      </div>
-    </div>
   )
 }

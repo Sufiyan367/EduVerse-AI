@@ -4,7 +4,7 @@
 **Repository:** `https://github.com/Sufiyan367/EduVerse-AI`  
 **Branch:** `feature/eduverse-48h-rebuild`  
 **Status:** **RELEASE READY & FULLY VERIFIED**  
-**Test Suite:** 63 passed in 45.73s (100% pass rate across the fullstack backend)
+**Test Suite:** 65 passed in 46.16s (100% pass rate across the fullstack backend)
 
 ---
 
@@ -93,11 +93,17 @@ tests/test_guided_learning_and_metrics.py::test_user_isolation_blocks_cross_tena
 
 ### 2. Fullstack Backend Regression Suite
 ```
-============================= 63 passed in 45.73s =============================
+============================= 65 passed in 46.16s =============================
 - test_autonomous_automation_engine.py: 11 passed
-- test_guided_learning_and_metrics.py: 15 passed
+- test_guided_learning_and_metrics.py: 17 passed
 - test_ollama_provider.py: 4 passed
 - test_p0_adaptations_e2e.py: 4 passed
+- test_pdf_pipeline_comprehensive.py: 11 passed
+- test_postgres_academic_workflow.py: 3 passed
+- test_quiz_evidence_verification.py: 5 passed
+- test_quote_grounding.py: 5 passed
+- test_source_manifest.py: 5 passed
+```
 - test_pdf_pipeline_comprehensive.py: 11 passed
 - test_postgres_academic_workflow.py: 3 passed
 - test_quiz_evidence_verification.py: 5 passed

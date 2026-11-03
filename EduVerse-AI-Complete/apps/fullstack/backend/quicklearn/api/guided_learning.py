@@ -169,7 +169,258 @@ def _randomize_question_options(
 
 SUBJECT_QUESTION_BANK: dict[str, list[dict[str, Any]]] = {
     # ------------------------------------------------------------------------
-    # 1. Operating Systems & Systems Programming
+    # 1. CPU Scheduling & Thread Management
+    # ------------------------------------------------------------------------
+    "scheduling": [
+        {
+            "question_text": "In Round Robin CPU scheduling, what is the primary consequence of selecting an excessively small time quantum?",
+            "options": [
+                "Context switch overhead dominates execution time, drastically reducing effective CPU throughput.",
+                "The scheduling algorithm devolves into non-preemptive First-Come, First-Served (FCFS).",
+                "Starvation of I/O-bound processes is mathematically guaranteed.",
+                "Average turnaround time approaches zero for long-running batch jobs.",
+            ],
+            "correct_text": "Context switch overhead dominates execution time, drastically reducing effective CPU throughput.",
+            "bloom_level": "Understand",
+            "explanation": "A very small quantum causes frequent context switches, where the CPU spends significant cycles saving and restoring process states rather than executing productive user instructions.",
+        },
+        {
+            "question_text": "Which CPU scheduling algorithm is mathematically proven to achieve the minimal average waiting time for a given set of stationary processes?",
+            "options": [
+                "Shortest Job First (SJF / SRTF)",
+                "First-Come, First-Served (FCFS)",
+                "Round Robin with dynamic quantum",
+                "Priority Scheduling without preemption",
+            ],
+            "correct_text": "Shortest Job First (SJF / SRTF)",
+            "bloom_level": "Remember",
+            "explanation": "By scheduling the process with the shortest CPU burst first, average waiting time decreases because shorter jobs finish quickly and do not delay subsequent processes.",
+        },
+        {
+            "question_text": "What phenomenon occurs in First-Come, First-Served (FCFS) scheduling when multiple I/O-bound processes wait behind a single CPU-bound process?",
+            "options": [
+                "Convoy Effect",
+                "Priority Inversion",
+                "Belady's Anomaly",
+                "Thrashing",
+            ],
+            "correct_text": "Convoy Effect",
+            "bloom_level": "Understand",
+            "explanation": "The convoy effect describes lower CPU and device utilization resulting from short processes waiting for one long CPU-bound process to release the CPU.",
+        },
+        {
+            "question_text": "How is Turnaround Time mathematically defined in operating systems process metrics?",
+            "options": [
+                "Completion Time minus Arrival Time",
+                "Completion Time minus Start Time",
+                "Waiting Time minus Burst Time",
+                "Total execution time divided by quantum",
+            ],
+            "correct_text": "Completion Time minus Arrival Time",
+            "bloom_level": "Remember",
+            "explanation": "Turnaround time is the total interval from the time of submission (arrival) of a process to the time of its final completion: Turnaround = T_completion - T_arrival.",
+        },
+        {
+            "question_text": "In a Multi-Level Feedback Queue (MLFQ) scheduler, what mechanism prevents long-running CPU-bound processes from starving indefinitely?",
+            "options": [
+                "Periodic priority boost (aging), moving all starved processes to the highest priority queue.",
+                "Permanent round-robin time slicing across all queues simultaneously.",
+                "Hardware preemption based on DRAM cache misses.",
+                "Disabling interrupts whenever a low-priority process enters CPU execution.",
+            ],
+            "correct_text": "Periodic priority boost (aging), moving all starved processes to the highest priority queue.",
+            "bloom_level": "Apply",
+            "explanation": "Aging gradually increases the priority of processes that have waited a long time in lower queues, preventing starvation and allowing them to run.",
+        },
+        {
+            "question_text": "What problem arises when a higher-priority process is indirectly blocked waiting for a lower-priority process to release a lock, while a medium-priority process preempts the CPU?",
+            "options": [
+                "Priority Inversion",
+                "Convoy Effect",
+                "Belady's Anomaly",
+                "Cascading Deadlock",
+            ],
+            "correct_text": "Priority Inversion",
+            "bloom_level": "Understand",
+            "explanation": "Priority inversion occurs when a medium-priority thread runs and prevents a lower-priority thread from releasing a resource that a high-priority thread needs.",
+        },
+        {
+            "question_text": "Which protocol resolves Priority Inversion by temporarily raising the priority of a resource-holding process to that of the highest-priority waiting process?",
+            "options": [
+                "Priority Inheritance Protocol",
+                "Banker's Protocol",
+                "Havender's Protocol",
+                "Rate Monotonic Protocol",
+            ],
+            "correct_text": "Priority Inheritance Protocol",
+            "bloom_level": "Understand",
+            "explanation": "Under priority inheritance, the low-priority process holding the lock temporarily inherits the high priority of the waiting process until it exits the critical section.",
+        },
+        {
+            "question_text": "In Linux, what data structure and metric does the Completely Fair Scheduler (CFS) use to select the next task to run?",
+            "options": [
+                "Red-Black Tree sorted by virtual runtime (vruntime)",
+                "Doubly linked list sorted by static priority nice value",
+                "Min-heap ordered by total remaining burst time",
+                "Circular ring buffer indexed by PID",
+            ],
+            "correct_text": "Red-Black Tree sorted by virtual runtime (vruntime)",
+            "bloom_level": "Apply",
+            "explanation": "CFS uses a red-black tree keyed by vruntime (virtual runtime). The leftmost node in the tree has spent the least amount of time on CPU and is chosen next.",
+        },
+        {
+            "question_text": "How does Preemptive Shortest Job First (SRTF) handle the arrival of a new process with a burst time shorter than the remaining burst of the currently running process?",
+            "options": [
+                "It immediately preempts the current process and allocates the CPU to the newly arrived process.",
+                "It finishes the current process's full burst before scheduling the new process.",
+                "It splits the CPU quantum equally between the two processes.",
+                "It delays the new process until the next system tick.",
+            ],
+            "correct_text": "It immediately preempts the current process and allocates the CPU to the newly arrived process.",
+            "bloom_level": "Apply",
+            "explanation": "SRTF continuously evaluates whether newly arrived jobs have a smaller remaining execution time than the active job; if so, it preempts the running job immediately.",
+        },
+        {
+            "question_text": "In real-time periodic task scheduling, what distinguishes Rate-Monotonic (RM) scheduling from Earliest-Deadline-First (EDF)?",
+            "options": [
+                "RM assigns static priorities inversely proportional to period lengths; EDF assigns dynamic priorities based on impending deadlines.",
+                "RM is dynamic and optimal up to 100% CPU utilization, while EDF is static.",
+                "RM only schedules aperiodic events, whereas EDF only schedules periodic timer interrupts.",
+                "RM requires all tasks to have identical burst times, while EDF does not.",
+            ],
+            "correct_text": "RM assigns static priorities inversely proportional to period lengths; EDF assigns dynamic priorities based on impending deadlines.",
+            "bloom_level": "Analyze",
+            "explanation": "Rate-Monotonic uses static priorities where shorter period tasks get higher priority (theoretical bound ~69.3%). EDF uses dynamic priorities based on nearest deadline and can achieve 100% schedulable utilization.",
+        },
+    ],
+
+    # ------------------------------------------------------------------------
+    # 2. Process Synchronization & Concurrency
+    # ------------------------------------------------------------------------
+    "synchronization": [
+        {
+            "question_text": "Which three conditions must be satisfied by any valid software or hardware solution to the Critical Section Problem?",
+            "options": [
+                "Mutual Exclusion, Progress, and Bounded Waiting",
+                "Hold and Wait, No Preemption, and Circular Wait",
+                "Atomicity, Consistency, and Durability",
+                "Fairness, Starvation, and Throughput",
+            ],
+            "correct_text": "Mutual Exclusion, Progress, and Bounded Waiting",
+            "bloom_level": "Remember",
+            "explanation": "The 3 formal requirements for critical section solutions are: (1) Mutual Exclusion (at most one process inside), (2) Progress (selection of entering process cannot be postponed indefinitely), (3) Bounded Waiting (bound on number of times other processes can enter before a requesting process is granted entry).",
+        },
+        {
+            "question_text": "What constitutes a 'Race Condition' in concurrent programming?",
+            "options": [
+                "A situation where multiple threads read and write shared data concurrently and the final outcome depends on the execution scheduling order.",
+                "A high-speed thread consuming 100% of the CPU cycles while waiting on an I/O device.",
+                "Two threads deadlocked waiting on a circular resource chain.",
+                "A hardware timer triggering interrupts faster than the kernel can service them.",
+            ],
+            "correct_text": "A situation where multiple threads read and write shared data concurrently and the final outcome depends on the execution scheduling order.",
+            "bloom_level": "Understand",
+            "explanation": "A race condition occurs when several processes access and manipulate the same data concurrently and the outcome of the execution depends on the particular order in which the access takes place.",
+        },
+        {
+            "question_text": "In Peterson's Algorithm for two processes (P0 and P1), how is the desire of Pi to enter the critical section declared?",
+            "options": [
+                "flag[i] = true; turn = j;",
+                "flag[i] = false; turn = i;",
+                "turn = i; while (flag[j]) ;",
+                "flag[0] = flag[1] = true;",
+            ],
+            "correct_text": "flag[i] = true; turn = j;",
+            "bloom_level": "Apply",
+            "explanation": "Process Pi sets `flag[i] = true` to declare its intent, and gives away the turn (`turn = j`). It then waits while `flag[j] && turn == j`.",
+        },
+        {
+            "question_text": "How does a Counting Semaphore fundamentally differ from a Binary Semaphore (Mutex)?",
+            "options": [
+                "A counting semaphore's integer value can range over an unrestricted domain representing available resource units, whereas a binary semaphore is restricted to 0 and 1.",
+                "A counting semaphore can only be used on single-core processors.",
+                "A binary semaphore does not support wait() and signal() operations.",
+                "A counting semaphore automatically terminates deadlocked threads.",
+            ],
+            "correct_text": "A counting semaphore's integer value can range over an unrestricted domain representing available resource units, whereas a binary semaphore is restricted to 0 and 1.",
+            "bloom_level": "Understand",
+            "explanation": "A counting semaphore has an integer value that can range over an unrestricted domain, used to control access to a finite number of instances of a resource. A binary semaphore takes only values 0 and 1.",
+        },
+        {
+            "question_text": "What hardware guarantee does the 'Compare-And-Swap' (CAS) instruction provide to lock-free algorithms?",
+            "options": [
+                "It atomically reads a memory location, compares it to an expected value, and updates it to a new value only if the comparison succeeds, without interruptibility.",
+                "It switches the CPU from user mode to kernel mode in a single clock cycle.",
+                "It flushes the TLB cache across all processor cores simultaneously.",
+                "It pauses all other CPU cores until a memory barrier is issued.",
+            ],
+            "correct_text": "It atomically reads a memory location, compares it to an expected value, and updates it to a new value only if the comparison succeeds, without interruptibility.",
+            "bloom_level": "Apply",
+            "explanation": "CAS is an atomic hardware instruction that compares the contents of a memory location to a given value and, only if they are the same, modifies the contents of that memory location to a new given value.",
+        },
+        {
+            "question_text": "In the classic Producer-Consumer Bounded-Buffer problem with buffer size N, which semaphores and initial values are required?",
+            "options": [
+                "mutex = 1, empty = N, full = 0",
+                "mutex = 0, empty = 1, full = N",
+                "mutex = N, empty = 0, full = 1",
+                "mutex = 1, empty = 0, full = N",
+            ],
+            "correct_text": "mutex = 1, empty = N, full = 0",
+            "bloom_level": "Apply",
+            "explanation": "Binary semaphore `mutex=1` protects buffer manipulation. Counting semaphore `empty=N` counts empty slots (initially N). Counting semaphore `full=0` counts filled slots (initially 0).",
+        },
+        {
+            "question_text": "In the First Readers-Writers problem, what undesirable consequence can occur to writers if a continuous stream of readers arrives?",
+            "options": [
+                "Writer Starvation",
+                "Reader Deadlock",
+                "Priority Inversion",
+                "Belady's Anomaly",
+            ],
+            "correct_text": "Writer Starvation",
+            "bloom_level": "Understand",
+            "explanation": "In the first Readers-Writers problem, no reader is kept waiting unless a writer has already obtained permission. If new readers keep arriving before previous readers finish, writers may starve indefinitely.",
+        },
+        {
+            "question_text": "How does Dijkstra's resource hierarchy solution eliminate deadlock in the Dining Philosophers problem?",
+            "options": [
+                "By numbering all chopsticks 1..5 and requiring each philosopher to pick up the lower-numbered chopstick before the higher-numbered one.",
+                "By requiring philosophers to eat simultaneously using only one chopstick.",
+                "By terminating the philosopher who has eaten the most meals.",
+                "By granting chopsticks based on random coin flips.",
+            ],
+            "correct_text": "By numbering all chopsticks 1..5 and requiring each philosopher to pick up the lower-numbered chopstick before the higher-numbered one.",
+            "bloom_level": "Analyze",
+            "explanation": "Imposing a linear order on resource acquisition prevents circular wait, making deadlock mathematically impossible in the Dining Philosophers problem.",
+        },
+        {
+            "question_text": "What constitutes the fundamental distinction between a Spinlock and a Sleep/Mutex Lock?",
+            "options": [
+                "A spinlock busy-waits in a tight CPU loop checking the lock condition, whereas a sleep lock yields the CPU and puts the thread into a waiting queue.",
+                "Spinlocks are only supported in Python, while mutexes are hardware instructions.",
+                "Sleep locks can never suffer from priority inversion.",
+                "Spinlocks automatically release themselves after 1 millisecond.",
+            ],
+            "correct_text": "A spinlock busy-waits in a tight CPU loop checking the lock condition, whereas a sleep lock yields the CPU and puts the thread into a waiting queue.",
+            "bloom_level": "Understand",
+            "explanation": "Spinlocks keep the thread running in a tight loop (busy waiting) testing the lock variable. Sleep locks suspend the thread, causing a context switch. Spinlocks are ideal only when lock hold time is shorter than context switch overhead.",
+        },
+        {
+            "question_text": "In high-level language Monitors, what does condition variable signal() do under Mesa (non-blocking) semantics vs Hoare (blocking) semantics?",
+            "options": [
+                "Under Mesa semantics, the signaler continues executing and the signaled thread is moved to ready queue; under Hoare, execution immediately transfers to the signaled thread.",
+                "Under Mesa semantics, all waiting threads are terminated; under Hoare, only one thread wakes.",
+                "Mesa semantics require hardware interrupt disabling; Hoare semantics are purely software.",
+                "Mesa and Hoare semantics are identical in Java and POSIX threads.",
+            ],
+            "correct_text": "Under Mesa semantics, the signaler continues executing and the signaled thread is moved to ready queue; under Hoare, execution immediately transfers to the signaled thread.",
+            "bloom_level": "Analyze",
+            "explanation": "In Hoare semantics (signal-and-wait), the signaler yields control immediately to the awakened thread. In Mesa semantics (signal-and-continue, used by Java/POSIX), the signaler continues, and the awakened thread must re-check its condition in a `while` loop.",
+        },
+    ],
+    # ------------------------------------------------------------------------
+    # 3. Deadlock & Concurrency Failures
     # ------------------------------------------------------------------------
     "deadlock": [
         {
@@ -797,16 +1048,21 @@ SUBJECT_QUESTION_BANK: dict[str, list[dict[str, Any]]] = {
 }
 
 # Domain aliases for lookup flexibility
-SUBJECT_QUESTION_BANK["operating_systems"] = SUBJECT_QUESTION_BANK["deadlock"]
-SUBJECT_QUESTION_BANK["os"] = SUBJECT_QUESTION_BANK["deadlock"]
+SUBJECT_QUESTION_BANK["operating_systems"] = SUBJECT_QUESTION_BANK["scheduling"]
+SUBJECT_QUESTION_BANK["os"] = SUBJECT_QUESTION_BANK["scheduling"]
 SUBJECT_QUESTION_BANK["databases"] = SUBJECT_QUESTION_BANK["database"]
+SUBJECT_QUESTION_BANK["concurrency"] = SUBJECT_QUESTION_BANK["synchronization"]
 
 
 def _match_subject_bank(topic_name: str, course_code: str, course_name: str) -> str | None:
-    """Classify topic and course into a known domain for subject-grounded offline fallback."""
+    """Classify topic and course into a distinct domain for subject-grounded offline fallback."""
     text_corpus = f"{topic_name} {course_code} {course_name}".lower()
 
-    if any(k in text_corpus for k in ["deadlock", "banker", "concurrency", "process", "thread", "scheduling", "semaphore", "mutex", "lock"]):
+    if any(k in text_corpus for k in ["schedul", "round robin", "fcfs", "sjf", "srtf", "turnaround", "time quantum", "mlfq", "convoy", "cfs", "rate monotonic"]):
+        return "scheduling"
+    if any(k in text_corpus for k in ["synchron", "critical section", "semaphore", "mutex", "peterson", "race condition", "monitor", "dining philosopher", "producer consumer", "reader writer", "spin lock", "atomic", "lock", "thread"]):
+        return "synchronization"
+    if any(k in text_corpus for k in ["deadlock", "banker", "coffman", "circular wait", "safe state", "resource allocation graph"]):
         return "deadlock"
     if any(k in text_corpus for k in ["page", "paging", "virtual memory", "mmu", "segmentation", "cache", "tlb", "fragmentation", "thrashing"]):
         return "paging"
@@ -820,40 +1076,265 @@ def _match_subject_bank(topic_name: str, course_code: str, course_name: str) -> 
     return None
 
 
+def _build_domain_explanation(
+    topic_name: str,
+    bloom_level: str,
+    course_name: str,
+    domain: str,
+    excerpts: list[Any],
+) -> tuple[str, list[dict[str, str]], str]:
+    """Produce an authentic, domain-specific explanation and concrete worked example without generic filler."""
+    if domain == "scheduling":
+        summary = (
+            f"{topic_name} is a fundamental CPU management policy in {course_name}. "
+            "It controls how the operating system dispatcher selects processes from the ready queue for execution. "
+            "Key engineering trade-offs balance context switch overhead, average waiting time, and starvation prevention."
+        )
+        definitions = [
+            {"term": "Turnaround Time", "definition": "The total elapsed duration from process submission to completion (T_turnaround = T_completion - T_arrival)."},
+            {"term": "Waiting Time", "definition": "The cumulative time a process spends waiting in the ready queue before receiving CPU time."},
+            {"term": "Context Switch Overhead", "definition": "The hardware cycle latency spent saving and restoring registers and memory management state."},
+            {"term": "Time Quantum", "definition": "The fixed execution interval allocated to each process in preemptive Round Robin scheduling."},
+        ]
+        worked_example = (
+            "Step-by-Step Scenario Analysis: Round Robin Scheduling Calculation\n\n"
+            "Given: Three processes arrive at t = 0 with CPU bursts: P1 = 10 ms, P2 = 4 ms, P3 = 5 ms. Time quantum Q = 4 ms.\n"
+            "Step 1 (Execution Timeline - Gantt Chart):\n"
+            "  - [0 - 4 ms]: P1 executes for 4 ms (remaining: 6 ms). Ready queue: [P2, P3, P1]\n"
+            "  - [4 - 8 ms]: P2 executes for 4 ms (remaining: 0 ms -> FINISHED at t = 8 ms).\n"
+            "  - [8 - 12 ms]: P3 executes for 4 ms (remaining: 1 ms). Ready queue: [P1, P3]\n"
+            "  - [12 - 16 ms]: P1 executes for 4 ms (remaining: 2 ms). Ready queue: [P3, P1]\n"
+            "  - [16 - 17 ms]: P3 executes for 1 ms (remaining: 0 ms -> FINISHED at t = 17 ms).\n"
+            "  - [17 - 19 ms]: P1 executes for 2 ms (remaining: 0 ms -> FINISHED at t = 19 ms).\n\n"
+            "Step 2 (Turnaround & Waiting Times):\n"
+            "  - P1: Completion = 19 ms, Turnaround = 19 ms, Waiting = 19 - 10 = 9 ms.\n"
+            "  - P2: Completion = 8 ms,  Turnaround = 8 ms,  Waiting = 8 - 4 = 4 ms.\n"
+            "  - P3: Completion = 17 ms, Turnaround = 17 ms, Waiting = 17 - 5 = 12 ms.\n\n"
+            "Step 3 (Averages):\n"
+            "  - Average Waiting Time = (9 + 4 + 12) / 3 = 25 / 3 = 8.33 ms.\n"
+            "  - Average Turnaround Time = (19 + 8 + 17) / 3 = 44 / 3 = 14.67 ms."
+        )
+    elif domain == "synchronization":
+        summary = (
+            f"{topic_name} addresses the concurrency challenge of coordinating asynchronous threads in {course_name}. "
+            "Without atomic mutual exclusion, concurrent updates on shared memory lead to race conditions and corruption. "
+            "Rigorous solutions must guarantee Mutual Exclusion, Progress, and Bounded Waiting."
+        )
+        definitions = [
+            {"term": "Critical Section", "definition": "Code block manipulating shared variables that cannot be concurrently executed by multiple threads."},
+            {"term": "Mutual Exclusion", "definition": "Condition ensuring at most one thread executes within the critical section at any instant."},
+            {"term": "Counting Semaphore", "definition": "A synchronization primitive with an unrestricted integer value accessed only via atomic wait() and signal()."},
+            {"term": "Race Condition", "definition": "A concurrency bug where output depends unpredictably on thread scheduling interleaving."},
+        ]
+        worked_example = (
+            "Step-by-Step Scenario Analysis: Producer-Consumer Bounded-Buffer Synchronization\n\n"
+            "Given: Buffer capacity N = 5 slots. Semaphores: mutex = 1, empty = 5, full = 0.\n"
+            "Step 1 (Producer Insertion):\n"
+            "  - wait(empty): empty decrements from 5 to 4 (slot reserved).\n"
+            "  - wait(mutex): mutex decrements from 1 to 0 (exclusive lock acquired).\n"
+            "  - buffer[in] = item; in = (in + 1) % 5;\n"
+            "  - signal(mutex): mutex released (mutex = 1).\n"
+            "  - signal(full): full increments from 0 to 1 (consumer notified).\n\n"
+            "Step 2 (Consumer Extraction):\n"
+            "  - wait(full): full decrements from 1 to 0 (item reserved).\n"
+            "  - wait(mutex): lock acquired (mutex = 0).\n"
+            "  - item = buffer[out]; out = (out + 1) % 5;\n"
+            "  - signal(mutex): lock released (mutex = 1).\n"
+            "  - signal(empty): empty increments from 4 to 5 (producer notified).\n\n"
+            "Step 3 (Invariant Check):\n"
+            "  - Invariant empty + full == N (4 + 1 = 5) holds throughout all valid state transitions."
+        )
+    elif domain == "deadlock":
+        summary = (
+            f"{topic_name} analyzes resource deadlock conditions and safe allocations in {course_name}. "
+            "A system is in a safe state if there exists an execution sequence allowing all processes to finish without circular wait. "
+            "Banker's algorithm dynamically validates whether resource requests maintain a safe state."
+        )
+        definitions = [
+            {"term": "Safe State", "definition": "A resource allocation state with at least one safe sequence of process completion."},
+            {"term": "Coffman Conditions", "definition": "Mutual Exclusion, Hold and Wait, No Preemption, and Circular Wait."},
+            {"term": "Need Matrix", "definition": "Remaining process resource requirement: Need[i] = Max[i] - Allocation[i]."},
+            {"term": "Havender's Ordering", "definition": "Global total order on resources preventing circular wait protocols."},
+        ]
+        worked_example = (
+            "Step-by-Step Scenario Analysis: Banker's Algorithm Safe State Determination\n\n"
+            "Given: Processes P0, P1, P2 with Available = [3, 3, 2].\n"
+            "Allocation: P0=[0, 1, 0], P1=[2, 0, 0], P2=[3, 0, 2].\n"
+            "Max:        P0=[7, 5, 3], P1=[3, 2, 2], P2=[9, 0, 2].\n\n"
+            "Step 1 (Need Matrix = Max - Allocation):\n"
+            "  - Need[P0] = [7-0, 5-1, 3-0] = [7, 4, 3]\n"
+            "  - Need[P1] = [3-2, 2-0, 2-0] = [1, 2, 2]\n"
+            "  - Need[P2] = [9-3, 0-0, 2-2] = [6, 0, 0]\n\n"
+            "Step 2 (Safety Check):\n"
+            "  - Test P1: Need [1, 2, 2] <= Available [3, 3, 2] -> TRUE!\n"
+            "    P1 completes; releases Allocation [2, 0, 0].\n"
+            "    Available = [3+2, 3+0, 2+0] = [5, 3, 2].\n"
+            "  - Test P0: Need [7, 4, 3] <= Available [5, 3, 2] -> FALSE (7 > 5).\n"
+            "  - Test P2: Need [6, 0, 0] <= Available [5, 3, 2] -> FALSE (6 > 5).\n\n"
+            "Step 3 (Safety Verdict):\n"
+            "  - No further process can complete with current available resources. The state is UNSAFE (potential deadlock)."
+        )
+    elif domain == "paging":
+        summary = (
+            f"{topic_name} provides virtual memory management and address translation in {course_name}. "
+            "Paging splits process logical memory into fixed-size pages and physical RAM into frames, "
+            "eliminating external fragmentation while enforcing hardware-assisted access protection."
+        )
+        definitions = [
+            {"term": "TLB (Translation Lookaside Buffer)", "definition": "Associative hardware cache accelerating virtual-to-physical address mapping."},
+            {"term": "Page Fault", "definition": "Trap raised when accessing a virtual page whose present bit in the page table is zero."},
+            {"term": "Internal Fragmentation", "definition": "Wasted unused bytes inside the final allocated page."},
+            {"term": "Bélády's Anomaly", "definition": "FIFO page replacement anomaly where adding physical frames increases page faults."},
+        ]
+        worked_example = (
+            "Step-by-Step Scenario Analysis: Virtual Address Translation (4 KB Page Size)\n\n"
+            "Given: 32-bit virtual address 0x00004567 in a system with 4 KB page size.\n"
+            "Step 1 (Address Decomposition):\n"
+            "  - 4 KB = 2^12 bytes -> Offset requires lowest 12 bits (bits 0..11).\n"
+            "  - Offset d = 0x00004567 & 0xFFF = 0x567 (1383 decimal).\n"
+            "  - Virtual Page Number (VPN) p = 0x00004567 >> 12 = 4 (Page #4).\n\n"
+            "Step 2 (Page Table Lookup):\n"
+            "  - MMU looks up Page #4 entry in active process Page Table.\n"
+            "  - Page Table Entry: Valid = 1, Frame Number = 7.\n\n"
+            "Step 3 (Physical Address Construction):\n"
+            "  - Physical Address = (Frame #7 << 12) | Offset 0x567 = 0x00007567.\n"
+            "  - DRAM controller loads data byte directly from address 0x00007567."
+        )
+    elif domain == "database":
+        summary = (
+            f"{topic_name} covers relational integrity, normalization, and ACID transaction guarantees in {course_name}. "
+            "It establishes formal principles to eliminate update anomalies and preserve serializability under concurrent queries."
+        )
+        definitions = [
+            {"term": "BCNF (Boyce-Codd Normal Form)", "definition": "A relation where every non-trivial functional dependency X -> Y has superkey X."},
+            {"term": "Write-Ahead Logging (WAL)", "definition": "Protocol requiring update log records on stable storage before modifying disk data pages."},
+            {"term": "Referential Integrity", "definition": "Foreign key values must match an existing primary key in the referenced relation or be null."},
+            {"term": "Serializability", "definition": "Concurrent execution schedule producing the same result as some serial execution."},
+        ]
+        worked_example = (
+            "Step-by-Step Scenario Analysis: BCNF Decomposition\n\n"
+            "Given: Relation R(Student, Course, Instructor) with FDs:\n"
+            "  1. {Student, Course} -> Instructor\n"
+            "  2. Instructor -> Course\n"
+            "Candidate Keys: {Student, Instructor}, {Student, Course}\n\n"
+            "Step 1 (Violation Check):\n"
+            "  - In FD: Instructor -> Course, determinant 'Instructor' is NOT a superkey of R.\n"
+            "  - R is in 3NF (Course is a prime attribute), but violates BCNF!\n\n"
+            "Step 2 (Decomposition):\n"
+            "  - Decompose into R1(Instructor, Course) with Key {Instructor}.\n"
+            "  - Decompose into R2(Student, Instructor) with Key {Student, Instructor}.\n\n"
+            "Step 3 (Integrity Verification):\n"
+            "  - R1 intersect R2 = {Instructor}, which is a superkey of R1 (Lossless Join preserved).\n"
+            "  - Both sub-relations are in full BCNF without redundancy."
+        )
+    elif domain == "mathematics":
+        summary = (
+            f"{topic_name} explores matrix structures, linear maps, and spectral theory in {course_name}. "
+            "Eigenvalues and orthogonal transformations form the computational backbone for systems modeling and optimization."
+        )
+        definitions = [
+            {"term": "Eigenvalue (lambda)", "definition": "Scalar satisfying A * v = lambda * v for non-zero eigenvector v."},
+            {"term": "Characteristic Equation", "definition": "Polynomial det(A - lambda * I) = 0 whose roots are the eigenvalues."},
+            {"term": "Spectral Theorem", "definition": "Every real symmetric matrix is orthogonally diagonalizable with real eigenvalues."},
+            {"term": "Rank-Nullity Theorem", "definition": "For linear map T: V -> W, rank(T) + nullity(T) = dim(V)."},
+        ]
+        worked_example = (
+            "Step-by-Step Scenario Analysis: Eigenvalues of 2x2 Matrix A\n\n"
+            "Given: Matrix A = [[4, 1], [2, 3]].\n"
+            "Step 1 (Characteristic Polynomial):\n"
+            "  det(A - lambda * I) = det([[4 - lambda, 1], [2, 3 - lambda]]) = 0.\n"
+            "  (4 - lambda)(3 - lambda) - (1 * 2) = 0.\n"
+            "  lambda^2 - 7*lambda + 10 = 0.\n\n"
+            "Step 2 (Factoring):\n"
+            "  (lambda - 5)(lambda - 2) = 0 -> lambda_1 = 5, lambda_2 = 2.\n\n"
+            "Step 3 (Invariant Checks):\n"
+            "  - Trace(A) = 4 + 3 = 7 = lambda_1 + lambda_2 (Verified).\n"
+            "  - det(A) = 4*3 - 1*2 = 10 = lambda_1 * lambda_2 (Verified)."
+        )
+    elif domain == "statistics":
+        summary = (
+            f"{topic_name} establishes statistical hypothesis testing and probability inference in {course_name}. "
+            "It formalizes error bounds, p-value criteria, and parameter estimation for scientific reproducibility."
+        )
+        definitions = [
+            {"term": "p-value", "definition": "Probability of observing test results at least as extreme as observed, assuming H0 is true."},
+            {"term": "Type I Error (alpha)", "definition": "Probability of rejecting a true null hypothesis (false positive rate)."},
+            {"term": "Central Limit Theorem", "definition": "Sampling distribution of the sample mean approaches normal distribution as n increases."},
+            {"term": "Statistical Power", "definition": "Probability (1 - beta) of correctly rejecting a false null hypothesis."},
+        ]
+        worked_example = (
+            "Step-by-Step Scenario Analysis: One-Sample Student's t-Test\n\n"
+            "Given: Sample size n = 25, sample mean x_bar = 104, sample sd s = 10. Test H0: mu = 100 vs H1: mu != 100 at alpha = 0.05.\n"
+            "Step 1 (Standard Error):\n"
+            "  SE = s / sqrt(n) = 10 / sqrt(25) = 10 / 5 = 2.0.\n\n"
+            "Step 2 (Test Statistic):\n"
+            "  t = (x_bar - mu_0) / SE = (104 - 100) / 2.0 = 2.00.\n\n"
+            "Step 3 (Critical Decision):\n"
+            "  - Degrees of freedom df = 25 - 1 = 24.\n"
+            "  - Two-tailed critical value t_crit(0.05, 24) = 2.064.\n"
+            "  - Since |t| = 2.00 < 2.064, we fail to reject H0 at alpha = 0.05 (p-value = 0.057)."
+        )
+    else:
+        # Grounded in document excerpts or topic name
+        if excerpts and len(excerpts) > 0:
+            first_sent = excerpts[0].text.strip().split(".")[0].replace('"', "'")
+            summary = (
+                f"{topic_name} is discussed in uploaded course material for {course_name}. "
+                f"Core finding: '{first_sent}'. "
+                f"Demonstrates the required {bloom_level} curriculum competency."
+            )
+        else:
+            summary = (
+                f"{topic_name} represents a core syllabus topic in {course_name}, "
+                f"targeting {bloom_level} cognitive mastery under university curriculum standards."
+            )
+        definitions = [
+            {"term": topic_name, "definition": f"Core academic concept in {course_name}."},
+            {"term": "Curriculum Standard", "definition": "Syllabus competency target defined by academic program."},
+            {"term": "Bloom Competency", "definition": f"{bloom_level} level analytical requirement."},
+        ]
+        worked_example = (
+            f"Step-by-Step Problem Solving Framework for {topic_name}:\n\n"
+            f"Step 1 (Initial Setup): Identify input parameters, known invariants, and requirements for {topic_name}.\n"
+            f"Step 2 (Analytical Derivation): Apply governing principles to compute intermediate state transitions.\n"
+            f"Step 3 (Verification): Verify consistency and evaluate results against curriculum standards."
+        )
+
+    return summary, definitions, worked_example
+
+
 def _synthesize_excerpt_questions(topic: SyllabusTopic, course: Course, excerpts: list[Segment]) -> list[dict[str, Any]] | None:
-    """Synthesize 10 genuine questions grounded directly in course document excerpts when available."""
+    """Synthesize genuine questions grounded directly in course document excerpts without canned filler."""
     if not excerpts or len(excerpts) == 0:
         return None
 
-    # Concatenate excerpt texts and extract sentences
     full_text = " ".join([e.text.strip() for e in excerpts if e.text])
     sentences = [s.strip() for s in re.split(r"[.!?]\s+", full_text) if len(s.strip()) > 35]
     if len(sentences) < 3:
         return None
 
     questions: list[dict[str, Any]] = []
-    # Build 10 grounded questions by analyzing key statements from the text
     for i in range(10):
         src_sentence = sentences[i % len(sentences)]
-        words = src_sentence.split()
-        key_term = words[min(4, len(words) - 1)]
+        other_sent1 = sentences[(i + 1) % len(sentences)]
+        other_sent2 = sentences[(i + 2) % len(sentences)]
 
-        q_stem = f"According to course material on '{topic.name}', what principle is verified by the following passage: \"{src_sentence[:120]}...\"?"
-        correct = f"It governs the correct operational state transitions for {topic.name} as defined in the source text."
-        distractor_1 = f"It states that {topic.name} operations are completely unverified and bypass runtime consistency checks."
-        distractor_2 = f"It replaces {topic.name} structures with unindexed flat disk files."
-        distractor_3 = f"It indicates that {topic.name} has no observable impact on course outcomes."
+        q_stem = f"Based on the course document for '{topic.name}', which statement is directly affirmed in the discussion: \"{src_sentence[:120]}...\"?"
+        correct = f"\"{src_sentence[:130]}\""
+        distractor_1 = f"This statement is refuted by: \"{other_sent1[:120]}\""
+        distractor_2 = f"This rule applies strictly only within: \"{other_sent2[:120]}\""
+        distractor_3 = f"The source text explicitly disproves this principle for {topic.name}."
 
         questions.append({
             "question_text": q_stem,
             "options": [correct, distractor_1, distractor_2, distractor_3],
             "correct_text": correct,
             "bloom_level": "Understand" if i < 4 else ("Apply" if i < 8 else "Analyze"),
-            "explanation": f"Directly grounded in the uploaded course excerpt for '{topic.name}': \"{src_sentence[:150]}\"",
+            "explanation": f"Directly grounded in the uploaded document excerpt for '{topic.name}': \"{src_sentence[:150]}\"",
             "citation": f"Doc Excerpt #{excerpts[i % len(excerpts)].id}",
         })
 
-    return questions
+    return questions if len(questions) == 10 else None
 
 
 # ============================================================================
@@ -1158,32 +1639,9 @@ async def get_topic_explanation(
             log.warning("Guided learning LLM structured explanation failed or degraded: %s", exc)
 
     if not llm_generated:
-        # Deterministic domain-specific synthesis with distinct fields
-        if has_evidence:
-            primary_excerpt = excerpts[0]
-            summary = (
-                f"{topic.name} is defined in course materials ('{primary_excerpt.source_title}', Page {primary_excerpt.page_no or 'N/A'}) "
-                f"as follows: \"{primary_excerpt.text.strip()}\"\n\n"
-                f"Under the {course.code} curriculum, this concept governs reliable system behavior and verifies the {topic.bloom_level} competency."
-            )
-        else:
-            summary = (
-                f"{topic.name} represents a foundational curriculum topic in {course.name}. "
-                f"Its primary role is establishing predictable state invariants and verifying {topic.bloom_level} cognitive competency."
-            )
-
-        definitions = [
-            {"term": topic.name, "definition": f"Core academic concept covering {topic.name} in {course.name}."},
-            {"term": "Invariant Condition", "definition": "A condition that must remain true throughout all valid state transitions."},
-            {"term": "Cognitive Target", "definition": f"{topic.bloom_level} cognitive competency under Bloom's revised taxonomy."},
-        ]
-
-        worked_example = (
-            f"Step-by-Step Scenario Analysis for {topic.name}:\n\n"
-            f"Given: Initial system state S0 with baseline parameters (Alpha = 10, Beta = 25).\n"
-            f"Step 1 (Formulation): Formulate governing equation or constraint for {topic.name}.\n"
-            f"Step 2 (Execution): Substitute baseline values into transition relation: S1 = S0 + Delta(S0).\n"
-            f"Step 3 (Verification): Verify that invariant Delta <= threshold holds. Output confirmed in safe bounds."
+        matched_domain = _match_subject_bank(topic.name, course.code, course.name)
+        summary, definitions, worked_example = _build_domain_explanation(
+            topic.name, topic.bloom_level, course.name, matched_domain or ("excerpts" if has_evidence else "general"), excerpts
         )
 
     # Log explanation event
@@ -1345,7 +1803,7 @@ async def get_topic_knowledge_check(
     session_token = secrets.token_urlsafe(32)
     quiz_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
-    expires_at = now + timedelta(hours=2)
+    expires_at = now + timedelta(seconds=1800)
 
     question_ids = [q["id"] for q in final_questions]
     answer_key = {str(q["id"]): q["correct_option"] for q in final_questions}
@@ -1388,7 +1846,7 @@ async def get_topic_knowledge_check(
         "passing_threshold_percent": 80,
         "questions": sanitized_questions,
         "generation_mode": generation_mode,
-        "expires_in_seconds": 7200,
+        "expires_in_seconds": 1800,
     }
 
 
@@ -1471,8 +1929,17 @@ def submit_topic_knowledge_check(
             err_msg += f"Invalid question IDs not issued in this quiz: {invalid_ids}."
         raise HTTPException(status_code=422, detail=err_msg.strip())
 
-    # 6. Mark quiz session as consumed in the active transaction
-    quiz_session.consumed_at = now
+    # 6. Atomic conditional update to enforce strict one-time submission under concurrent requests
+    updated = (
+        db.query(GuidedQuizSession)
+        .filter(GuidedQuizSession.id == quiz_session.id, GuidedQuizSession.consumed_at.is_(None))
+        .update({"consumed_at": now}, synchronize_session="fetch")
+    )
+    if updated == 0:
+        raise HTTPException(
+            status_code=409,
+            detail="Conflict: Quiz session has already been submitted and consumed. One-time submission enforced.",
+        )
 
     # 7. Grade against server-side answer key and explanations
     answer_key = quiz_session.answer_key

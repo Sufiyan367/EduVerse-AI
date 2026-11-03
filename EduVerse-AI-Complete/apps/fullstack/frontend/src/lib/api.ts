@@ -1,7 +1,7 @@
 import type {
   AnswerResult, AuthResponse, Card, Chat, ChatMessage, Concept, Dashboard, DashboardStats, DueCounts, Excerpt, Folder,
   Job, KnowledgeGapSummary, Note, QuizDone, QuizQuestion, QuizResults, ReviewResult, RevisionRecommendation, RevisionSession, SearchHit,
-  Segment, SettingsPayload, Source, SourceDetail, TopicGap, Usage, User,
+  Segment, SettingsPayload, Source, SourceDetail, SourceWorkspaceResponse, SourceExplanationResponse, TopicGap, Usage, User,
   LlmStatus,
 } from './types'
 
@@ -90,6 +90,11 @@ export const api = {
   listSources: (params: { folder_id?: number; status?: string; tag?: string; q?: string } = {}) =>
     get<{ sources: Source[]; total: number }>(`/sources${qs(params)}`),
   getSource: (id: number) => get<SourceDetail>(`/sources/${id}`),
+  getSourceWorkspace: (id: number) => get<SourceWorkspaceResponse>(`/sources/${id}/workspace`),
+  explainSourceTopic: (
+    id: number,
+    body: { topic: string; depth?: 'principle' | 'analogy' | 'worked_example' | 'compare' },
+  ) => post<SourceExplanationResponse>(`/sources/${id}/explain`, body),
   updateSource: (id: number, body: { title?: string; folder_id?: number | null; tags?: string[] }) =>
     patch<Source>(`/sources/${id}`, body),
   deleteSource: (id: number) => del<{ deleted: boolean }>(`/sources/${id}`),
