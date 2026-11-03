@@ -116,7 +116,7 @@ def submit_review(
         if card is None:
             raise NotFoundError(f"Card {card_id} not found.")
         check_card_access(card, user, write=True)
-    return review.apply_rating(card_id, payload.rating, payload.duration_ms)
+    return review.apply_rating(card_id, payload.rating, payload.duration_ms, user_id=user.id if user else None)
 
 
 @router.post("/{card_id}/undo")

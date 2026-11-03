@@ -324,6 +324,7 @@ class Review(Base):
     __tablename__ = "reviews"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     card_id: Mapped[int] = mapped_column(ForeignKey("cards.id", ondelete="CASCADE"), index=True)
     rating: Mapped[int] = mapped_column(Integer)
     reviewed_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow, index=True)
@@ -332,6 +333,24 @@ class Review(Base):
     state_before: Mapped[JSONDict] = mapped_column(JSON, default=dict)
 
     card: Mapped[Card] = relationship(back_populates="reviews")
+
+
+class PracticeAttempt(Base):
+    """User attempts on document practice challenges."""
+
+    __tablename__ = "practice_attempts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    source_id: Mapped[int] = mapped_column(ForeignKey("sources.id", ondelete="CASCADE"), index=True)
+    challenge_id: Mapped[str] = mapped_column(String(64), index=True)
+    question: Mapped[str] = mapped_column(Text)
+    student_answer: Mapped[str] = mapped_column(Text)
+    score: Mapped[int] = mapped_column(Integer)
+    is_passing: Mapped[bool] = mapped_column(Boolean, default=False)
+    feedback: Mapped[str] = mapped_column(Text)
+    model_solution: Mapped[str] = mapped_column(Text)
+    attempted_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow, index=True)
 
 
 class QuizItem(Base):

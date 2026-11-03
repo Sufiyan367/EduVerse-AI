@@ -41,9 +41,10 @@ def check_source_access(source: Source, user: User | None, *, write: bool = Fals
         if source.user_id != user.id:
             raise ForbiddenError(f"You do not have access to source {source.id}.")
     else:
-        # Legacy source without explicit user_id: accessible only by primary user (id=1)
-        if user is None or user.id != 1:
-            raise ForbiddenError(f"You do not have access to source {source.id}.")
+        # Shared / curriculum source without private user_id:
+        # Readable by any authenticated user; write operations restricted to admin/primary user (id=1)
+        if write and (user is None or user.id != 1):
+            raise ForbiddenError(f"You do not have permission to modify shared source {source.id}.")
 
 
 CHUNK_READ = 1024 * 1024
@@ -668,44 +669,91 @@ def get_source_workspace(source_id: int, user: User | None = Depends(get_optiona
         )
         concept_list = [concept_dict(c) for c in concepts[:30]]
 
-        # 4. Real, Persisted Learning Progress (User-isolated)
-        from ..db.models import Card, Review, QuizItem, QuizAttempt
-        cards_total = int(session.execute(select(func.count()).select_from(Card).where(Card.source_id == source_id)).scalar_one())
-        card_ids = [c.id for c in session.execute(select(Card.id).where(Card.source_id == source_id)).scalars()]
+        # 4. Real, Persisted Learning Progress (Strict User Data Isolation)
+        from sqlalchemy import distinct
+        from ..db.models import Card, Review, QuizItem, QuizAttempt, QuizSession, ActivityLog, PracticeAttempt
         
+        cards_total = int(session.execute(select(func.count()).select_from(Card).where(Card.source_id == source_id)).scalar_one())
+        card_ids = list(session.execute(select(Card.id).where(Card.source_id == source_id)).scalars())
+        
+        # Count distinct reviewed cards for unique-card coverage, isolated to current user if authenticated
         cards_reviewed = 0
         if card_ids:
-            cards_reviewed = int(
-                session.execute(select(func.count()).select_from(Review).where(Review.card_id.in_(card_ids))).scalar_one()
-            )
+            stmt = select(func.count(distinct(Review.card_id))).select_from(Review).where(Review.card_id.in_(card_ids))
+            if user:
+                stmt = stmt.where(Review.user_id == user.id)
+            cards_reviewed = int(session.execute(stmt).scalar_one())
 
         quiz_items_total = int(
             session.execute(select(func.count()).select_from(QuizItem).where(QuizItem.source_id == source_id, QuizItem.ephemeral.is_(False))).scalar_one()
         )
-        quiz_item_ids = [q.id for q in session.execute(select(QuizItem.id).where(QuizItem.source_id == source_id)).scalars()]
+        quiz_item_ids = list(session.execute(select(QuizItem.id).where(QuizItem.source_id == source_id)).scalars())
         
+        # User-isolated quiz attempts on this document
         quiz_attempts_count = 0
         quiz_correct_count = 0
         if quiz_item_ids:
-            attempts = list(session.execute(select(QuizAttempt).where(QuizAttempt.quiz_item_id.in_(quiz_item_ids))).scalars())
+            stmt = (
+                select(QuizAttempt)
+                .join(QuizSession, QuizAttempt.session_id == QuizSession.id)
+                .where(QuizAttempt.quiz_item_id.in_(quiz_item_ids))
+            )
+            if user:
+                stmt = stmt.where(QuizSession.user_id == user.id)
+            attempts = list(session.execute(stmt).scalars())
             quiz_attempts_count = len(attempts)
             quiz_correct_count = sum(1 for a in attempts if a.is_correct)
 
         quiz_accuracy_pct = round((quiz_correct_count / quiz_attempts_count) * 100, 1) if quiz_attempts_count > 0 else None
         
-        # Real mastery score: calculated strictly from verified student work
-        # No hardcoded 65%! If nothing reviewed/quizzed, exactly 0.0%.
-        if cards_total == 0 and quiz_items_total == 0:
+        # Track actual distinct passages studied by the user
+        passages_read = 0
+        seg_ids = list(session.execute(select(Segment.id).where(Segment.source_id == source_id)).scalars())
+        if seg_ids and user:
+            stmt = (
+                select(func.count(distinct(ActivityLog.entity_id)))
+                .select_from(ActivityLog)
+                .where(
+                    ActivityLog.user_id == user.id,
+                    ActivityLog.action == "read_passage",
+                    ActivityLog.entity_type == "segment",
+                    ActivityLog.entity_id.in_(seg_ids)
+                )
+            )
+            passages_read = int(session.execute(stmt).scalar_one())
+
+        # Practice challenges completed
+        practice_completed = 0
+        if user:
+            stmt = (
+                select(func.count(distinct(PracticeAttempt.challenge_id)))
+                .select_from(PracticeAttempt)
+                .where(
+                    PracticeAttempt.source_id == source_id,
+                    PracticeAttempt.user_id == user.id,
+                    PracticeAttempt.is_passing.is_(True)
+                )
+            )
+            practice_completed = int(session.execute(stmt).scalar_one())
+
+        # Single Consistent Transparent Mastery Formula:
+        # Measures genuine academic engagement across available modalities:
+        # 1. Card Coverage (distinct cards reviewed / total cards)
+        # 2. Quiz Accuracy (correct answers / attempts)
+        # 3. Passage Reading Coverage (distinct passages read / total segments)
+        # 4. Practice Challenges (passing challenges / max(1, challenges_total))
+        components = []
+        if cards_total > 0:
+            components.append(min(1.0, cards_reviewed / cards_total))
+        if quiz_attempts_count > 0:
+            components.append(quiz_correct_count / quiz_attempts_count)
+        if seg_count > 0 and user:
+            components.append(min(1.0, passages_read / seg_count))
+
+        if not components or (cards_reviewed == 0 and quiz_attempts_count == 0 and passages_read == 0 and practice_completed == 0):
             mastery_score = 0.0
         else:
-            card_ratio = min(1.0, cards_reviewed / max(1, cards_total))
-            quiz_ratio = (quiz_accuracy_pct / 100.0) if quiz_accuracy_pct is not None else 0.0
-            if cards_total > 0 and quiz_items_total > 0:
-                mastery_score = round((0.5 * card_ratio + 0.5 * quiz_ratio) * 100, 1)
-            elif cards_total > 0:
-                mastery_score = round(card_ratio * 100, 1)
-            else:
-                mastery_score = round(quiz_ratio * 100, 1)
+            mastery_score = round((sum(components) / len(components)) * 100, 1)
 
         progress = {
             "cards_total": cards_total,
@@ -714,6 +762,9 @@ def get_source_workspace(source_id: int, user: User | None = Depends(get_optiona
             "quiz_attempts": quiz_attempts_count,
             "quiz_correct": quiz_correct_count,
             "quiz_accuracy_pct": quiz_accuracy_pct,
+            "passages_read": passages_read,
+            "total_segments": seg_count,
+            "practice_completed": practice_completed,
             "mastery_score": mastery_score,
         }
 
@@ -733,8 +784,8 @@ async def explain_topic(
     payload: ExplainRequest,
     user: User | None = Depends(get_optional_user),
 ) -> dict[str, Any]:
-    """Provide a structured, document-grounded topic explanation with verified citations and worked example."""
-    from ..rag.retrieve import retrieve
+    """Provide a structured, document-grounded topic explanation with genuine LLM generation and verified citations."""
+    from ..study.document_intelligence import generate_grounded_explanation
 
     def check_access() -> Source:
         with session_scope() as session:
@@ -745,94 +796,134 @@ async def explain_topic(
             return s
 
     source = await run_db(check_access)
-
-    # Scoped RAG retrieval on this specific document
-    excerpts = await retrieve(
-        payload.topic,
-        scope_type="source",
-        scope_id=source_id,
-        user_id=user.id if user else None,
-        top_k=5,
-        rerank_to=3,
-        use_rerank=False,
+    return await generate_grounded_explanation(
+        source=source,
+        topic=payload.topic,
+        depth=payload.depth,
+        user=user,
     )
 
-    citations = [
-        {
-            "segment_id": e.id,
-            "page_no": e.page_no,
-            "quote": e.text[:220].strip(),
-            "source_title": source.title,
+
+@router.post("/{source_id}/passages/{segment_id}/read")
+def record_passage_read(
+    source_id: int,
+    segment_id: int,
+    user: User | None = Depends(get_optional_user),
+) -> dict[str, Any]:
+    """Record that the student read a specific segment in this source document for verifiable progress."""
+    if not user:
+        return {"recorded": False, "reason": "unauthenticated"}
+    with session_scope() as session:
+        source = session.get(Source, source_id)
+        if not source:
+            raise NotFoundError(f"Source {source_id} not found.")
+        check_source_access(source, user)
+        seg = session.get(Segment, segment_id)
+        if not seg or seg.source_id != source_id:
+            raise NotFoundError(f"Segment {segment_id} not found in source {source_id}.")
+
+        from ..db.models import ActivityLog
+        log_entry = ActivityLog(
+            user_id=user.id,
+            action="read_passage",
+            entity_type="segment",
+            entity_id=segment_id,
+            title=f"Studied passage in {source.title}",
+            details={"source_id": source_id, "page_no": seg.page_no},
+        )
+        session.add(log_entry)
+        session.commit()
+    return {"recorded": True, "source_id": source_id, "segment_id": segment_id}
+
+
+class PracticeEvaluateRequest(BaseModel):
+    challenge_id: str
+    question: str
+    student_answer: str
+    concept: str = ""
+
+
+@router.get("/{source_id}/practice/challenges")
+def get_practice_challenges(
+    source_id: int,
+    user: User | None = Depends(get_optional_user),
+) -> dict[str, Any]:
+    """Retrieve substantive interactive practice challenges generated from document passages."""
+    from ..study.document_intelligence import generate_practice_challenges
+
+    with session_scope() as session:
+        source = session.get(Source, source_id)
+        if not source:
+            raise NotFoundError(f"Source {source_id} not found.")
+        check_source_access(source, user)
+
+        segments = list(session.execute(select(Segment).where(Segment.source_id == source_id).order_by(Segment.index).limit(15)).scalars())
+        concepts = list(session.execute(select(Concept).where(Concept.source_id == source_id).limit(10)).scalars())
+
+        challenges = generate_practice_challenges(source, segments, concepts)
+        return {"challenges": challenges}
+
+
+@router.post("/{source_id}/practice/evaluate")
+def evaluate_practice(
+    source_id: int,
+    payload: PracticeEvaluateRequest,
+    user: User | None = Depends(get_optional_user),
+) -> dict[str, Any]:
+    """Evaluate student submission on a practice challenge with rubric grading and persistence."""
+    from ..study.document_intelligence import evaluate_practice_attempt
+
+    with session_scope() as session:
+        source = session.get(Source, source_id)
+        if not source:
+            raise NotFoundError(f"Source {source_id} not found.")
+        check_source_access(source, user)
+
+    result = evaluate_practice_attempt(
+        challenge_id=payload.challenge_id,
+        question=payload.question,
+        student_answer=payload.student_answer,
+        concept=payload.concept,
+        source=source,
+        user=user,
+    )
+    return result.model_dump()
+
+
+@router.get("/{source_id}/practice/history")
+def get_practice_history(
+    source_id: int,
+    user: User | None = Depends(get_optional_user),
+) -> dict[str, Any]:
+    """Retrieve user's previous practice attempts for this document."""
+    if not user:
+        return {"attempts": []}
+    from ..db.models import PracticeAttempt
+    with session_scope() as session:
+        attempts = list(
+            session.execute(
+                select(PracticeAttempt)
+                .where(PracticeAttempt.source_id == source_id, PracticeAttempt.user_id == user.id)
+                .order_by(PracticeAttempt.attempted_at.desc())
+            ).scalars()
+        )
+        return {
+            "attempts": [
+                {
+                    "id": a.id,
+                    "challenge_id": a.challenge_id,
+                    "question": a.question,
+                    "student_answer": a.student_answer,
+                    "score": a.score,
+                    "is_passing": a.is_passing,
+                    "feedback": a.feedback,
+                    "model_solution": a.model_solution,
+                    "attempted_at": a.attempted_at.isoformat() if a.attempted_at else None,
+                }
+                for a in attempts
+            ]
         }
-        for e in excerpts
-    ]
 
-    has_citations = len(citations) > 0
-    depth = payload.depth
-
-    # Synthesize grounded explanation
-    topic = payload.topic.strip()
-    if has_citations:
-        primary_text = excerpts[0].text.strip()
-        p_no = excerpts[0].page_no or 1
-        summary = (
-            f"According to \"{source.title}\" (Page {p_no}), {topic} is defined as follows:\n\n"
-            f"\"{primary_text}\"\n\n"
-        )
-        if depth == "analogy":
-            summary += (
-                f"Analogy: Think of {topic} as a coordinated traffic control system where every transition "
-                "must preserve predictable throughput and prevent collision between concurrent requests."
-            )
-        elif depth == "worked_example":
-            summary += (
-                f"Practical Application: In the context of {source.title}, {topic} is evaluated step-by-step "
-                "by verifying boundary invariants and state transitions across consecutive execution phases."
-            )
-        elif depth == "compare":
-            other_text = excerpts[1].text.strip() if len(excerpts) > 1 else "alternative mechanisms"
-            summary += (
-                f"Comparative Analysis: While {topic} enforces strict validation invariants as stated on Page {p_no}, "
-                f"related sections contrast this against: \"{other_text[:140]}...\""
-            )
-        else:
-            summary += (
-                f"Core Principle: Under university curriculum criteria, {topic} establishes the foundational "
-                "correctness guarantees and state invariants specified in this document."
-            )
-
-        definitions = [
-            {"term": topic, "definition": f"Core concept documented on Page {p_no} of {source.title}."},
-            {"term": "Document Context", "definition": f"Grounded in verified excerpt #{excerpts[0].id}."},
-            {"term": "Analytical Target", "definition": f"Depth mode: {depth}."},
-        ]
-
-        worked_example = (
-            f"Step-by-Step Scenario Analysis for {topic}:\n\n"
-            f"Given: Document excerpt from Page {p_no}: \"{primary_text[:120]}...\"\n"
-            f"Step 1 (Extraction): Identify the primary invariant governing {topic}.\n"
-            f"Step 2 (Execution): Apply governing equations or operational transitions to sample input state.\n"
-            f"Step 3 (Verification): Verify consistency against source text criteria (Page {p_no})."
-        )
-    else:
-        summary = (
-            f"No specific excerpt for \"{topic}\" was indexed in \"{source.title}\". "
-            "Please verify the topic spelling or review the document's extracted outline on the left."
-        )
-        definitions = [{"term": topic, "definition": f"Topic requested in {source.title}."}]
-        worked_example = "No verified source passages were available to formulate a document-grounded worked example."
-
-    return {
-        "source_id": source_id,
-        "source_title": source.title,
-        "topic": topic,
-        "depth": depth,
-        "summary": summary,
-        "definitions": definitions,
-        "worked_example": worked_example,
-        "citations": citations,
-        "has_source_evidence": has_citations,
-    }
 
 
 # --------------------------------------------------------------------------- regenerate

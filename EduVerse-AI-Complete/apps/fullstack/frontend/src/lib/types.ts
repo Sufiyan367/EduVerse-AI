@@ -503,7 +503,47 @@ export interface DocumentLearningProgress {
   quiz_attempts: number
   quiz_correct: number
   quiz_accuracy_pct: number | null
+  passages_read: number
+  practice_completed: number
   mastery_score: number
+  mastery_breakdown?: Record<string, unknown>
+}
+
+export interface PracticeChallenge {
+  id: string
+  challenge_id?: string
+  title: string
+  concept?: string
+  related_concept?: string | null
+  problem_statement?: string
+  prompt?: string
+  hints: string[]
+  sample_input?: string | null
+  expected_criteria: string[]
+  difficulty?: 'foundation' | 'intermediate' | 'advanced'
+  citations?: Array<{ segment_id: number; page_no: number | null; quote: string }>
+  source_id?: number
+}
+
+export interface PracticeAttemptResult {
+  attempt_id: number
+  challenge_id: string
+  score: number
+  is_passing: boolean
+  feedback: string
+  strengths: string[]
+  missed_points: string[]
+  model_solution: string
+}
+
+export interface PracticeAttemptRecord {
+  id: number
+  challenge_id: string
+  topic: string
+  score: number
+  is_passing: boolean
+  feedback: string
+  created_at: string
 }
 
 export interface SourceWorkspaceResponse {

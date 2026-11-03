@@ -13,6 +13,7 @@ import { useJobs, usePlayer } from '../lib/store'
 import type {
   Concept, DocumentOutlineItem, Excerpt,
   NoteStyle, QuizDone, QuizQuestion, SourceExplanationResponse,
+  PracticeChallenge, PracticeAttemptResult, PracticeAttemptRecord,
 } from '../lib/types'
 import { openChatSocket } from '../lib/ws'
 import { cn, formatDuration, kindLabel } from '../lib/utils'
@@ -46,6 +47,7 @@ export function SourcePage() {
 
   // Active studio tool tab
   const [tab, setTab] = useState(search.tab ?? 'outline')
+  const [mobileTab, setMobileTab] = useState<'excerpts' | 'chat' | 'studio'>('chat')
   const [selectedTopic, setSelectedTopic] = useState<string>('')
   const [highlightIds, setHighlightIds] = useState<number[]>([])
   const [segmentQuery, setSegmentQuery] = useState('')
@@ -388,6 +390,42 @@ export function SourcePage() {
         )}
       </header>
 
+      {/* Mobile 3-Mode Switcher */}
+      {layoutMode === 'studio' && (
+        <div className="flex border-b border-[var(--border)] bg-[var(--bg-raised)] p-1.5 lg:hidden gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={() => setMobileTab('excerpts')}
+            className={cn(
+              'flex-1 py-1 text-xs font-semibold rounded-md transition-colors',
+              mobileTab === 'excerpts' ? 'bg-[var(--accent)] text-white shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+            )}
+          >
+            Excerpts ({segments.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTab('chat')}
+            className={cn(
+              'flex-1 py-1 text-xs font-semibold rounded-md transition-colors',
+              mobileTab === 'chat' ? 'bg-[var(--accent)] text-white shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+            )}
+          >
+            AI Tutor
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTab('studio')}
+            className={cn(
+              'flex-1 py-1 text-xs font-semibold rounded-md transition-colors',
+              mobileTab === 'studio' ? 'bg-[var(--accent)] text-white shadow-xs' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+            )}
+          >
+            Studio
+          </button>
+        </div>
+      )}
+
       {/* Main Workspace Body */}
       {layoutMode === 'reader' ? (
         // Fullscreen Reader Mode
@@ -454,8 +492,10 @@ export function SourcePage() {
           {/* Column 1: Source & Excerpts Inspector (Collapsible Left) */}
           <div
             className={cn(
-              'shrink-0 border-r border-[var(--border)] bg-[var(--bg-raised)] flex flex-col transition-all duration-200',
-              leftOpen ? 'w-80 md:w-84 xl:w-96' : 'w-10 items-center',
+              'border-r border-[var(--border)] bg-[var(--bg-raised)] flex-col transition-all duration-200',
+              mobileTab === 'excerpts' ? 'flex w-full flex-1' : 'hidden',
+              'lg:flex lg:flex-initial lg:shrink-0',
+              leftOpen ? 'lg:w-80 xl:w-96' : 'lg:w-10 lg:items-center',
             )}
           >
             {leftOpen ? (
@@ -509,6 +549,7 @@ export function SourcePage() {
                           onClick={() => {
                             setHighlightIds([segment.id])
                             if (segment.start_ms != null) usePlayer.getState().seekTo(segment.start_ms)
+                            api.recordPassageRead(id, segment.id).then(() => refetchWorkspace()).catch(() => {})
                           }}
                           className={cn(
                             'p-2.5 rounded-lg border text-xs cursor-pointer transition-all',
@@ -556,7 +597,13 @@ export function SourcePage() {
           </div>
 
           {/* Column 2: Grounded AI Tutor Chat (Center Column) */}
-          <div className="flex-1 flex flex-col min-w-0 bg-[var(--bg)] border-r border-[var(--border)] relative">
+          <div
+            className={cn(
+              'flex-col min-w-0 bg-[var(--bg)] border-r border-[var(--border)] relative',
+              mobileTab === 'chat' ? 'flex flex-1 w-full' : 'hidden',
+              'lg:flex lg:flex-1'
+            )}
+          >
             <div className="flex items-center justify-between px-4 py-2 border-b border-[var(--border)] bg-[var(--bg-raised)]">
               <div className="flex items-center gap-2">
                 <div className="grid h-6 w-6 place-items-center rounded-md bg-[var(--accent)] text-black text-xs font-bold">
@@ -601,8 +648,10 @@ export function SourcePage() {
           {/* Column 3: DeepTutor Interactive Learning Workspace (Right Column) */}
           <div
             className={cn(
-              'shrink-0 bg-[var(--bg-raised)] flex flex-col transition-all duration-200',
-              rightOpen ? 'w-96 xl:w-[30rem]' : 'w-10 items-center border-l border-[var(--border)]',
+              'bg-[var(--bg-raised)] flex-col transition-all duration-200',
+              mobileTab === 'studio' ? 'flex w-full flex-1' : 'hidden',
+              'lg:flex lg:flex-initial lg:shrink-0',
+              rightOpen ? 'lg:w-96 xl:w-[30rem]' : 'lg:w-10 lg:items-center lg:border-l lg:border-[var(--border)]',
             )}
           >
             {rightOpen ? (
@@ -739,6 +788,7 @@ export function SourcePage() {
                         sourceId={id}
                         concepts={concepts}
                         onJump={jumpToSource}
+                        onPracticeDone={() => refetchWorkspace()}
                       />
                     </TabsContent>
 
@@ -1514,76 +1564,383 @@ function DocumentCardsTab({
 }
 
 /**
- * Tab 6: Practice Mode
+ * Tab 6: Interactive Practice Mode
  */
 function PracticeTab({
+  sourceId,
   concepts,
   onJump,
+  onPracticeDone,
 }: {
-  sourceId?: number
+  sourceId: number
   concepts: Concept[]
   onJump: (ids: number[]) => void
+  onPracticeDone: () => void
 }) {
-  const [revealedIdx, setRevealedIdx] = useState<number | null>(null)
+  const [selectedIdx, setSelectedIdx] = useState(0)
+  const [studentAnswer, setStudentAnswer] = useState('')
+  const [revealedHints, setRevealedHints] = useState(0)
+  const [submitting, setSubmitting] = useState(false)
+  const [evaluation, setEvaluation] = useState<PracticeAttemptResult | null>(null)
+  const [viewHistory, setViewHistory] = useState(false)
+  const [showModelSolution, setShowModelSolution] = useState(false)
+
+  const { data: challengesData, isLoading: challengesLoading } = useQuery({
+    queryKey: ['practice-challenges', sourceId],
+    queryFn: () => api.getPracticeChallenges(sourceId),
+  })
+
+  const { data: historyData, refetch: refetchHistory } = useQuery({
+    queryKey: ['practice-history', sourceId],
+    queryFn: () => api.getPracticeHistory(sourceId),
+  })
+
+  const challenges: PracticeChallenge[] = challengesData?.challenges ?? []
+  const history: PracticeAttemptRecord[] = historyData?.attempts ?? []
+  const activeChallenge = challenges[selectedIdx] || null
+
+  const handleSelectChallenge = (idx: number) => {
+    setSelectedIdx(idx)
+    setStudentAnswer('')
+    setRevealedHints(0)
+    setEvaluation(null)
+    setShowModelSolution(false)
+  }
+
+  const handleRevealHint = () => {
+    if (activeChallenge && revealedHints < activeChallenge.hints.length) {
+      setRevealedHints((h) => h + 1)
+    }
+  }
+
+  const handleSubmit = async () => {
+    if (!activeChallenge || !studentAnswer.trim() || submitting) return
+    setSubmitting(true)
+    try {
+      const res = await api.evaluatePractice(sourceId, {
+        challenge_id: (activeChallenge.id || activeChallenge.challenge_id || ''),
+        question: (activeChallenge.problem_statement || activeChallenge.prompt || ''),
+        student_answer: studentAnswer.trim(),
+        concept: (activeChallenge.concept || activeChallenge.related_concept || '') || '',
+      })
+      setEvaluation(res)
+      await refetchHistory()
+      onPracticeDone()
+      if (res.is_passing) {
+        toast.success(`Passed with score ${res.score}/100!`)
+      } else {
+        toast.info(`Score: ${res.score}/100. Review feedback below.`)
+      }
+    } catch {
+      toast.error('Evaluation failed. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (challengesLoading) {
+    return (
+      <div className="flex items-center justify-center p-8 text-xs text-[var(--text-muted)] gap-2">
+        <Spinner className="h-4 w-4 text-[var(--accent)]" />
+        <span>Synthesizing interactive challenges from document passages...</span>
+      </div>
+    )
+  }
+
+  if (challenges.length === 0) {
+    return (
+      <Card>
+        <EmptyState
+          icon={Brain}
+          title="No practice challenges available yet"
+          description="Challenges are generated from extracted document concepts and key technical passages."
+        />
+      </Card>
+    )
+  }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3.5">
+      {/* Header with History Toggle */}
       <div className="flex items-center justify-between text-xs text-[var(--text-muted)] border-b border-[var(--border)] pb-2">
-        <span>Conceptual Scenarios ({concepts.length})</span>
-        <span className="text-[10px]">Self-guided practice</span>
+        <span className="font-semibold text-[var(--text)]">
+          Interactive Challenges ({challenges.length})
+        </span>
+        <button
+          onClick={() => setViewHistory(!viewHistory)}
+          className="text-[11px] text-[var(--accent)] hover:underline font-medium"
+        >
+          {viewHistory ? 'Back to Challenge' : `History (${history.length})`}
+        </button>
       </div>
 
-      {concepts.length === 0 ? (
-        <p className="text-xs text-[var(--text-muted)] italic py-4">
-          No concepts extracted yet for practice scenarios.
-        </p>
+      {viewHistory ? (
+        /* History View */
+        <div className="space-y-2">
+          {history.length === 0 ? (
+            <p className="text-xs text-[var(--text-muted)] italic py-4 text-center">
+              No previous attempts recorded yet.
+            </p>
+          ) : (
+            history.map((att) => (
+              <Card key={att.id}>
+                <CardBody className="p-3 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[var(--text)]">{att.topic}</span>
+                    <Badge tone={att.is_passing ? 'accent' : 'danger'} className="text-[10px]">
+                      {att.score}/100 {att.is_passing ? 'Passed' : 'Needs Work'}
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">{att.feedback}</p>
+                  <span className="text-[9px] text-[var(--text-muted)] block">{att.created_at}</span>
+                </CardBody>
+              </Card>
+            ))
+          )}
+        </div>
       ) : (
-        concepts.slice(0, 10).map((concept, idx) => {
-          const isRevealed = revealedIdx === idx
-          return (
-            <Card key={concept.id}>
-              <CardBody className="p-3.5 space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <h4 className="text-xs font-bold text-[var(--text)]">
-                    Challenge #{idx + 1}: {concept.name}
-                  </h4>
-                  {concept.segment_ids.length > 0 && (
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      onClick={() => onJump(concept.segment_ids)}
-                      title="View passage"
-                    >
-                      <Layers className="h-3 w-3 text-[var(--accent)]" />
-                    </Button>
-                  )}
+        /* Active Challenge View */
+        <div className="space-y-3">
+          {/* Challenge Selector Chips */}
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            {challenges.map((c, idx) => (
+              <button
+                key={c.id || c.challenge_id || idx}
+                onClick={() => handleSelectChallenge(idx)}
+                className={cn(
+                  'px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap border transition-colors',
+                  selectedIdx === idx
+                    ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)] font-semibold'
+                    : 'border-[var(--border)] bg-[var(--bg-raised)] text-[var(--text-muted)] hover:text-[var(--text)]',
+                )}
+              >
+                #{idx + 1} {c.title.slice(0, 18)}...
+              </button>
+            ))}
+          </div>
+
+          {activeChallenge && (
+            <Card>
+              <CardBody className="p-4 space-y-3">
+                {/* Challenge Header */}
+                <div className="flex items-start justify-between gap-2 border-b border-[var(--border)] pb-2.5">
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Badge
+                        tone={
+                          activeChallenge.difficulty === 'advanced'
+                            ? 'danger'
+                            : activeChallenge.difficulty === 'intermediate'
+                            ? 'neutral'
+                            : 'accent'
+                        }
+                        className="text-[9px] uppercase tracking-wider font-semibold"
+                      >
+                        {activeChallenge.difficulty}
+                      </Badge>
+                      {(activeChallenge.concept || activeChallenge.related_concept || '') && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-[var(--text-muted)]">
+                            Topic: {(activeChallenge.concept || activeChallenge.related_concept || '')}
+                          </span>
+                          {(() => {
+                            const matchingConcept = concepts.find(
+                              (c) => c.name.toLowerCase() === (activeChallenge.concept || activeChallenge.related_concept || '')?.toLowerCase()
+                            )
+                            if (matchingConcept && matchingConcept.segment_ids.length > 0) {
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => onJump(matchingConcept.segment_ids)}
+                                  className="text-[9px] text-[var(--accent)] hover:underline ml-1"
+                                >
+                                  View Passage ↗
+                                </button>
+                              )
+                            }
+                            return null
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                    <h3 className="text-xs font-bold text-[var(--text)]">
+                      {activeChallenge.title}
+                    </h3>
+                  </div>
                 </div>
 
-                <p className="text-xs text-[var(--text)]">
-                  How does {concept.name} ensure state correctness or resolve concurrency/computational constraints in this document?
-                </p>
+                {/* Challenge Prompt */}
+                <div className="p-2.5 rounded-lg bg-[var(--bg-sunken)] text-xs text-[var(--text)] leading-relaxed border border-[var(--border)]">
+                  {(activeChallenge.problem_statement || activeChallenge.prompt || '')}
+                </div>
 
-                {isRevealed ? (
-                  <div className="p-2.5 rounded bg-[var(--bg-sunken)] border border-[var(--border)] text-xs text-[var(--text-muted)] mt-2 animate-in fade-in">
-                    <span className="font-bold text-[var(--accent)]">Model Explanation: </span>
-                    {concept.definition}
+                {/* Sample Input / Concrete Scenario */}
+                {activeChallenge.sample_input && (
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                      Given Context / Parameters:
+                    </span>
+                    <pre className="p-2 rounded bg-[var(--bg)] border border-[var(--border)] text-[11px] font-mono text-[var(--text)] overflow-x-auto">
+                      {activeChallenge.sample_input}
+                    </pre>
                   </div>
-                ) : null}
+                )}
 
-                <div className="pt-1">
+                {/* Evaluation Criteria Checklist */}
+                {activeChallenge.expected_criteria.length > 0 && (
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                      Rubric Criteria:
+                    </span>
+                    <ul className="space-y-0.5 text-[11px] text-[var(--text-muted)] list-disc pl-4">
+                      {activeChallenge.expected_criteria.map((crit, i) => (
+                        <li key={i}>{crit}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Progressive Hints */}
+                {activeChallenge.hints.length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--accent)]">
+                        Progressive Hints ({revealedHints}/{activeChallenge.hints.length})
+                      </span>
+                      {revealedHints < activeChallenge.hints.length && (
+                        <button
+                          onClick={handleRevealHint}
+                          className="text-[10px] text-[var(--accent)] hover:underline font-medium"
+                        >
+                          Reveal Hint #{revealedHints + 1}
+                        </button>
+                      )}
+                    </div>
+                    {revealedHints > 0 && (
+                      <div className="space-y-1">
+                        {activeChallenge.hints.slice(0, revealedHints).map((hint, i) => (
+                          <div
+                            key={i}
+                            className="p-2 rounded border border-[var(--accent)]/30 bg-[var(--accent-soft)] text-xs text-[var(--text)] animate-in fade-in"
+                          >
+                            <span className="font-semibold text-[var(--accent)]">Hint {i + 1}: </span>
+                            {hint}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Student Submission Area */}
+                <div className="space-y-2 pt-2 border-t border-[var(--border)]">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                    Your Solution / Reasoning:
+                  </span>
+                  <Textarea
+                    rows={4}
+                    value={studentAnswer}
+                    onChange={(e) => setStudentAnswer(e.target.value)}
+                    placeholder="Write your step-by-step solution, mathematical working, or technical explanation here..."
+                    className="text-xs font-mono bg-[var(--bg-sunken)]"
+                  />
                   <Button
                     size="sm"
-                    variant="ghost"
-                    onClick={() => setRevealedIdx(isRevealed ? null : idx)}
-                    className="text-[11px] text-[var(--accent)]"
+                    variant="primary"
+                    onClick={handleSubmit}
+                    disabled={!studentAnswer.trim() || submitting}
+                    loading={submitting}
+                    className="w-full"
                   >
-                    {isRevealed ? 'Hide Explanation' : 'Reveal Solution'}
+                    Evaluate Solution with Rubric
                   </Button>
                 </div>
+
+                {/* Evaluation Feedback Card */}
+                {evaluation && (
+                  <div className="space-y-3 pt-3 border-t border-[var(--border)] animate-in fade-in">
+                    <div
+                      className={cn(
+                        'p-3 rounded-lg border text-xs space-y-2',
+                        evaluation.is_passing
+                          ? 'border-emerald-500/30 bg-emerald-500/10'
+                          : 'border-amber-500/30 bg-amber-500/10',
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 font-bold">
+                          {evaluation.is_passing ? (
+                            <>
+                              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                              <span className="text-emerald-600 dark:text-emerald-400">Passing Grade</span>
+                            </>
+                          ) : (
+                            <>
+                              <AlertTriangle className="h-4 w-4 text-amber-500" />
+                              <span className="text-amber-600 dark:text-amber-400">Needs Revision</span>
+                            </>
+                          )}
+                        </div>
+                        <Badge tone={evaluation.is_passing ? 'accent' : 'danger'}>
+                          Score: {evaluation.score}/100
+                        </Badge>
+                      </div>
+
+                      <p className="text-[11px] text-[var(--text)] leading-relaxed">
+                        {evaluation.feedback}
+                      </p>
+
+                      {evaluation.strengths.length > 0 && (
+                        <div>
+                          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block mb-0.5">
+                            Demonstrated Strengths:
+                          </span>
+                          <ul className="list-disc pl-4 space-y-0.5 text-[10px] text-[var(--text)]">
+                            {evaluation.strengths.map((s, i) => (
+                              <li key={i}>{s}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {evaluation.missed_points.length > 0 && (
+                        <div>
+                          <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 block mb-0.5">
+                            Areas for Improvement:
+                          </span>
+                          <ul className="list-disc pl-4 space-y-0.5 text-[10px] text-[var(--text)]">
+                            {evaluation.missed_points.map((m, i) => (
+                              <li key={i}>{m}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Model Solution Toggle */}
+                    {evaluation.model_solution && (
+                      <div className="pt-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setShowModelSolution(!showModelSolution)}
+                          className="text-[11px] text-[var(--accent)] px-0"
+                        >
+                          {showModelSolution ? 'Hide Model Solution' : 'View Verified Model Solution'}
+                        </Button>
+                        {showModelSolution && (
+                          <div className="mt-2 p-2.5 rounded bg-[var(--bg-sunken)] border border-[var(--border)] text-xs font-mono text-[var(--text)] whitespace-pre-wrap leading-relaxed animate-in fade-in">
+                            {evaluation.model_solution}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardBody>
             </Card>
-          )
-        })
+          )}
+        </div>
       )}
     </div>
   )
@@ -1603,6 +1960,8 @@ function DocumentProgressTab({
     quiz_attempts: number
     quiz_correct: number
     quiz_accuracy_pct: number | null
+    passages_read?: number
+    practice_completed?: number
     mastery_score: number
   }
   processing: {
@@ -1633,7 +1992,7 @@ function DocumentProgressTab({
 
           <Progress value={progress.mastery_score} className="h-2" />
           <p className="text-[10px] text-[var(--text-muted)]">
-            Computed strictly from verified flashcard retention and quiz accuracy.
+            Computed strictly from verified flashcard retention, quiz accuracy, passage reading, and practice completion. Initial is strictly 0.0%.
           </p>
         </CardBody>
       </Card>
@@ -1642,9 +2001,11 @@ function DocumentProgressTab({
       <div className="grid grid-cols-2 gap-2">
         <Card>
           <CardBody className="p-3">
-            <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase">Passages Indexed</span>
-            <p className="text-sm font-bold text-[var(--text)] mt-0.5">{processing.segments_count}</p>
-            <span className="text-[10px] text-[var(--text-muted)]">Across {processing.page_count ?? 1} pages</span>
+            <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase">Passages Read</span>
+            <p className="text-sm font-bold text-[var(--text)] mt-0.5">
+              {progress.passages_read ?? 0} / {processing.segments_count}
+            </p>
+            <span className="text-[10px] text-[var(--text-muted)]">Studied passages</span>
           </CardBody>
         </Card>
 
@@ -1654,7 +2015,7 @@ function DocumentProgressTab({
             <p className="text-sm font-bold text-[var(--text)] mt-0.5">
               {progress.cards_reviewed} / {progress.cards_total}
             </p>
-            <span className="text-[10px] text-[var(--text-muted)]">Reviewed</span>
+            <span className="text-[10px] text-[var(--text-muted)]">Reviewed (FSRS)</span>
           </CardBody>
         </Card>
 
@@ -1668,11 +2029,11 @@ function DocumentProgressTab({
 
         <Card>
           <CardBody className="p-3">
-            <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase">Quiz Accuracy</span>
+            <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase">Practice Challenges</span>
             <p className="text-sm font-bold text-[var(--text)] mt-0.5">
-              {progress.quiz_accuracy_pct !== null ? `${progress.quiz_accuracy_pct}%` : 'N/A'}
+              {progress.practice_completed ?? 0}
             </p>
-            <span className="text-[10px] text-[var(--text-muted)]">Correct answers</span>
+            <span className="text-[10px] text-[var(--text-muted)]">Passing attempts</span>
           </CardBody>
         </Card>
       </div>

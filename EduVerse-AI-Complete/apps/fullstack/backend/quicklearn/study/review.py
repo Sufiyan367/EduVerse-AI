@@ -124,7 +124,7 @@ def due_counts(*, folder_id: int | None = None) -> dict[str, int]:
     }
 
 
-def apply_rating(card_id: int, rating: int, duration_ms: int | None = None) -> dict[str, Any]:
+def apply_rating(card_id: int, rating: int, duration_ms: int | None = None, user_id: int | None = None) -> dict[str, Any]:
     """Record a review, reschedule the card, and nudge its concept's mastery atomically."""
     with session_scope() as session:
         session.execute(text("BEGIN IMMEDIATE"))
@@ -136,6 +136,7 @@ def apply_rating(card_id: int, rating: int, duration_ms: int | None = None) -> d
         initial_mastery = concept.mastery if concept else 0.0
 
         review, outcome = fsrs_module.apply_review(card, rating, duration_ms=duration_ms)
+        review.user_id = user_id
         # Snapshot concept mastery before review so undo can fully restore learning state
         review.state_before = {
             **(review.state_before or {}),

@@ -116,9 +116,35 @@ def init_database(config: Config | None = None) -> None:
             session.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_guided_quiz_sessions_token ON guided_quiz_sessions(session_token);"))
             session.execute(text("CREATE INDEX IF NOT EXISTS ix_guided_quiz_sessions_user_id ON guided_quiz_sessions(user_id);"))
             session.execute(text("CREATE INDEX IF NOT EXISTS ix_guided_quiz_sessions_topic_id ON guided_quiz_sessions(topic_id);"))
+            
+            # Ensure reviews table has user_id
+            review_cols = [c["name"] for c in session.execute(text("PRAGMA table_info(reviews)")).mappings()]
+            if "user_id" not in review_cols:
+                session.execute(text("ALTER TABLE reviews ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;"))
+                session.execute(text("CREATE INDEX IF NOT EXISTS ix_reviews_user_id ON reviews(user_id);"))
+
+            # Ensure practice_attempts table exists
+            session.execute(text("""
+                CREATE TABLE IF NOT EXISTS practice_attempts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    source_id INTEGER NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+                    challenge_id VARCHAR(64) NOT NULL,
+                    question TEXT NOT NULL,
+                    student_answer TEXT NOT NULL,
+                    score INTEGER NOT NULL,
+                    is_passing BOOLEAN NOT NULL DEFAULT 0,
+                    feedback TEXT NOT NULL,
+                    model_solution TEXT NOT NULL,
+                    attempted_at DATETIME NOT NULL
+                );
+            """))
+            session.execute(text("CREATE INDEX IF NOT EXISTS ix_practice_attempts_user_id ON practice_attempts(user_id);"))
+            session.execute(text("CREATE INDEX IF NOT EXISTS ix_practice_attempts_source_id ON practice_attempts(source_id);"))
+            session.execute(text("CREATE INDEX IF NOT EXISTS ix_practice_attempts_challenge_id ON practice_attempts(challenge_id);"))
             session.commit()
     except Exception as exc:
-        log.warning("Could not ensure guided_quiz_sessions table: %s", exc)
+        log.warning("Could not ensure guided_quiz_sessions and practice tables: %s", exc)
 
     try:
         from ..rag.index import get_index

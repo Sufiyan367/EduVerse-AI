@@ -1,7 +1,7 @@
 import type {
   AnswerResult, AuthResponse, Card, Chat, ChatMessage, Concept, Dashboard, DashboardStats, DueCounts, Excerpt, Folder,
   Job, KnowledgeGapSummary, Note, QuizDone, QuizQuestion, QuizResults, ReviewResult, RevisionRecommendation, RevisionSession, SearchHit,
-  Segment, SettingsPayload, Source, SourceDetail, SourceWorkspaceResponse, SourceExplanationResponse, TopicGap, Usage, User,
+  Segment, SettingsPayload, Source, SourceDetail, SourceWorkspaceResponse, SourceExplanationResponse, PracticeChallenge, PracticeAttemptResult, PracticeAttemptRecord, TopicGap, Usage, User,
   LlmStatus,
 } from './types'
 
@@ -95,6 +95,17 @@ export const api = {
     id: number,
     body: { topic: string; depth?: 'principle' | 'analogy' | 'worked_example' | 'compare' },
   ) => post<SourceExplanationResponse>(`/sources/${id}/explain`, body),
+  recordPassageRead: (sourceId: number, segmentId: number) =>
+    post<{ recorded: boolean; source_id: number; segment_id: number }>(`/sources/${sourceId}/passages/${segmentId}/read`, {}),
+  getPracticeChallenges: (sourceId: number) =>
+    get<{ challenges: PracticeChallenge[] }>(`/sources/${sourceId}/practice/challenges`),
+  evaluatePractice: (
+    sourceId: number,
+    payload: { challenge_id: string; question: string; student_answer: string; concept?: string },
+  ) =>
+    post<PracticeAttemptResult>(`/sources/${sourceId}/practice/evaluate`, payload),
+  getPracticeHistory: (sourceId: number) =>
+    get<{ attempts: PracticeAttemptRecord[] }>(`/sources/${sourceId}/practice/history`),
   updateSource: (id: number, body: { title?: string; folder_id?: number | null; tags?: string[] }) =>
     patch<Source>(`/sources/${id}`, body),
   deleteSource: (id: number) => del<{ deleted: boolean }>(`/sources/${id}`),
