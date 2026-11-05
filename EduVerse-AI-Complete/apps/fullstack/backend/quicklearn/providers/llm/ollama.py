@@ -107,9 +107,9 @@ class OllamaLLM(OpenAICompatLLM):
 
         self.default_model = model or os.environ.get("OLLAMA_MODEL") or "qwen3.5:4b"
 
-        # Reasoning / Thinking mode
-        raw_think = (think or os.environ.get("OLLAMA_THINK") or "high").lower()
-        self.think: ThinkingLevel = raw_think if raw_think in ("high", "medium", "low", "off") else "high"
+        # Reasoning / Thinking mode: default to "off" for fast interactive response
+        raw_think = (think or os.environ.get("OLLAMA_THINK") or "off").lower()
+        self.think: ThinkingLevel = raw_think if raw_think in ("high", "medium", "low", "off") else "off"
 
         # Context Window: default 4096 (can expand up to 8192 if VRAM permits)
         env_ctx = int(os.environ.get("OLLAMA_NUM_CTX") or 0)
@@ -149,7 +149,7 @@ class OllamaLLM(OpenAICompatLLM):
         payload["keep_alive"] = self.keep_alive
         if json_schema is not None:
             payload["think"] = False
-        elif self.think not in ("off", False) and max_tokens > 500:
+        elif self.think in ("high", "medium"):
             payload["think"] = True
         else:
             payload["think"] = False
@@ -201,7 +201,7 @@ class OllamaLLM(OpenAICompatLLM):
         if json_schema is not None:
             native_payload["think"] = False
             native_payload["format"] = json_schema
-        elif self.think not in ("off", False) and max_tokens > 500:
+        elif self.think in ("high", "medium"):
             native_payload["think"] = True
         else:
             native_payload["think"] = False
@@ -240,6 +240,8 @@ class OllamaLLM(OpenAICompatLLM):
                 if not raw_text and message.get("thinking"):
                     raw_text = message.get("thinking") or ""
                 clean_text = _clean_thinking_trace(raw_text)
+                if not clean_text and raw_text:
+                    clean_text = raw_text.strip()
                 return LLMResponse(
                     text=clean_text,
                     model=str(data.get("model") or target_model),

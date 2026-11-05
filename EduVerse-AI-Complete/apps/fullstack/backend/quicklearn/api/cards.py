@@ -85,6 +85,31 @@ def get_stats() -> dict[str, Any]:
     return review.review_stats()
 
 
+@router.post("/reset-due")
+def reset_due_schedule(
+    source_id: int | None = None,
+    user: User | None = Depends(get_optional_user),
+) -> dict[str, Any]:
+    from ..db.enums import CardState
+    from ..db.types import utcnow
+    now = utcnow()
+    with session_scope() as session:
+        stmt = select(Card).join(Source, Source.id == Card.source_id)
+        if user is not None:
+            if user.id == 1:
+                stmt = stmt.where((Source.user_id == user.id) | (Source.user_id.is_(None)))
+            else:
+                stmt = stmt.where(Source.user_id == user.id)
+        if source_id is not None:
+            stmt = stmt.where(Card.source_id == source_id)
+        cards = list(session.execute(stmt).scalars())
+        for c in cards:
+            c.due = now
+            c.state = CardState.NEW
+            c.step = 0
+    return {"reset_count": len(cards)}
+
+
 @router.get("")
 def list_cards(
     source_id: int | None = None,

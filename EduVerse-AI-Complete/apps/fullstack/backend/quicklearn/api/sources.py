@@ -636,30 +636,79 @@ def get_source_workspace(source_id: int, user: User | None = Depends(get_optiona
         # 2. Document Outline & Structure
         note = session.execute(select(Note).where(Note.source_id == source_id).order_by(Note.id)).scalars().first()
         outline: list[dict[str, Any]] = []
-        if note and note.outline:
+        if note and note.outline and len(note.outline) > 1:
             for item in note.outline:
-                outline.append({
-                    "title": item.get("text") or item.get("title", ""),
-                    "level": item.get("level", 1),
-                    "index": item.get("index", 0),
-                    "page_no": item.get("page_no"),
-                })
-        else:
-            # Fallback outline grouped by page numbers from segments
-            segs = list(session.execute(select(Segment).where(Segment.source_id == source_id).order_by(Segment.index)).scalars())
-            pages_seen = set()
-            for seg in segs:
-                p_no = seg.page_no or 1
-                if p_no not in pages_seen:
-                    pages_seen.add(p_no)
-                    snippet = seg.text.strip().split(".")[0][:60]
+                t = item.get("text") or item.get("title", "")
+                if t and len(t) < 80 and not any(k in t for k in ("def ", "class ", "import ", "print(", "{")):
                     outline.append({
-                        "title": f"Page {p_no}: {snippet}...",
-                        "level": 1,
+                        "title": t,
+                        "level": item.get("level", 1),
                         "index": len(outline),
-                        "page_no": p_no,
-                        "segment_id": seg.id,
+                        "page_no": item.get("page_no"),
                     })
+        import re
+        has_academic_structure = any(re.search(r"(?:practical|chapter|section|module|unit|experiment)\s+\d+", x["title"], re.I) for x in outline)
+        if len(outline) <= 3 or not has_academic_structure:
+            outline.clear()
+            # Smart outline extraction: extract real headings (e.g. # Practical X, Chapter X, Section X) from segments
+            import re
+            segs = list(session.execute(select(Segment).where(Segment.source_id == source_id).order_by(Segment.index)).scalars())
+            seen_titles = set()
+            for seg in segs:
+                lines = [l.strip() for l in seg.text.split("\n") if l.strip()]
+                for line in lines:
+                    # Ignore lines with code tokens
+                    if any(bad in line for bad in ['=', 'def ', 'class ', 'import ', 'print(', 'while ', 'return ']):
+                        continue
+                    level = 1
+                    title_candidate = None
+                    if re.match(r"^#+\s*Practical\s+\d+", line, re.IGNORECASE):
+                        title_candidate = re.sub(r"^#+\s*", "", line).strip()
+                        level = 1
+                    elif re.match(r"^#+\s*(?:Chapter|Section|Module|Unit|Experiment)\s+\d+", line, re.IGNORECASE):
+                        title_candidate = re.sub(r"^#+\s*", "", line).strip()
+                        level = 1
+                    elif re.match(r"^(?:CHAPTER|MODULE|SECTION|PRACTICAL|EXPERIMENT)\s+\d+", line, re.IGNORECASE):
+                        title_candidate = line.strip()
+                        level = 1
+                    elif line.startswith("## ") and len(line) < 55:
+                        title_candidate = re.sub(r"^#+\s*", "", line).strip()
+                        level = 2
+                    elif line.startswith("# ") and len(line) < 65:
+                        title_candidate = re.sub(r"^#+\s*", "", line).strip()
+                        level = 1
+                    elif len(line) < 45 and line.isupper() and re.match(r"^[A-Z\s\d–\-_:]+$", line) and len(line) > 4:
+                        if not line.startswith(('ON', 'PAGE', 'NOTE', 'SUBMITTED')):
+                            title_candidate = line.title().strip()
+                            level = 2
+
+                    if title_candidate and len(title_candidate) > 3:
+                        norm_key = re.sub(r"[\s\-_:]+", "", title_candidate.lower())
+                        if norm_key not in seen_titles:
+                            seen_titles.add(norm_key)
+                            outline.append({
+                                "title": title_candidate,
+                                "level": level,
+                                "index": len(outline),
+                                "page_no": seg.page_no,
+                                "segment_id": seg.id,
+                            })
+
+            # If no explicit headings found, group by page number
+            if not outline:
+                pages_seen = set()
+                for seg in segs:
+                    p_no = seg.page_no or 1
+                    if p_no not in pages_seen:
+                        pages_seen.add(p_no)
+                        snippet = seg.text.strip().split(".")[0].split("\n")[0][:60]
+                        outline.append({
+                            "title": f"Page {p_no}: {snippet}...",
+                            "level": 1,
+                            "index": len(outline),
+                            "page_no": p_no,
+                            "segment_id": seg.id,
+                        })
 
         # 3. Concepts & Topics
         concepts = list(

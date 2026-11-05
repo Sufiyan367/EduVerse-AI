@@ -186,6 +186,7 @@ export const api = {
     post<ReviewResult>(`/cards/${id}/review`, { rating, duration_ms }),
   undoReview: (id: number) => post<{ undone: boolean }>(`/cards/${id}/undo`),
   listCards: (source_id?: number) => get<{ cards: Card[] }>(`/cards${qs({ source_id })}`),
+  resetDueCards: (source_id?: number) => post<{ reset_count: number }>(`/cards/reset-due${qs({ source_id })}`),
   editCard: (id: number, body: { front?: string; back?: string; suspended?: boolean }) =>
     patch<Card>(`/cards/${id}`, body),
   deleteCard: (id: number) => del<{ deleted: boolean }>(`/cards/${id}`),

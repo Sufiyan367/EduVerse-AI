@@ -155,15 +155,16 @@ def _mount_frontend(app: FastAPI, config: Config) -> None:
         The catch-all is what makes a hard refresh on a client-side route work.
         """
         candidate = (static_dir / full_path).resolve()
+        no_cache_headers = {"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "Expires": "0"}
         try:
             # Guard against traversal: a request for `../../etc/passwd` must not escape.
             candidate.relative_to(static_dir.resolve())
         except ValueError:
-            return FileResponse(index)
+            return FileResponse(index, headers=no_cache_headers)
 
         if full_path and candidate.is_file():
             return FileResponse(candidate)
-        return FileResponse(index)
+        return FileResponse(index, headers=no_cache_headers)
 
 
 def get_application() -> FastAPI:
