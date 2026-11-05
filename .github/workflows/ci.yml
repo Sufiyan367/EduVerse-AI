@@ -2,13 +2,69 @@ name: EduVerse AI CI
 
 on:
   push:
-    branches: [main, "polish/*"]
+    branches:
+      - main
+      - "feature/**"
   pull_request:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
-  test:
-    name: Unit & Integration Tests (Python 3.11)
+  canonical-backend-tests:
+    name: Canonical Backend Tests (Python 3.11)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: EduVerse-AI-Complete/apps/fullstack
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "./backend[dev]"
+          pip install httpx pytest pytest-asyncio anyio
+
+      - name: Run canonical backend test suite
+        env:
+          PYTHONPATH: backend
+        run: |
+          python -m pytest tests -v --tb=short
+
+  canonical-frontend-build:
+    name: Canonical Frontend Build (Node 20)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: EduVerse-AI-Complete/apps/fullstack/frontend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: EduVerse-AI-Complete/apps/fullstack/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend production bundle
+        run: npm run build
+
+  root-tests:
+    name: Root Suite Tests (Python 3.11)
     runs-on: ubuntu-latest
 
     steps:
@@ -26,6 +82,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run test suite with pytest
+      - name: Run root pytest
+        env:
+          PYTHONPATH: .
         run: |
           python -m pytest tests -v --tb=short

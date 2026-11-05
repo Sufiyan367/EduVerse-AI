@@ -1,5 +1,9 @@
 # EduVerse AI — Final Acceptance Audit Report
 
+> Final SHA check: local and remote `polish/github-readiness` now point to `38044eb48f3b7d383c278dd97b5532b1ec7d8202`; its CI also failed. Fullstack source is unchanged from the audited consolidation. Details and test-provenance limits are in the independent report linked below.
+
+> **Independent superseding assessment — 24 October 2026: FAIL.** The historical report below is preserved, but its completion claims must not be treated as current acceptance. See [ASTRA_FINAL_SECURITY_ACCEPTANCE.md](ASTRA_FINAL_SECURITY_ACCEPTANCE.md) for audited SHAs, exact commands and evidence. The consolidated backend passes 123 tests only with an explicit async-mode override; its documented default command fails 74 tests. Eight independent security/integrity probes fail, including cross-user access, concurrent quiz replay and provider-outage scoring. The live demo refused connections on port 8080. Application readiness is blocked; source/Pages publication is verified separately from release acceptance. No release actions were performed by this auditor.
+
 **Date:** October 23, 2026
 **Auditor:** Senior AI Application Engineer, Full-Stack Architect & QA Lead
 **Target Application:** `S:\SY\SEM 3\MP\EduVerse_Web_Demo`

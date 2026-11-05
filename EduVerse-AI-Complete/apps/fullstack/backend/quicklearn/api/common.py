@@ -137,12 +137,14 @@ def quiz_item_dict(item: QuizItem, *, include_answer: bool = False) -> dict[str,
         "options": list(item.options or []),
         "difficulty": item.difficulty,
         "segment_ids": list(item.segment_ids or []),
+        "page_no": getattr(item, "page_no", None),
     }
     if include_answer:
         # Withheld by default: the answer travels to the browser, and shipping it alongside
         # the question would let anyone reading the network tab pass a test.
         payload["answer"] = item.answer
         payload["explanation"] = item.explanation
+        payload["evidence"] = getattr(item, "evidence", None)
     return payload
 
 

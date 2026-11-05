@@ -76,7 +76,8 @@ def retry_job(job_id: int) -> dict[str, Any]:
 @router.websocket("/ws/jobs")
 async def jobs_socket(websocket: WebSocket) -> None:
     """Push job progress so the UI shows real stage names, never an indefinite spinner."""
-    await websocket.accept()
+    subprotocol = next((p for p in websocket.scope.get("subprotocols", []) if p.startswith("bearer.")), None)
+    await websocket.accept(subprotocol=subprotocol)
     bus = get_bus()
     queue = await bus.subscribe("jobs")
     try:
@@ -312,3 +313,13 @@ def health() -> dict[str, Any]:
             "tts": registry.has_tts(),
         },
     }
+
+
+@router.get("/health/llm")
+async def health_llm() -> dict[str, Any]:
+    """Dedicated LLM provider and local model health check.
+    
+    Reports model status, GPU memory offload, thinking mode and availability
+    without coupling to the core server health status.
+    """
+    return await registry.get_llm_status()

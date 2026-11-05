@@ -69,6 +69,18 @@ class Config:
     #: Allows the frontend dev server (Vite on 5173) to talk to the API in development.
     dev_cors: bool = field(default_factory=lambda: _env_bool("DEV_CORS", False))
 
+    @property
+    def is_production(self) -> bool:
+        env = (os.environ.get("EDUVERSE_ENV") or os.environ.get("ENVIRONMENT") or _env("ENV") or "").lower()
+        return env in {"production", "prod"}
+
+    @property
+    def seed_demo(self) -> bool:
+        explicit = os.environ.get("EDUVERSE_SEED_DEMO")
+        if explicit is not None:
+            return explicit.strip().lower() in {"1", "true", "yes", "on"}
+        return False
+
     # --- derived paths ---
     @property
     def db_path(self) -> Path:
@@ -76,6 +88,9 @@ class Config:
 
     @property
     def db_url(self) -> str:
+        explicit = os.environ.get("QUICKLEARN_DATABASE_URL") or os.environ.get("DATABASE_URL") or _env("DATABASE_URL")
+        if explicit and explicit.strip():
+            return explicit.strip()
         return f"sqlite+pysqlite:///{self.db_path.as_posix()}"
 
     @property

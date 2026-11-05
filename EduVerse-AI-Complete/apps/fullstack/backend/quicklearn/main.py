@@ -78,6 +78,8 @@ def create_app(config: Config | None = None) -> FastAPI:
         )
 
     _install_error_handlers(app)
+    from .security import SecurityMiddleware
+    app.add_middleware(SecurityMiddleware)
     app.include_router(api_router)
     _mount_frontend(app, config)
     return app
@@ -110,12 +112,12 @@ def _install_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(Exception)
     async def handle_unexpected(_: Request, exc: Exception) -> JSONResponse:
-        log.exception("unhandled error")
+        log.exception("Unhandled server exception: %s", exc)
         return JSONResponse(
             status_code=500,
             content={
-                "error": type(exc).__name__,
-                "message": f"Something went wrong: {exc}",
+                "error": "InternalServerError",
+                "message": "An unexpected server error occurred. Please try again later.",
             },
         )
 
@@ -153,15 +155,16 @@ def _mount_frontend(app: FastAPI, config: Config) -> None:
         The catch-all is what makes a hard refresh on a client-side route work.
         """
         candidate = (static_dir / full_path).resolve()
+        no_cache_headers = {"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "Expires": "0"}
         try:
             # Guard against traversal: a request for `../../etc/passwd` must not escape.
             candidate.relative_to(static_dir.resolve())
         except ValueError:
-            return FileResponse(index)
+            return FileResponse(index, headers=no_cache_headers)
 
         if full_path and candidate.is_file():
             return FileResponse(candidate)
-        return FileResponse(index)
+        return FileResponse(index, headers=no_cache_headers)
 
 
 def get_application() -> FastAPI:

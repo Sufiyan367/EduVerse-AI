@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSearch } from '@tanstack/react-router'
 import {
-  Check, CheckCircle2, Cpu, Eye, EyeOff, Key, Moon, Plug, Sun, Wallet, XCircle, Zap,
+  Activity, Check, CheckCircle2, Cpu, Eye, EyeOff, Key, Moon, Plug, Sun, Wallet, XCircle, Zap,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -12,6 +13,7 @@ import {
   Badge, Button, Card, CardBody, Field, Input, Select, SelectContent, SelectItem,
   SelectTrigger, SelectValue, Skeleton, Switch, Tabs, TabsContent, TabsList, TabsTrigger,
 } from '../components/ui'
+import { AutomationCenterPage } from './AutomationCenter'
 
 const TASK_CLASSES = [
   { key: 'fast', label: 'Fast', hint: 'Relevance filtering, reranking, titles. Use the cheapest model you have — this runs hundreds of times per source.' },
@@ -20,6 +22,8 @@ const TASK_CLASSES = [
 ] as const
 
 export function SettingsPage() {
+  const search: any = useSearch({ strict: false })
+  const defaultTab = search?.tab || 'providers'
   const queryClient = useQueryClient()
   const { data, isLoading } = useQuery({ queryKey: ['settings'], queryFn: () => api.settings() })
 
@@ -34,7 +38,7 @@ export function SettingsPage() {
 
   if (isLoading || !data) {
     return (
-      <div className="mx-auto max-w-3xl space-y-4 p-6">
+      <div className="mx-auto max-w-5xl space-y-4 p-6">
         <Skeleton className="h-9 w-40" />
         <Skeleton className="h-96" />
       </div>
@@ -42,15 +46,14 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl p-4 sm:p-6">
-      <h1 className="mb-1 text-2xl font-semibold tracking-tight">Settings</h1>
+    <div className="mx-auto max-w-5xl p-4 sm:p-6">
+      <h1 className="mb-1 text-2xl font-semibold tracking-tight">Platform Settings</h1>
       <p className="mb-5 text-sm text-[var(--text-muted)]">
-        Everything is configured here — there are no config files to edit. Keys are encrypted
-        at rest and never sent to your browser.
+        Configure AI model providers, task routing, generation presets, background automation workers, and usage.
       </p>
 
-      <Tabs defaultValue="providers">
-        <TabsList className="mb-4">
+      <Tabs defaultValue={defaultTab}>
+        <TabsList className="mb-4 flex-wrap">
           <TabsTrigger value="providers">
             <Plug className="h-3.5 w-3.5" /> Providers
           </TabsTrigger>
@@ -59,6 +62,9 @@ export function SettingsPage() {
           </TabsTrigger>
           <TabsTrigger value="generation">
             <Zap className="h-3.5 w-3.5" /> Generation
+          </TabsTrigger>
+          <TabsTrigger value="automation">
+            <Activity className="h-3.5 w-3.5" /> Automation & Workers
           </TabsTrigger>
           <TabsTrigger value="usage">
             <Wallet className="h-3.5 w-3.5" /> Usage
@@ -89,6 +95,12 @@ export function SettingsPage() {
 
         <TabsContent value="generation" className="space-y-4">
           <GenerationSection settings={data.settings} onSave={(values) => save.mutate(values)} />
+        </TabsContent>
+
+        <TabsContent value="automation" className="space-y-4">
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-4">
+            <AutomationCenterPage />
+          </div>
         </TabsContent>
 
         <TabsContent value="usage">

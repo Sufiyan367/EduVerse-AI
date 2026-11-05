@@ -19,7 +19,8 @@ from sqlalchemy import delete, select
 
 from ... import prompts
 from ...db.enums import QuizItemType
-from ...db.models import Concept, QuizItem, Source
+from ...db.models import Concept, QuizItem, Segment, Source
+from ...rag.grounding import verify_evidence_in_segments
 from ...db.session import session_scope
 from ...providers import gateway
 from ...providers.base import text_message
@@ -78,6 +79,13 @@ async def generate_quiz_items(
                 .order_by(Concept.importance.desc(), Concept.id)
             ).scalars()
         )
+        segments = list(
+            session.execute(
+                select(Segment)
+                .where(Segment.source_id == source_id)
+                .order_by(Segment.index)
+            ).scalars()
+        )
         session.expunge_all()
 
     if not concepts:
@@ -91,11 +99,21 @@ async def generate_quiz_items(
     collected: list[QuizItemOutRow] = []
 
     for batch in batches:
+        batch_seg_ids = set()
+        for c in batch:
+            if c.segment_ids:
+                batch_seg_ids.update(c.segment_ids)
+        context_excerpts = [
+            {"id": s.id, "page_no": s.page_no or 1, "text": s.text}
+            for s in segments
+            if (not batch_seg_ids or s.id in batch_seg_ids)
+        ][:12]
         prompt = prompts.render(
             "quiz_items",
             title=title,
             concepts=_concept_payload(batch),
             neighbours=_neighbours(concepts, {c.id for c in batch}),
+            context_excerpts=context_excerpts,
             count=per_batch,
             mcq_options=mcq_options,
             requested_types=list(types) if types else [],
@@ -109,7 +127,7 @@ async def generate_quiz_items(
             source_id=source_id,
             job_id=job_id,
         )
-        collected.extend(_clean_items(result, valid_ids, mcq_options))
+        collected.extend(_clean_items(result, valid_ids, mcq_options, segments=segments))
 
     collected = collected[:count]
     if not collected:
@@ -131,6 +149,8 @@ async def generate_quiz_items(
                 explanation=item.explanation,
                 difficulty=item.difficulty,
                 segment_ids=item.segment_ids,
+                evidence=item.evidence,
+                page_no=item.page_no,
                 ephemeral=False,
             )
             for item in collected
@@ -150,8 +170,10 @@ class QuizItemOutRow:
         "answer",
         "concept_id",
         "difficulty",
+        "evidence",
         "explanation",
         "options",
+        "page_no",
         "question",
         "segment_ids",
         "type",
@@ -168,6 +190,8 @@ class QuizItemOutRow:
         difficulty: int,
         concept_id: int | None,
         segment_ids: list[int],
+        evidence: str = "",
+        page_no: int | None = None,
     ) -> None:
         self.type = type
         self.question = question
@@ -177,10 +201,15 @@ class QuizItemOutRow:
         self.difficulty = difficulty
         self.concept_id = concept_id
         self.segment_ids = segment_ids
+        self.evidence = evidence
+        self.page_no = page_no
 
 
 def _clean_items(
-    result: QuizItemList, valid_concept_ids: set[int], mcq_options: int
+    result: QuizItemList,
+    valid_concept_ids: set[int],
+    mcq_options: int,
+    segments: Sequence[Any] | None = None,
 ) -> list[QuizItemOutRow]:
     cleaned: list[QuizItemOutRow] = []
     for item in result.items:
@@ -188,6 +217,24 @@ def _clean_items(
         answer = item.answer.strip()
         if not question or not answer:
             continue
+
+        # Server-side quote evidence verification
+        evidence_quote = (item.evidence or "").strip()
+        matched_page_no = None
+        matched_seg_ids = list(item.segment_ids)
+        if segments:
+            match = verify_evidence_in_segments(evidence_quote, segments)
+            if not match.matched:
+                log.warning(
+                    "Rejecting ungrounded quiz question '%s': evidence quote '%s' not verified in document.",
+                    question[:60],
+                    evidence_quote[:60],
+                )
+                continue
+            matched_page_no = match.page_no
+            if match.segment_id and match.segment_id not in matched_seg_ids:
+                matched_seg_ids.append(match.segment_id)
+            evidence_quote = match.original_quote
 
         options = [o.strip() for o in item.options if o.strip()]
         item_type = QuizItemType(item.type)
@@ -216,7 +263,9 @@ def _clean_items(
                 explanation=item.explanation.strip(),
                 difficulty=max(1, min(5, item.difficulty)),
                 concept_id=item.concept_id if item.concept_id in valid_concept_ids else None,
-                segment_ids=item.segment_ids,
+                segment_ids=matched_seg_ids,
+                evidence=evidence_quote,
+                page_no=matched_page_no,
             )
         )
     return cleaned
@@ -246,13 +295,28 @@ async def generate_adaptive_items(
         )
         title_row = session.get(Source, owning_source)
         title = title_row.title if title_row else ""
+        segments = list(
+            session.execute(
+                select(Segment).where(Segment.source_id == owning_source).order_by(Segment.index)
+            ).scalars()
+        )
         session.expunge_all()
 
+    batch_seg_ids = set()
+    for c in concepts:
+        if c.segment_ids:
+            batch_seg_ids.update(c.segment_ids)
+    context_excerpts = [
+        {"id": s.id, "page_no": s.page_no or 1, "text": s.text}
+        for s in segments
+        if (not batch_seg_ids or s.id in batch_seg_ids)
+    ][:12]
     prompt = prompts.render(
         "quiz_items",
         title=title,
         concepts=_concept_payload(concepts, with_mastery=True),
         neighbours=_neighbours(siblings, {c.id for c in concepts}),
+        context_excerpts=context_excerpts,
         count=count,
         mcq_options=mcq_options,
         requested_types=None,
@@ -268,7 +332,7 @@ async def generate_adaptive_items(
         source_id=owning_source,
     )
 
-    cleaned = _clean_items(result, {c.id for c in concepts}, mcq_options)[:count]
+    cleaned = _clean_items(result, {c.id for c in concepts}, mcq_options, segments=segments)[:count]
     if not cleaned:
         return []
 
@@ -284,6 +348,8 @@ async def generate_adaptive_items(
                 explanation=item.explanation,
                 difficulty=item.difficulty,
                 segment_ids=item.segment_ids,
+                evidence=item.evidence,
+                page_no=item.page_no,
                 ephemeral=True,
             )
             for item in cleaned

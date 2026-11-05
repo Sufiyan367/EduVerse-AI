@@ -55,14 +55,114 @@ def init_database(config: Config | None = None) -> None:
     run_migrations()
     create_virtual_tables()
 
-    # Seed default EduVerse demo student
     try:
-        from ..auth import seed_default_demo_user
+        from sqlalchemy import text
         from .session import session_scope
-
         with session_scope() as session:
-            seed_default_demo_user(session)
-    except Exception as exc:
-        log.warning("Could not seed default demo user: %s", exc)
+            session.execute(text("ALTER TABLE student_topic_mastery ADD COLUMN status VARCHAR(32) DEFAULT 'not_started'"))
+            session.commit()
+    except Exception:
+        pass
 
-    log.info("database ready at %s", cfg.db_path)
+    try:
+        from sqlalchemy import text
+        from .session import session_scope
+        with session_scope() as session:
+            res = session.execute(text("PRAGMA table_info(student_topic_mastery)")).fetchall()
+            col_map = {row[1]: row for row in res}
+            if col_map.get("last_evaluated_at") and col_map["last_evaluated_at"][3] == 1:
+                session.execute(text("""
+                    CREATE TABLE student_topic_mastery_new (
+                        id INTEGER PRIMARY KEY,
+                        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                        topic_id INTEGER NOT NULL REFERENCES syllabus_topics(id) ON DELETE CASCADE,
+                        mastery_score FLOAT DEFAULT 0.0,
+                        confidence_level VARCHAR(32) DEFAULT 'low',
+                        status VARCHAR(32) DEFAULT 'not_started',
+                        last_evaluated_at DATETIME,
+                        CONSTRAINT uq_user_topic_mastery UNIQUE (user_id, topic_id)
+                    )
+                """))
+                session.execute(text("""
+                    INSERT INTO student_topic_mastery_new (id, user_id, topic_id, mastery_score, confidence_level, status, last_evaluated_at)
+                    SELECT id, user_id, topic_id, mastery_score, confidence_level, status, last_evaluated_at FROM student_topic_mastery
+                """))
+                session.execute(text("DROP TABLE student_topic_mastery"))
+                session.execute(text("ALTER TABLE student_topic_mastery_new RENAME TO student_topic_mastery"))
+                session.commit()
+    except Exception as exc:
+        log.warning("Could not migrate student_topic_mastery nullability: %s", exc)
+
+    try:
+        from sqlalchemy import text
+        from .session import session_scope
+        with session_scope() as session:
+            session.execute(text("""
+                CREATE TABLE IF NOT EXISTS guided_quiz_sessions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_token VARCHAR(128) NOT NULL UNIQUE,
+                    quiz_id VARCHAR(64) NOT NULL,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+                    topic_id INTEGER NOT NULL REFERENCES syllabus_topics(id) ON DELETE CASCADE,
+                    question_ids JSON NOT NULL,
+                    answer_key JSON NOT NULL,
+                    explanations JSON NOT NULL,
+                    expires_at DATETIME NOT NULL,
+                    consumed_at DATETIME,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                );
+            """))
+            session.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_guided_quiz_sessions_token ON guided_quiz_sessions(session_token);"))
+            session.execute(text("CREATE INDEX IF NOT EXISTS ix_guided_quiz_sessions_user_id ON guided_quiz_sessions(user_id);"))
+            session.execute(text("CREATE INDEX IF NOT EXISTS ix_guided_quiz_sessions_topic_id ON guided_quiz_sessions(topic_id);"))
+            
+            # Ensure reviews table has user_id
+            review_cols = [c["name"] for c in session.execute(text("PRAGMA table_info(reviews)")).mappings()]
+            if "user_id" not in review_cols:
+                session.execute(text("ALTER TABLE reviews ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;"))
+                session.execute(text("CREATE INDEX IF NOT EXISTS ix_reviews_user_id ON reviews(user_id);"))
+
+            # Ensure practice_attempts table exists
+            session.execute(text("""
+                CREATE TABLE IF NOT EXISTS practice_attempts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    source_id INTEGER NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+                    challenge_id VARCHAR(64) NOT NULL,
+                    question TEXT NOT NULL,
+                    student_answer TEXT NOT NULL,
+                    score INTEGER NOT NULL,
+                    is_passing BOOLEAN NOT NULL DEFAULT 0,
+                    feedback TEXT NOT NULL,
+                    model_solution TEXT NOT NULL,
+                    attempted_at DATETIME NOT NULL
+                );
+            """))
+            session.execute(text("CREATE INDEX IF NOT EXISTS ix_practice_attempts_user_id ON practice_attempts(user_id);"))
+            session.execute(text("CREATE INDEX IF NOT EXISTS ix_practice_attempts_source_id ON practice_attempts(source_id);"))
+            session.execute(text("CREATE INDEX IF NOT EXISTS ix_practice_attempts_challenge_id ON practice_attempts(challenge_id);"))
+            session.commit()
+    except Exception as exc:
+        log.warning("Could not ensure guided_quiz_sessions and practice tables: %s", exc)
+
+    try:
+        from ..rag.index import get_index
+        get_index().ensure(384)
+    except Exception as exc:
+        log.warning("Could not ensure vector index table: %s", exc)
+
+    # Seed default EduVerse demo student if enabled
+    if cfg.seed_demo:
+        try:
+            from ..auth import seed_default_demo_user
+            from .session import session_scope
+
+            with session_scope() as session:
+                seed_default_demo_user(session)
+        except Exception as exc:
+            log.warning("Could not seed default demo user: %s", exc)
+    else:
+        log.info("Demo account seeding suppressed (production or EDUVERSE_SEED_DEMO=false).")
+
+    log.info("database ready at %s", cfg.db_url)

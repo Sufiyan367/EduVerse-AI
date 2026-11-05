@@ -215,6 +215,9 @@ function SourceRow({ source, onDelete }: { source: Source; onDelete: () => void 
           {source.status === 'failed' && source.error && (
             <p className="mt-1 line-clamp-2 text-xs text-red-500">{source.error}</p>
           )}
+          {source.status === 'partially_processed' && source.error && (
+            <p className="mt-1 line-clamp-2 text-xs text-amber-500">{source.error}</p>
+          )}
         </div>
         <StatusBadge status={source.status} />
       </Link>

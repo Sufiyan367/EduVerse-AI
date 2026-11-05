@@ -32,7 +32,7 @@ const MODES: { value: Mode; label: string; hint: string }[] = [
 ]
 
 export function QuizPage() {
-  const search = useSearch({ from: '/quiz' })
+  const search = (useSearch({ strict: false }) as { source?: number; folder?: number; mode?: string }) || {}
   const [sessionId, setSessionId] = useState<number | null>(null)
   const [mode, setMode] = useState<Mode>((search.mode as Mode) ?? 'practice')
 
@@ -250,6 +250,10 @@ function QuizRunner({
     setLoading(true)
     try {
       const outcome = await api.answerQuestion(sessionId, question.id, answer)
+      if (outcome.is_graded === false) {
+        toast.error(outcome.feedback || 'Grading is unavailable. Your answer is saved without a score. Retry when the service returns.')
+        return
+      }
       setResult(outcome)
       setCount((c) => c + 1)
       // Test mode withholds feedback, so there is nothing to pause on — move straight on.

@@ -24,10 +24,20 @@ Rules:
 
 - Produce {{ count }} item(s), spread across the concepts rather than clustered on one.
 - Anchor each item to the concept it actually tests (`concept_id`).
+- `evidence` is MANDATORY: an exact, verbatim phrase or sentence from the source text supporting the correct answer. Do not paraphrase or invent facts; any question whose evidence cannot be found verbatim in the document will be rejected by server-side verification.
 - For `mcq`, draw the distractors from `neighbours` or the other concepts in this prompt,
   so the options represent real, related ideas rather than nonsense words.
 - `explanation` must cite *why* the right answer is right and why the adjacent distractors
   are wrong, in two sentences or fewer.
+
+{% if context_excerpts %}
+Source material excerpts (quote verbatim from these for `evidence`):
+{% for excerpt in context_excerpts %}
+--- Excerpt (Segment {{ excerpt.id }}, Page {{ excerpt.page_no }}) ---
+{{ excerpt.text }}
+
+{% endfor %}
+{% endif %}
 
 Concepts to test:
 {% for concept in concepts %}

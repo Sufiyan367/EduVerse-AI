@@ -82,44 +82,120 @@ def reciprocal_rank_fusion(
     )
 
 
-def _scope_source_ids(scope_type: str, scope_id: int | None) -> list[int] | None:
-    """Resolve a chat scope to source ids. ``None`` means the whole library."""
-    if scope_type == "source" and scope_id is not None:
-        return [scope_id]
-    if scope_type == "folder" and scope_id is not None:
-        from ..db.models import Folder
+def _scope_source_ids(
+    scope_type: str, scope_id: int | None, user_id: int | None = None
+) -> list[int] | None:
+    """Resolve a chat scope to source ids with strict authenticated-user boundary enforcement.
 
-        with session_scope() as session:
-            # Folders nest, so a folder scope must include descendants or a user who filed
-            # lectures into subfolders would get nothing.
+    If user_id is provided, only sources owned by that user can ever be returned.
+    A student can NEVER retrieve or leak another student's materials under any scope.
+    """
+    from sqlalchemy import or_
+
+    with session_scope() as session:
+        user_filter = (Source.user_id == user_id) if user_id is not None else None
+
+        if scope_type == "source" and scope_id is not None:
+            stmt = select(Source.id).where(Source.id == scope_id)
+            if user_filter is not None:
+                stmt = stmt.where(user_filter)
+            found = session.execute(stmt).scalar_one_or_none()
+            return [found] if found is not None else [-1]
+
+        if scope_type == "folder" and scope_id is not None:
+            from ..db.models import Folder
+
+            if user_id is not None:
+                folder_owned = session.execute(
+                    select(Folder.id).where(Folder.id == scope_id, Folder.user_id == user_id)
+                ).scalar_one_or_none()
+                if not folder_owned:
+                    return [-1]
+
             wanted = {scope_id}
             frontier = [scope_id]
             while frontier:
-                children = list(
-                    session.execute(
-                        select(Folder.id).where(Folder.parent_id.in_(frontier))
-                    ).scalars()
-                )
+                stmt_children = select(Folder.id).where(Folder.parent_id.in_(frontier))
+                if user_id is not None:
+                    stmt_children = stmt_children.where(Folder.user_id == user_id)
+                children = list(session.execute(stmt_children).scalars())
                 children = [c for c in children if c not in wanted]
                 wanted.update(children)
                 frontier = children
-            return list(
-                session.execute(
-                    select(Source.id).where(Source.folder_id.in_(list(wanted)))
-                ).scalars()
-            ) or [-1]  # a sentinel that matches nothing, rather than silently going global
+
+            stmt = select(Source.id).where(Source.folder_id.in_(list(wanted)))
+            if user_filter is not None:
+                stmt = stmt.where(user_filter)
+            return list(session.execute(stmt).scalars()) or [-1]
+
+        if scope_type == "course" and scope_id is not None:
+            from ..db.academic_models import Course, CourseMaterialLink
+            course_check = select(Course.id).where(Course.id == scope_id)
+            if user_id is not None:
+                course_check = course_check.where(Course.user_id == user_id)
+            if not session.execute(course_check).scalar_one_or_none():
+                return [-1]
+
+            stmt = (
+                select(CourseMaterialLink.source_id)
+                .join(Source, Source.id == CourseMaterialLink.source_id)
+                .where(CourseMaterialLink.course_id == scope_id)
+            )
+            if user_filter is not None:
+                stmt = stmt.where(user_filter)
+            source_ids = list(session.execute(stmt).scalars())
+            return source_ids or [-1]
+
+        if scope_type == "topic" and scope_id is not None:
+            from ..db.academic_models import Course, CourseMaterialLink, SyllabusTopic
+            topic_stmt = (
+                select(SyllabusTopic.unit_id, SyllabusTopic.course_id)
+                .join(Course, Course.id == SyllabusTopic.course_id)
+                .where(SyllabusTopic.id == scope_id)
+            )
+            if user_id is not None:
+                topic_stmt = topic_stmt.where(Course.user_id == user_id)
+            topic_row = session.execute(topic_stmt).first()
+            if not topic_row:
+                return [-1]
+            unit_id, course_id = topic_row
+
+            stmt = (
+                select(CourseMaterialLink.source_id)
+                .join(Source, Source.id == CourseMaterialLink.source_id)
+                .where(
+                    CourseMaterialLink.course_id == course_id,
+                    or_(CourseMaterialLink.unit_id == unit_id, CourseMaterialLink.unit_id.is_(None)),
+                )
+            )
+            if user_filter is not None:
+                stmt = stmt.where(user_filter)
+            source_ids = list(session.execute(stmt).scalars())
+            return source_ids or [-1]
+
+        # Global library scope:
+        if user_id is not None:
+            stmt = select(Source.id).where(user_filter)
+            sources = list(session.execute(stmt).scalars())
+            return sources if sources else [-1]
+
     return None
 
 
-def _load_excerpts(segment_ids: list[int]) -> dict[int, Excerpt]:
+def _load_excerpts(segment_ids: list[int], user_id: int | None = None) -> dict[int, Excerpt]:
     if not segment_ids:
         return {}
+    from sqlalchemy import or_
+
     with session_scope() as session:
-        rows = session.execute(
+        stmt = (
             select(Segment, Source.title)
             .join(Source, Source.id == Segment.source_id)
             .where(Segment.id.in_(segment_ids))
-        ).all()
+        )
+        if user_id is not None:
+            stmt = stmt.where(Source.user_id == user_id)
+        rows = session.execute(stmt).all()
 
     return {
         segment.id: Excerpt(
@@ -142,6 +218,7 @@ async def retrieve(
     *,
     scope_type: str = "global",
     scope_id: int | None = None,
+    user_id: int | None = None,
     top_k: int | None = None,
     rerank_to: int | None = None,
     use_rerank: bool = True,
@@ -150,12 +227,30 @@ async def retrieve(
     settings = get_settings()
     top_k = top_k or settings.get_int("rag.top_k", 12)
     rerank_to = rerank_to or settings.get_int("rag.rerank_to", 6)
-    source_ids = _scope_source_ids(scope_type, scope_id)
+    source_ids = _scope_source_ids(scope_type, scope_id, user_id=user_id)
+    if source_ids == [-1]:
+        log.info("RAG search short-circuited: scope has 0 accessible sources for user_id=%s", user_id)
+        return []
+
+    log.info(
+        "RAG retrieve initiated: query='%s', scope_type=%s, scope_id=%s, top_k=%d, rerank_to=%d",
+        query,
+        scope_type,
+        scope_id,
+        top_k,
+        rerank_to,
+    )
 
     async def vector_leg() -> list[int]:
         try:
             hits = await vector_index.search_vectors(query, k=top_k, source_ids=source_ids)
-            return [hit.segment_id for hit in hits]
+            # Filter vector noise below similarity threshold
+            v_ids = [hit.segment_id for hit in hits if hit.score >= 0.35]
+            if not v_ids:
+                total_vecs = vector_index.get_index().count()
+                if total_vecs == 0:
+                    log.warning("Vector index contains 0 vectors; embeddings may be missing or unindexed.")
+            return v_ids
         except Exception as exc:
             # Embeddings may be unconfigured or the model still downloading. BM25 alone still
             # produces a usable answer, so degrade rather than fail.
@@ -171,10 +266,11 @@ async def retrieve(
 
     fused = reciprocal_rank_fusion({"vector": vector_ids, "keyword": keyword_ids})
     if not fused:
+        log.info("RAG search returned 0 candidates across vector and keyword retrievers.")
         return []
 
     candidate_ids = [item_id for item_id, _, _ in fused[:top_k]]
-    excerpts = _load_excerpts(candidate_ids)
+    excerpts = _load_excerpts(candidate_ids, user_id=user_id)
 
     ordered: list[Excerpt] = []
     for item_id, score, origins in fused[:top_k]:
@@ -185,8 +281,25 @@ async def retrieve(
         excerpt.matched_by = origins
         ordered.append(excerpt)
 
+    log.info(
+        "RAG hybrid fusion: %d vector hits, %d keyword hits -> %d fused candidates (IDs: %s, pages: %s)",
+        len(vector_ids),
+        len(keyword_ids),
+        len(ordered),
+        [e.id for e in ordered],
+        [e.page_no for e in ordered],
+    )
+
     if not use_rerank or len(ordered) <= rerank_to:
-        return ordered[:rerank_to]
+        final = ordered[:rerank_to]
+        log.info(
+            "RAG selected %d excerpts without rerank (IDs: %s, sources: %s, pages: %s)",
+            len(final),
+            [e.id for e in final],
+            [e.source_id for e in final],
+            [e.page_no for e in final],
+        )
+        return final
 
     return await rerank(query, ordered, limit=rerank_to)
 
@@ -209,8 +322,15 @@ async def rerank(query: str, excerpts: list[Excerpt], *, limit: int) -> list[Exc
         )
     except Exception as exc:
         # Fusion order is already reasonable; reranking is an improvement, not a requirement.
-        log.warning("rerank failed, keeping fusion order: %s", exc)
-        return excerpts[:limit]
+        log.warning("rerank failed (%s), keeping reciprocal rank fusion order", exc)
+        final = excerpts[:limit]
+        log.info(
+            "RAG selected %d excerpts from fusion fallback (IDs: %s, pages: %s)",
+            len(final),
+            [e.id for e in final],
+            [e.page_no for e in final],
+        )
+        return final
 
     scored = {item.id: item.score for item in result.scores}
     ranked = sorted(
@@ -218,10 +338,25 @@ async def rerank(query: str, excerpts: list[Excerpt], *, limit: int) -> list[Exc
         key=lambda e: (scored.get(e.id, 0.0), e.score),
         reverse=True,
     )
-    # Drop anything the reranker judged actively irrelevant, but never return nothing —
-    # an empty context turns into "your notes don't cover this", which would be wrong here.
-    kept = [e for e in ranked if scored.get(e.id, 0.0) > 0.05][:limit]
-    return kept or ranked[:limit]
+    # Relevance threshold: passages scored <= 0.15 by the reranker are actively irrelevant.
+    # Never return irrelevant passages as confident context.
+    kept = [e for e in ranked if scored.get(e.id, 0.0) > 0.15][:limit]
+    if not kept:
+        log.info(
+            "Reranker judged all %d candidates below threshold (0.15); returning empty context for honest abstention",
+            len(excerpts),
+        )
+        return []
+
+    log.info(
+        "RAG rerank outcome: scored %d items -> selected %d relevant excerpts (IDs: %s, sources: %s, pages: %s)",
+        len(scored),
+        len(kept),
+        [e.id for e in kept],
+        [e.source_id for e in kept],
+        [e.page_no for e in kept],
+    )
+    return kept
 
 
 def scope_description(scope_type: str, scope_id: int | None) -> str:
@@ -235,4 +370,14 @@ def scope_description(scope_type: str, scope_id: int | None) -> str:
         with session_scope() as session:
             folder = session.get(Folder, scope_id)
             return f"the folder “{folder.name}”" if folder else "one folder"
+    if scope_type == "course" and scope_id is not None:
+        from ..db.academic_models import Course
+        with session_scope() as session:
+            course = session.get(Course, scope_id)
+            return f"the course “{course.code}: {course.name}”" if course else "one course workspace"
+    if scope_type == "topic" and scope_id is not None:
+        from ..db.academic_models import SyllabusTopic
+        with session_scope() as session:
+            topic = session.get(SyllabusTopic, scope_id)
+            return f"the syllabus topic “{topic.name}”" if topic else "one topic"
     return "your entire library"

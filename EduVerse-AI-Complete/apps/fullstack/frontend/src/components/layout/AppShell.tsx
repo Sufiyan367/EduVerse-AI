@@ -1,53 +1,71 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Sparkles,
-  BookOpen, Brain, LayoutDashboard, Menu, Mic, MessageSquare, Headphones,
-  Search, Settings as SettingsIcon, ListChecks, AlertTriangle, CalendarCheck,
-  LogIn,
+  Sparkles, BookOpen, Brain, LayoutDashboard, Menu, MessageSquare,
+  Search, Settings as SettingsIcon, BarChart2, LogOut, ArrowRight,
+  FolderOpen
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { api } from '../../lib/api'
-import { useJobs, useUi } from '../../lib/store'
+import { useUi, useServerHealth, useActiveCourse } from '../../lib/store'
+import { startHealthMonitoring } from '../../lib/serverHealth'
 import { jobSocket } from '../../lib/ws'
 import { cn, modKey } from '../../lib/utils'
-import { Badge, Button, Input, Kbd, Tooltip } from '../ui'
+import type { User } from '../../lib/types'
+import { Badge, Button, Kbd, Tooltip } from '../ui'
 import { CommandPalette } from '../CommandPalette'
 import { JobTray } from './JobTray'
+import { AuthScreen } from '../auth/AuthScreen'
 
-const NAV = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true },
-  { to: '/library', label: 'Library', icon: BookOpen },
-  { to: '/review', label: 'Review', icon: Brain, badge: 'due' as const },
-  { to: '/quiz', label: 'Quiz', icon: ListChecks },
-  { to: '/chat', label: 'AI Tutor', icon: MessageSquare },
-  { to: '/knowledge-gap', label: 'Knowledge Gaps', icon: AlertTriangle },
-  { to: '/revision', label: 'Revision Planner', icon: CalendarCheck },
-  { to: '/podcasts', label: 'Podcasts', icon: Headphones },
-  { to: '/record', label: 'Record', icon: Mic },
+// Primary 5 Navigation Destinations
+const PRIMARY_NAV = [
+  { to: '/', label: 'My Learning', icon: LayoutDashboard, exact: true },
+  { to: '/courses', label: 'Courses', icon: BookOpen },
+  { to: '/chat', label: 'Tutor', icon: MessageSquare },
+  { to: '/practice', label: 'Practice', icon: Brain, badge: 'due' as const },
+  { to: '/progress', label: 'Progress', icon: BarChart2 },
+]
+
+// Secondary / Utility Links
+const SECONDARY_NAV = [
+  { to: '/library', label: 'Study Library', icon: FolderOpen },
 ]
 
 export function AppShell() {
   const { sidebarOpen, setSidebarOpen, setPaletteOpen } = useUi()
+  const { activeCourseId } = useActiveCourse()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
-  const [authModalOpen, setAuthModalOpen] = useState(false)
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
-  const [email, setEmail] = useState('student@eduverse.ai')
-  const [password, setPassword] = useState('demo123')
-  const [username, setUsername] = useState('demo_student')
-  const [fullName, setFullName] = useState('EduVerse Scholar')
-  const [authError, setAuthError] = useState<string | null>(null)
-  const [currentUser, setCurrentUser] = useState<{ username: string; email: string; full_name: string; avatar_color: string } | null>(() => {
+  const queryClient = useQueryClient()
+
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    if (typeof localStorage === 'undefined') return null
     const cached = localStorage.getItem('eduverse_user')
-    return cached ? JSON.parse(cached) : { username: 'demo_student', email: 'student@eduverse.ai', full_name: 'EduVerse Scholar', avatar_color: '#7C3AED' }
+    const token = localStorage.getItem('eduverse_token')
+    if (cached && token) {
+      try {
+        return JSON.parse(cached)
+      } catch {
+        return null
+      }
+    }
+    return null
   })
 
-  // One socket for the whole app; see lib/ws.ts for why it is not a hook.
+  // Continuous server and model health monitoring
   useEffect(() => {
-    jobSocket.connect()
-    return () => jobSocket.disconnect()
+    const stopMonitoring = startHealthMonitoring()
+    return () => stopMonitoring()
   }, [])
 
+  // Connect socket only when logged in
+  useEffect(() => {
+    if (!currentUser) return
+    jobSocket.connect()
+    return () => jobSocket.disconnect()
+  }, [currentUser])
+
+  // Global hotkeys
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
@@ -59,7 +77,20 @@ export function AppShell() {
     return () => window.removeEventListener('keydown', onKey)
   }, [setPaletteOpen])
 
-  // Close the drawer after navigating on mobile, or it covers the page you just opened.
+  // Listen to 401 unauthorized events to force sign-in
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      localStorage.removeItem('eduverse_token')
+      localStorage.removeItem('eduverse_user')
+      queryClient.clear()
+      setCurrentUser(null)
+      toast.error('Your session has expired. Please sign in again.')
+    }
+    window.addEventListener('eduverse:unauthorized', handleUnauthorized)
+    return () => window.removeEventListener('eduverse:unauthorized', handleUnauthorized)
+  }, [queryClient])
+
+  // Close the drawer after navigating on mobile
   useEffect(() => {
     if (window.innerWidth < 1024) setSidebarOpen(false)
   }, [pathname, setSidebarOpen])
@@ -67,45 +98,46 @@ export function AppShell() {
   const { data: counts } = useQuery({
     queryKey: ['card-counts'],
     queryFn: () => api.cardCounts(),
+    enabled: !!currentUser,
     refetchInterval: 60_000,
   })
   const dueTotal = (counts?.due ?? 0) + (counts?.new ?? 0)
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setAuthError(null)
+  const { data: courses = [] } = useQuery({
+    queryKey: ['courses'],
+    queryFn: () => api.listCourses(),
+    enabled: !!currentUser,
+  })
+  const activeCourse = courses.find((c: any) => c.id === activeCourseId) || null
+
+  const handleLogout = async () => {
     try {
-      const res = await api.login({ username: email, password })
-      localStorage.setItem('eduverse_token', res.token)
-      localStorage.setItem('eduverse_user', JSON.stringify(res.user))
-      setCurrentUser(res.user)
-      setAuthModalOpen(false)
-    } catch (err: any) {
-      setAuthError(err.message || 'Login failed')
+      await api.logout()
+    } catch {
+      // Safe fallback on network error
+    } finally {
+      localStorage.removeItem('eduverse_token')
+      localStorage.removeItem('eduverse_user')
+      queryClient.clear()
+      setCurrentUser(null)
+      toast.success('Signed out successfully.')
     }
   }
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setAuthError(null)
-    try {
-      const res = await api.register({ email, username, password, full_name: fullName })
-      localStorage.setItem('eduverse_token', res.token)
-      localStorage.setItem('eduverse_user', JSON.stringify(res.user))
-      setCurrentUser(res.user)
-      setAuthModalOpen(false)
-    } catch (err: any) {
-      setAuthError(err.message || 'Registration failed')
-    }
-  }
-
-  const handleQuickDemo = () => {
-    setEmail('student@eduverse.ai')
-    setPassword('demo123')
+  // If not logged in, render the premium split-layout AuthScreen
+  if (!currentUser) {
+    return (
+      <AuthScreen
+        onSuccess={(user) => {
+          setCurrentUser(user)
+          queryClient.invalidateQueries()
+        }}
+      />
+    )
   }
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex h-full overflow-hidden bg-[var(--bg)] text-[var(--text)]">
       {sidebarOpen && (
         <button
           type="button"
@@ -115,13 +147,15 @@ export function AppShell() {
         />
       )}
 
+      {/* Main Sidebar */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r border-[var(--border)]',
+          'fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-[var(--border)]',
           'bg-[var(--bg-raised)] transition-transform lg:static lg:translate-x-0',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
+        {/* Brand Header */}
         <div className="flex h-16 items-center justify-between border-b border-[var(--border)] px-4">
           <Link to="/" className="flex items-center gap-2.5 font-semibold tracking-tight">
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--accent)] text-black shadow-sm shadow-[var(--accent)]/30">
@@ -132,23 +166,55 @@ export function AppShell() {
               <span className="text-[10px] text-[var(--text-muted)] font-normal">ICEM • AI & DS Dept</span>
             </div>
           </Link>
-          <Badge tone="accent" className="text-[10px] px-1.5 py-0.5">v1.0 Demo</Badge>
+          <Badge tone="accent" className="text-[10px] px-1.5 py-0.5">SPPU v1.0</Badge>
         </div>
 
-        <div className="px-3 pb-2 pt-2">
+        {/* Global Search */}
+        <div className="px-3 pb-2 pt-2.5">
           <button
             type="button"
             onClick={() => setPaletteOpen(true)}
-            className="flex w-full items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-sunken)] px-2.5 py-1.5 text-[13px] text-[var(--text-muted)] transition hover:border-[var(--accent)]/40"
+            className="flex w-full items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-sunken)] px-2.5 py-1.5 text-[13px] text-[var(--text-muted)] transition hover:border-[var(--accent)]/40 hover:text-[var(--text)]"
           >
             <Search className="h-3.5 w-3.5" />
-            <span className="flex-1 text-left">Search…</span>
+            <span className="flex-1 text-left">Search workspace…</span>
             <Kbd>{modKey}K</Kbd>
           </button>
         </div>
 
+        {/* Active Course Sticky Chip */}
+        <div className="px-3 mb-1">
+          {activeCourse ? (
+            <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-teal-500/10 border border-teal-500/20 text-xs">
+              <div className="min-w-0 flex items-center gap-1.5">
+                <BookOpen className="h-3.5 w-3.5 text-teal-400 shrink-0" />
+                <span className="font-semibold text-teal-300 truncate">{activeCourse.code}</span>
+              </div>
+              <Link
+                to="/courses"
+                search={{ courseId: activeCourse.id, tab: 'overview' } as any}
+                className="text-[10px] text-teal-400 hover:underline font-medium ml-1"
+              >
+                Workspace
+              </Link>
+            </div>
+          ) : (
+            <Link
+              to="/courses"
+              className="flex items-center justify-between px-2.5 py-1.5 rounded-lg border border-dashed border-[var(--border)] text-[11px] text-[var(--text-muted)] hover:border-[var(--accent)]/40 hover:text-[var(--text)] transition-colors"
+            >
+              <span>Select Active Course</span>
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+          )}
+        </div>
+
+        {/* Navigation Items */}
         <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-1">
-          {NAV.map((item) => {
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] px-2.5 py-1">
+            Workspace
+          </div>
+          {PRIMARY_NAV.map((item) => {
             const active = item.exact ? pathname === item.to : pathname.startsWith(item.to)
             return (
               <Link
@@ -157,7 +223,7 @@ export function AppShell() {
                 className={cn(
                   'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
                   active
-                    ? 'bg-[var(--accent-soft)] text-[var(--accent)]'
+                    ? 'bg-[var(--accent-soft)] text-[var(--accent)] font-semibold'
                     : 'text-[var(--text-muted)] hover:bg-[var(--bg-sunken)] hover:text-[var(--text)]',
                 )}
               >
@@ -169,31 +235,62 @@ export function AppShell() {
               </Link>
             )
           })}
+
+          <div className="pt-3 pb-1">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] px-2.5 py-1">
+              Resources
+            </div>
+            {SECONDARY_NAV.map((item) => {
+              const active = pathname.startsWith(item.to)
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className={cn(
+                    'flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors',
+                    active
+                      ? 'bg-[var(--accent-soft)] text-[var(--accent)] font-semibold'
+                      : 'text-[var(--text-muted)] hover:bg-[var(--bg-sunken)] hover:text-[var(--text)]',
+                  )}
+                >
+                  <item.icon className="h-3.5 w-3.5 shrink-0" />
+                  <span className="flex-1">{item.label}</span>
+                </Link>
+              )
+            })}
+          </div>
         </nav>
 
-        {/* User Account & Settings */}
-        <div className="border-t border-[var(--border)] p-3 space-y-2">
-          <button
-            type="button"
-            onClick={() => setAuthModalOpen(true)}
-            className="flex w-full items-center gap-2.5 rounded-lg border border-[var(--border)] bg-[var(--bg-sunken)] p-2 text-left transition hover:border-[var(--accent)]/40"
-          >
+        {/* User Account & Settings Footer */}
+        <div className="border-t border-[var(--border)] p-3 space-y-2 bg-[var(--bg-sunken)]/30">
+          <div className="flex items-center gap-2.5 rounded-lg border border-[var(--border)] bg-[var(--bg-raised)] p-2">
             <div
-              className="grid h-7 w-7 place-items-center rounded-md text-xs font-bold text-white shadow-xs"
-              style={{ backgroundColor: currentUser?.avatar_color || '#7C3AED' }}
+              className="grid h-7 w-7 place-items-center rounded-md text-xs font-bold text-white shadow-xs shrink-0"
+              style={{ backgroundColor: currentUser.avatar_color || '#7C3AED' }}
             >
-              {currentUser?.username?.charAt(0).toUpperCase() || 'S'}
+              {currentUser.username.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
               <p className="truncate text-xs font-semibold text-[var(--text)]">
-                {currentUser?.full_name || 'EduVerse Student'}
+                {currentUser.full_name || currentUser.username}
               </p>
               <p className="truncate text-[10px] text-[var(--text-muted)]">
-                {currentUser?.email || 'student@eduverse.ai'}
+                {currentUser.email}
               </p>
             </div>
-            <LogIn className="h-3.5 w-3.5 text-[var(--text-muted)] shrink-0" />
-          </button>
+            <Tooltip label="Sign out">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleLogout}
+                className="h-7 w-7 text-[var(--text-muted)] hover:text-red-500 shrink-0"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </Button>
+            </Tooltip>
+          </div>
+
+          <LlmIndicator />
 
           <JobTray />
 
@@ -207,13 +304,14 @@ export function AppShell() {
             )}
           >
             <SettingsIcon className="h-3.5 w-3.5" />
-            Settings & AI Provider
+            <span>Platform Settings</span>
           </Link>
         </div>
       </aside>
 
+      {/* Main Body */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-[var(--border)] px-3 lg:hidden">
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-[var(--border)] px-3 lg:hidden bg-[var(--bg-raised)]">
           <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)}>
             <Menu className="h-4 w-4" />
           </Button>
@@ -233,107 +331,51 @@ export function AppShell() {
 
       <CommandPalette />
       <ConnectionBanner />
+    </div>
+  )
+}
 
-      {/* Auth Modal */}
-      {authModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-sm rounded-xl border border-[var(--border)] bg-[var(--bg-raised)] p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="grid h-6 w-6 place-items-center rounded-md bg-[var(--accent)] text-black text-xs font-bold">E</span>
-                <h3 className="text-base font-bold text-[var(--text)]">
-                  {authMode === 'login' ? 'Student Sign In' : 'Register New Account'}
-                </h3>
-              </div>
-              <button
-                onClick={() => setAuthModalOpen(false)}
-                className="text-xs text-[var(--text-muted)] hover:text-[var(--text)]"
-              >
-                ✕
-              </button>
-            </div>
+function LlmIndicator() {
+  const llmStatus = useServerHealth((state) => state.llmStatus)
+  if (!llmStatus) return null
+  const isOnline = llmStatus.status === 'connected'
+  const isLoading = llmStatus.status === 'loading'
 
-            {authError && (
-              <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 text-xs text-rose-400">
-                {authError}
-              </div>
-            )}
-
-            <form onSubmit={authMode === 'login' ? handleLogin : handleRegister} className="space-y-3">
-              {authMode === 'register' && (
-                <>
-                  <div>
-                    <label className="text-xs text-[var(--text-muted)] block mb-1">Full Name</label>
-                    <Input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-                  </div>
-                  <div>
-                    <label className="text-xs text-[var(--text-muted)] block mb-1">Username</label>
-                    <Input value={username} onChange={(e) => setUsername(e.target.value)} required />
-                  </div>
-                </>
-              )}
-
-              <div>
-                <label className="text-xs text-[var(--text-muted)] block mb-1">
-                  {authMode === 'login' ? 'Email or Username' : 'Email Address'}
-                </label>
-                <Input value={email} onChange={(e) => setEmail(e.target.value)} required />
-              </div>
-
-              <div>
-                <label className="text-xs text-[var(--text-muted)] block mb-1">Password</label>
-                <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-              </div>
-
-              {authMode === 'login' && (
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-sunken)] p-2.5 text-xs">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-semibold text-[var(--text)]">Default Demo Student:</span>
-                    <button
-                      type="button"
-                      onClick={handleQuickDemo}
-                      className="text-[var(--accent)] hover:underline font-medium text-[11px]"
-                    >
-                      Fill Demo
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-[var(--text-muted)]">student@eduverse.ai / demo123</p>
-                </div>
-              )}
-
-              <Button type="submit" variant="primary" className="w-full">
-                {authMode === 'login' ? 'Sign In' : 'Create Account'}
-              </Button>
-            </form>
-
-            <div className="flex items-center justify-between border-t border-[var(--border)] pt-3 text-xs text-[var(--text-muted)]">
-              <span>{authMode === 'login' ? "Don't have an account?" : 'Already registered?'}</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode(authMode === 'login' ? 'register' : 'login')
-                  setAuthError(null)
-                }}
-                className="text-[var(--accent)] hover:underline font-medium"
-              >
-                {authMode === 'login' ? 'Register' : 'Sign In'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+  return (
+    <div
+      title={llmStatus.message || undefined}
+      className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--bg-sunken)] px-2.5 py-1.5 text-[11px]"
+    >
+      <div className="flex items-center gap-1.5 min-w-0">
+        <span
+          className={cn(
+            'h-2 w-2 rounded-full shrink-0',
+            isOnline
+              ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50'
+              : isLoading
+              ? 'bg-amber-500 animate-pulse'
+              : 'bg-zinc-400',
+          )}
+        />
+        <span className="truncate font-medium text-[var(--text)]">
+          {isOnline ? llmStatus.model || 'qwen3.5:4b' : isLoading ? 'Model loading…' : 'Ollama offline'}
+        </span>
+      </div>
+      <span className="text-[10px] text-[var(--text-muted)] shrink-0 capitalize">
+        {isOnline ? `${llmStatus.thinking || 'high'} reason` : 'offline'}
+      </span>
     </div>
   )
 }
 
 function ConnectionBanner() {
-  const connected = useJobs((state) => state.connected)
-  const [visible, setVisible] = useDelayed(!connected, 3000)
+  const serverConnected = useServerHealth((state) => state.serverConnected)
+  const [visible, setVisible] = useDelayed(!serverConnected, 4000)
   if (!visible) return null
   return (
-    <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-700 shadow-lg dark:text-amber-300">
-      Reconnecting to EduVerse AI server…
-      <button className="ml-2 underline" onClick={() => setVisible(false)}>
+    <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-700 shadow-lg backdrop-blur dark:text-amber-300">
+      Reconnecting to EduVerse server…
+      <button className="ml-2 underline hover:text-amber-900 dark:hover:text-amber-100" onClick={() => setVisible(false)}>
         dismiss
       </button>
     </div>

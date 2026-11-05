@@ -116,6 +116,7 @@ class GoogleLLM(LLMProvider):
     name = "google"
     label = "Google Gemini"
     default_base_url = "https://generativelanguage.googleapis.com/v1beta"
+    default_model = "gemini-2.5-flash"
 
     def __init__(self, *, api_key: str = "", base_url: str = "") -> None:
         self.api_key = api_key
@@ -259,30 +260,42 @@ class GoogleLLM(LLMProvider):
                         yield str(text)
 
     async def list_models(self) -> list[ModelInfo]:
-        data = await request_json(
-            self._client,
-            "GET",
-            "/models",
-            provider=self.name,
-            label=self.label,
-            params={"pageSize": 200},
-        )
-        models = []
-        for item in data.get("models") or []:
-            if not isinstance(item, dict):
-                continue
-            methods = item.get("supportedGenerationMethods") or []
-            if methods and "generateContent" not in methods:
-                continue
-            raw_name = str(item.get("name") or "")
-            model_id = raw_name.removeprefix("models/")
-            if not model_id:
-                continue
-            models.append(
-                ModelInfo(
-                    id=model_id,
-                    name=str(item.get("displayName") or model_id),
-                    context_window=int(item.get("inputTokenLimit") or 0),
-                )
+        fallback_models = [
+            ModelInfo(id="gemini-3.8-flash", name="Gemini 3.8 Flash", context_window=1_000_000),
+            ModelInfo(id="gemini-2.5-flash", name="Gemini 2.5 Flash", context_window=1_000_000),
+            ModelInfo(id="gemini-2.0-flash", name="Gemini 2.0 Flash", context_window=1_000_000),
+            ModelInfo(id="gemini-1.5-flash", name="Gemini 1.5 Flash", context_window=1_000_000),
+            ModelInfo(id="gemini-2.5-pro", name="Gemini 2.5 Pro", context_window=1_000_000),
+        ]
+        try:
+            data = await request_json(
+                self._client,
+                "GET",
+                "/models",
+                provider=self.name,
+                label=self.label,
+                params={"pageSize": 200},
             )
-        return sorted(models, key=lambda m: m.id)
+            models = []
+            for item in data.get("models") or []:
+                if not isinstance(item, dict):
+                    continue
+                methods = item.get("supportedGenerationMethods") or []
+                if methods and "generateContent" not in methods:
+                    continue
+                raw_name = str(item.get("name") or "")
+                model_id = raw_name.removeprefix("models/")
+                if not model_id:
+                    continue
+                models.append(
+                    ModelInfo(
+                        id=model_id,
+                        name=str(item.get("displayName") or model_id),
+                        context_window=int(item.get("inputTokenLimit") or 0),
+                    )
+                )
+            if models:
+                return sorted(models, key=lambda m: m.id)
+        except Exception as exc:
+            log.warning("could not fetch models from Google API: %s; using curated Gemini list", exc)
+        return fallback_models

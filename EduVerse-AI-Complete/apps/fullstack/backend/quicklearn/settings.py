@@ -30,11 +30,17 @@ log = logging.getLogger(__name__)
 SECRET_SUFFIX = ".api_key"
 
 DEFAULTS: dict[str, Any] = {
-    # Per-task model routing (PRD §4.3). Empty until the user configures a provider; the
-    # registry raises an actionable error rather than guessing.
-    "routing.fast": {"provider": "", "model": ""},
-    "routing.standard": {"provider": "", "model": ""},
-    "routing.deep": {"provider": "", "model": ""},
+    # Default primary routing to local Ollama with qwen3.5:4b reasoning
+    "routing.fast": {"provider": "ollama", "model": "qwen3.5:4b"},
+    "routing.standard": {"provider": "ollama", "model": "qwen3.5:4b"},
+    "routing.deep": {"provider": "ollama", "model": "qwen3.5:4b"},
+    # Local Ollama Provider configuration
+    "providers.ollama.base_url": "http://127.0.0.1:11434/v1",
+    "providers.ollama.model": "qwen3.5:4b",
+    "providers.ollama.think": "high",
+    "providers.ollama.num_ctx": 4096,
+    "providers.ollama.keep_alive": "10m",
+    "providers.ollama.allow_cloud_fallback": False,
     "stt.provider": "",
     "stt.model": "",
     "stt.language": "",
@@ -74,6 +80,11 @@ ENV_ALIASES: dict[str, str] = {
     "providers.deepgram.api_key": "DEEPGRAM_API_KEY",
     "providers.elevenlabs.api_key": "ELEVENLABS_API_KEY",
     "providers.ollama.base_url": "OLLAMA_BASE_URL",
+    "providers.ollama.model": "OLLAMA_MODEL",
+    "providers.ollama.think": "OLLAMA_THINK",
+    "providers.ollama.num_ctx": "OLLAMA_NUM_CTX",
+    "providers.ollama.keep_alive": "OLLAMA_KEEP_ALIVE",
+    "providers.ollama.allow_cloud_fallback": "ALLOW_CLOUD_FALLBACK",
     "providers.lmstudio.base_url": "LMSTUDIO_BASE_URL",
     "stt.provider": "STT_PROVIDER",
     "tts.provider": "TTS_PROVIDER",
@@ -231,12 +242,32 @@ class SettingsStore:
         return self.get_str(f"providers.{provider}.base_url", default) or default
 
     def routing(self, task_class: str) -> tuple[str, str]:
-        """``(provider, model)`` for a task class, falling back to ``standard``."""
-        conf = self.get_dict(f"routing.{task_class}")
-        provider = str(conf.get("provider") or "")
-        model = str(conf.get("model") or "")
-        if not provider and task_class != "standard":
+        """``(provider, model)`` for a task class, falling back to local Ollama."""
+        # Top-level LLM_PROVIDER environment override
+        env_provider = os.environ.get("LLM_PROVIDER") or os.environ.get("EDUVERSE_LLM_PROVIDER")
+        if env_provider:
+            env_model = (
+                os.environ.get(f"{env_provider.upper()}_MODEL")
+                or os.environ.get(f"EDUVERSE_{env_provider.upper()}_MODEL")
+                or (self.get_str("providers.ollama.model", "qwen3.5:4b") if env_provider.lower() == "ollama" else "")
+            )
+            return env_provider.lower(), env_model
+
+        loaded = self._load()
+        if f"routing.{task_class}" in loaded:
+            conf = loaded[f"routing.{task_class}"]
+            if isinstance(conf, dict):
+                provider = str(conf.get("provider") or "").strip()
+                model = str(conf.get("model") or "").strip()
+                return provider, model
+            return "", ""
+
+        if task_class != "standard":
             return self.routing("standard")
+
+        # Default when nothing has been configured: local Ollama
+        provider = "ollama"
+        model = self.get_str("providers.ollama.model", "qwen3.5:4b")
         return provider, model
 
     def configured_providers(self) -> set[str]:

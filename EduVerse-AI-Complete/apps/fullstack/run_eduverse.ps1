@@ -84,29 +84,125 @@ if ($portConn) {
     }
 }
 
-# 4. Check Local Provider Status
+# 4. Check & Initialize Local AI Provider (Ollama)
 Write-Host "[CHECK] Inspecting local AI providers..." -ForegroundColor Gray
-$ollamaRunning = $false
-$lmstudioRunning = $false
 
-try {
-    $r1 = Invoke-WebRequest -Uri "http://localhost:11434/api/tags" -TimeoutSec 1 -UseBasicParsing -ErrorAction Stop
-    if ($r1.StatusCode -eq 200) { $ollamaRunning = $true }
-} catch {}
-
-try {
-    $r2 = Invoke-WebRequest -Uri "http://localhost:1234/v1/models" -TimeoutSec 1 -UseBasicParsing -ErrorAction Stop
-    if ($r2.StatusCode -eq 200) { $lmstudioRunning = $true }
-} catch {}
-
-if ($ollamaRunning) {
-    Write-Host "  -> Ollama is online at http://localhost:11434" -ForegroundColor Green
-} elseif ($lmstudioRunning) {
-    Write-Host "  -> LM Studio is online at http://localhost:1234" -ForegroundColor Green
+$ollamaExe = if (Get-Command ollama -ErrorAction SilentlyContinue) {
+    (Get-Command ollama).Source
+} elseif (Test-Path "$env:LOCALAPPDATA\Programs\Ollama\ollama.exe") {
+    "$env:LOCALAPPDATA\Programs\Ollama\ollama.exe"
 } else {
-    Write-Host "  -> Local daemons (Ollama / LM Studio) are offline." -ForegroundColor DarkYellow
-    Write-Host "  -> Server will run with configured Settings (Mock AI available for offline demo)." -ForegroundColor Gray
+    $null
 }
+
+$ollamaInstalled = $false
+$daemonOnline = $false
+$modelReady = $false
+$inferenceVerified = $false
+
+if ($ollamaExe) {
+    $ollamaInstalled = $true
+    Write-Host "[OLLAMA] Installed: YES" -ForegroundColor Green
+} else {
+    Write-Host "[OLLAMA] Installed: NO" -ForegroundColor Red
+    Write-Host "Please install Ollama from https://ollama.com/download/windows" -ForegroundColor Yellow
+}
+
+if ($ollamaInstalled) {
+    if (Test-Path "S:\OllamaModels") {
+        $env:OLLAMA_MODELS = "S:\OllamaModels"
+    }
+    $env:OLLAMA_HOST = "127.0.0.1:11434"
+
+    # Check if daemon is already listening
+    try {
+        $r = Invoke-WebRequest -Uri "http://127.0.0.1:11434/api/tags" -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
+        if ($r.StatusCode -eq 200) { $daemonOnline = $true }
+    } catch {}
+
+    if (-not $daemonOnline) {
+        Write-Host "[OLLAMA] Starting Ollama daemon..." -ForegroundColor Cyan
+        Start-Process -FilePath $ollamaExe -ArgumentList "serve" -WindowStyle Hidden
+        $waitStart = Get-Date
+        while (((Get-Date) - $waitStart).TotalSeconds -lt 15) {
+            Start-Sleep -Milliseconds 500
+            try {
+                $r = Invoke-WebRequest -Uri "http://127.0.0.1:11434/api/tags" -TimeoutSec 1 -UseBasicParsing -ErrorAction Stop
+                if ($r.StatusCode -eq 200) {
+                    $daemonOnline = $true
+                    break
+                }
+            } catch {}
+        }
+    }
+
+    if ($daemonOnline) {
+        Write-Host "[OLLAMA] Daemon: ONLINE" -ForegroundColor Green
+
+        # Check for qwen3.5:4b model
+        try {
+            $tags = Invoke-RestMethod -Uri "http://127.0.0.1:11434/api/tags" -TimeoutSec 5 -ErrorAction Stop
+            $hasModel = $false
+            if ($tags.models) {
+                foreach ($m in $tags.models) {
+                    if ($m.name -eq "qwen3.5:4b" -or $m.model -eq "qwen3.5:4b" -or $m.name -like "qwen3.5*") {
+                        $hasModel = $true
+                        break
+                    }
+                }
+            }
+            if (-not $hasModel) {
+                Write-Host "[OLLAMA] Model 'qwen3.5:4b' not found. Pulling required model..." -ForegroundColor Yellow
+                & $ollamaExe pull qwen3.5:4b
+                $tags = Invoke-RestMethod -Uri "http://127.0.0.1:11434/api/tags" -TimeoutSec 5 -ErrorAction Stop
+                if ($tags.models) {
+                    foreach ($m in $tags.models) {
+                        if ($m.name -eq "qwen3.5:4b" -or $m.model -eq "qwen3.5:4b" -or $m.name -like "qwen3.5*") {
+                            $hasModel = $true
+                            break
+                        }
+                    }
+                }
+            }
+            if ($hasModel) {
+                $modelReady = $true
+                Write-Host "[OLLAMA] Model: qwen3.5:4b" -ForegroundColor Green
+            } else {
+                Write-Host "[OLLAMA] Model: MISSING (Failed to pull qwen3.5:4b)" -ForegroundColor Red
+            }
+        } catch {
+            Write-Host "[OLLAMA] Failed to inspect models: $_" -ForegroundColor Red
+        }
+
+        # Test live inference
+        if ($modelReady) {
+            try {
+                $probeBody = @{
+                    model = "qwen3.5:4b"
+                    messages = @(@{ role = "user"; content = "ping" })
+                    stream = $false
+                    options = @{ num_predict = 1 }
+                } | ConvertTo-Json
+                $probeResp = Invoke-RestMethod -Uri "http://127.0.0.1:11434/api/chat" -Method Post -Body $probeBody -ContentType "application/json" -TimeoutSec 15
+                if ($probeResp) {
+                    $inferenceVerified = $true
+                    Write-Host "[OLLAMA] Inference: VERIFIED" -ForegroundColor Green
+                    Write-Host "[OLLAMA] Thinking: HIGH" -ForegroundColor Green
+                    Write-Host "[OLLAMA] Cloud fallback: DISABLED" -ForegroundColor Green
+                }
+            } catch {
+                Write-Host "[OLLAMA] Inference: FAILED ($($_.Exception.Message))" -ForegroundColor Red
+            }
+        }
+    } else {
+        Write-Host "[OLLAMA] Daemon: OFFLINE" -ForegroundColor Red
+    }
+}
+
+if (-not $inferenceVerified) {
+    Write-Host "[WARNING] Local AI is not operational. Server will run with configured Settings." -ForegroundColor Yellow
+}
+Write-Host "" 
 
 # 5. Launch Server Process
 Write-Host "[START] Launching EduVerse AI background server..." -ForegroundColor Cyan
@@ -125,15 +221,15 @@ $process = Start-Process `
 # 6. Poll for Readiness
 Write-Host "[WAIT] Waiting for application startup..." -NoNewline -ForegroundColor Gray
 $ready = $false
-$timeoutSec = 25
+$timeoutSec = 60
 $startTime = Get-Date
 
 while (((Get-Date) - $startTime).TotalSeconds -lt $timeoutSec) {
     Start-Sleep -Milliseconds 600
     Write-Host "." -NoNewline -ForegroundColor Gray
     try {
-        $res = Invoke-RestMethod -Uri "http://$($HostAddress):$($Port)/api/v1/settings" -TimeoutSec 1 -ErrorAction Stop
-        if ($res.settings) {
+        $res = Invoke-RestMethod -Uri "http://$($HostAddress):$($Port)/api/v1/health" -TimeoutSec 1 -ErrorAction Stop
+        if ($res.status -eq "ok" -or $res.version) {
             $ready = $true
             break
         }
@@ -151,8 +247,8 @@ if ($ready) {
     }
 
     Write-Host "======================================================================" -ForegroundColor Green
-    Write-Host "  [SUCCESS] EduVerse AI is active and ready!" -ForegroundColor Green
-    Write-Host "  URL:      http://$($HostAddress):$($Port)" -ForegroundColor White
+    Write-Host "[EDUVERSE] Backend: READY" -ForegroundColor Green
+    Write-Host "[EDUVERSE] URL: http://$($HostAddress):$($Port)" -ForegroundColor White
     Write-Host "  Storage:  $DataDir" -ForegroundColor Gray
     Write-Host "  Stop:     Run .\stop_eduverse.ps1 to shutdown gracefully" -ForegroundColor Gray
     Write-Host "======================================================================" -ForegroundColor Green

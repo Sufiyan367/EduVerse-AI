@@ -62,8 +62,7 @@ def _enum(python_enum: type, name: str) -> Enum:
     )
 
 
-class Base(DeclarativeBase):
-    pass
+from .base import Base
 
 
 source_tags = Table(
@@ -75,6 +74,7 @@ source_tags = Table(
 
 
 class Folder(Base):
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     __tablename__ = "folders"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -94,6 +94,7 @@ class Folder(Base):
 
 
 class Tag(Base):
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     __tablename__ = "tags"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -251,6 +252,7 @@ class NoteBlock(Base):
 
 
 class Concept(Base):
+    learning_version: Mapped[int] = mapped_column(Integer, default=0)
     """Extracted knowledge unit — the spine of the study engine.
 
     Cards and quiz items generate from concepts rather than raw transcript, which is what
@@ -322,6 +324,7 @@ class Review(Base):
     __tablename__ = "reviews"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     card_id: Mapped[int] = mapped_column(ForeignKey("cards.id", ondelete="CASCADE"), index=True)
     rating: Mapped[int] = mapped_column(Integer)
     reviewed_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow, index=True)
@@ -330,6 +333,24 @@ class Review(Base):
     state_before: Mapped[JSONDict] = mapped_column(JSON, default=dict)
 
     card: Mapped[Card] = relationship(back_populates="reviews")
+
+
+class PracticeAttempt(Base):
+    """User attempts on document practice challenges."""
+
+    __tablename__ = "practice_attempts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    source_id: Mapped[int] = mapped_column(ForeignKey("sources.id", ondelete="CASCADE"), index=True)
+    challenge_id: Mapped[str] = mapped_column(String(64), index=True)
+    question: Mapped[str] = mapped_column(Text)
+    student_answer: Mapped[str] = mapped_column(Text)
+    score: Mapped[int] = mapped_column(Integer)
+    is_passing: Mapped[bool] = mapped_column(Boolean, default=False)
+    feedback: Mapped[str] = mapped_column(Text)
+    model_solution: Mapped[str] = mapped_column(Text)
+    attempted_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow, index=True)
 
 
 class QuizItem(Base):
@@ -347,6 +368,10 @@ class QuizItem(Base):
     explanation: Mapped[str] = mapped_column(Text, default="")
     difficulty: Mapped[int] = mapped_column(Integer, default=3)
     segment_ids: Mapped[list[int]] = mapped_column(JSON, default=list)
+    #: Verbatim quote from source document verified server-side.
+    evidence: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+    #: Document page number where evidence quote was located.
+    page_no: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
     #: Items minted on demand by adaptive practice, rather than part of a saved bank.
     ephemeral: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow)
@@ -356,6 +381,7 @@ class QuizItem(Base):
 
 
 class QuizSession(Base):
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     """Not in PRD §5, but the ``/quiz/session/*`` endpoints in §8 require server-side state."""
 
     __tablename__ = "quiz_sessions"
@@ -397,7 +423,18 @@ class QuizAttempt(Base):
     item: Mapped[QuizItem] = relationship()
 
 
+class GradingFailure(Base):
+    __tablename__ = "grading_failures"
+    __table_args__ = (UniqueConstraint("session_id", "quiz_item_id", name="uq_grading_failure"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("quiz_sessions.id", ondelete="CASCADE"))
+    quiz_item_id: Mapped[int] = mapped_column(ForeignKey("quiz_items.id", ondelete="CASCADE"))
+    response: Mapped[str] = mapped_column(Text)
+    resolved: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
 class Podcast(Base):
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     __tablename__ = "podcasts"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -419,6 +456,7 @@ class Podcast(Base):
 
 
 class Chat(Base):
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     __tablename__ = "chats"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -451,10 +489,14 @@ class Job(Base):
     __tablename__ = "jobs"
     __table_args__ = (
         Index("ix_jobs_claim", "status", "id"),
+        Index("ix_jobs_claim_v2", "status", "priority", "next_run_at"),
         UniqueConstraint("source_id", "type", "dedupe_key", name="uq_job_idempotency"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     parent_id: Mapped[int | None] = mapped_column(
         ForeignKey("jobs.id", ondelete="CASCADE"), index=True
     )
@@ -465,6 +507,13 @@ class Job(Base):
     status: Mapped[JobStatus] = mapped_column(
         _enum(JobStatus, "job_status"), default=JobStatus.QUEUED, index=True
     )
+    priority: Mapped[int] = mapped_column(Integer, default=50, index=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    locked_until: Mapped[dt.datetime | None] = mapped_column(UTCDateTime, nullable=True, index=True)
+    locked_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    next_run_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow, index=True)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3)
+    error_details: Mapped[JSONDict] = mapped_column(JSON, default=dict)
     payload: Mapped[JSONDict] = mapped_column(JSON, default=dict)
     progress: Mapped[int] = mapped_column(Integer, default=0)
     stage: Mapped[str] = mapped_column(String(255), default="")
@@ -552,6 +601,7 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(255), default="")
     avatar_color: Mapped[str] = mapped_column(String(32), default="#7C3AED")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    token_version: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
@@ -588,3 +638,60 @@ class ActivityLog(Base):
     title: Mapped[str] = mapped_column(String(255))
     details: Mapped[JSONDict] = mapped_column(JSON, default=dict)
     created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow, index=True)
+
+
+class RevokedToken(Base):
+    """Tracks revoked JWT token IDs (jti) to enforce server-side logout and session invalidation."""
+
+    __tablename__ = "revoked_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    jti: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, index=True)
+    revoked_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow)
+    expires_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, index=True)
+
+
+class PasswordResetToken(Base):
+    """Tracks cryptographically secure, single-use password reset tokens."""
+
+    __tablename__ = "password_reset_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    expires_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, index=True)
+    used_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+# Academic Domain Models
+from .academic_models import (
+    Course,
+    CourseUnit,
+    CourseOutcome,
+    SyllabusTopic,
+    TopicOutcomeLink,
+    CourseMaterialLink,
+    PreviousPaper,
+    ExamQuestion,
+    QuestionTopicLink,
+    ExamPattern,
+    ExamBlueprint,
+    Rubric,
+    RubricCriterion,
+    ExamSession,
+    AssessmentQuestion,
+    AnswerAttempt,
+    GradingFeedback,
+    StudentTopicMastery,
+    TopicMasteryEvent,
+    RevisionPlan,
+    RevisionTask,
+    RemediationAttempt,
+    AutomationRule,
+    WeeklyReport,
+    Notification,
+    EvidenceAuditIssue,
+    GuidedQuizSession,
+)

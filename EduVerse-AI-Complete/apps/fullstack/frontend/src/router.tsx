@@ -1,6 +1,13 @@
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router'
 import { AppShell } from './components/layout/AppShell'
 import { DashboardPage } from './routes/Dashboard'
+import { CoursesPage } from './routes/Courses'
+import { SyllabusMapPage } from './routes/SyllabusMap'
+import { PaperAnalyticsPage } from './routes/PaperAnalytics'
+import { ExamSimulatorPage } from './routes/ExamSimulator'
+import { AdaptiveRevisionPage } from './routes/AdaptiveRevision'
+import { PracticePage } from './routes/Practice'
+import { ProgressPage } from './routes/Progress'
 import { LibraryPage } from './routes/Library'
 import { SourcePage } from './routes/Source'
 import { ReviewPage } from './routes/Review'
@@ -11,22 +18,89 @@ import { RevisionPage } from './routes/Revision'
 import { PodcastsPage } from './routes/Podcasts'
 import { RecordPage } from './routes/Record'
 import { SettingsPage } from './routes/Settings'
+import { AutomationCenterPage } from './routes/AutomationCenter'
 import { NotFound } from './routes/NotFound'
-
-// Code-based routing rather than the file-based plugin: it removes a codegen step and a
-// generated file that can drift, with no user-visible difference.
 
 const rootRoute = createRootRoute({
   component: AppShell,
   notFoundComponent: NotFound,
 })
 
+// Destination 1: Home / My Learning
 const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: DashboardPage })
 
-// Search params are declared with *optional* properties. Returning `{ folder: undefined }`
-// from an un-annotated validator makes TanStack treat every key as required, which forces
-// every `Link` and `navigate` in the app to spell out search params it does not care about.
+// Destination 2: Course Workspace & Hierarchy
+const coursesRoute = createRoute({ getParentRoute: () => rootRoute, path: '/courses', component: CoursesPage })
 
+// Destination 3: Context-Aware Academic Tutor
+interface ChatSearch {
+  id?: number
+  source?: number
+}
+const chatRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/chat',
+  component: ChatPage,
+  validateSearch: (search: Record<string, unknown>): ChatSearch => ({
+    id: search.id ? Number(search.id) : undefined,
+    source: search.source ? Number(search.source) : undefined,
+  }),
+})
+
+// Destination 4: Unified Practice Hub (Recall, Quiz, Simulator, Gaps)
+const practiceRoute = createRoute({ getParentRoute: () => rootRoute, path: '/practice', component: PracticePage })
+
+// Destination 5: Unified Progress & Academic Analytics
+const progressRoute = createRoute({ getParentRoute: () => rootRoute, path: '/progress', component: ProgressPage })
+
+// Backward-compatible individual routes (for deep links and bookmark safety)
+interface CourseContextSearch {
+  courseId?: number
+}
+
+const syllabusRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/syllabus',
+  component: SyllabusMapPage,
+  validateSearch: (search: Record<string, unknown>): CourseContextSearch => ({
+    courseId: search.courseId ? Number(search.courseId) : undefined,
+  }),
+})
+
+const papersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/papers',
+  component: PaperAnalyticsPage,
+  validateSearch: (search: Record<string, unknown>): CourseContextSearch => ({
+    courseId: search.courseId ? Number(search.courseId) : undefined,
+  }),
+})
+
+const simulatorRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/simulator',
+  component: ExamSimulatorPage,
+  validateSearch: (search: Record<string, unknown>): CourseContextSearch => ({
+    courseId: search.courseId ? Number(search.courseId) : undefined,
+  }),
+})
+
+const adaptiveRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/adaptive',
+  component: AdaptiveRevisionPage,
+  validateSearch: (search: Record<string, unknown>): CourseContextSearch => ({
+    courseId: search.courseId ? Number(search.courseId) : undefined,
+  }),
+})
+
+const performanceRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/performance',
+  component: ProgressPage, // Seamlessly aliases to the unified Progress destination
+})
+
+// Library and Document routes
 interface LibrarySearch {
   folder?: number
   tag?: string
@@ -87,38 +161,34 @@ const quizRoute = createRoute({
   }),
 })
 
-interface ChatSearch {
-  id?: number
-  source?: number
-}
-const chatRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/chat',
-  component: ChatPage,
-  validateSearch: (search: Record<string, unknown>): ChatSearch => ({
-    id: search.id ? Number(search.id) : undefined,
-    source: search.source ? Number(search.source) : undefined,
-  }),
-})
-
 const knowledgeGapRoute = createRoute({ getParentRoute: () => rootRoute, path: '/knowledge-gap', component: KnowledgeGapPage })
 const revisionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/revision', component: RevisionPage })
 const podcastsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/podcasts', component: PodcastsPage })
 const recordRoute = createRoute({ getParentRoute: () => rootRoute, path: '/record', component: RecordPage })
 const settingsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/settings', component: SettingsPage })
+const automationRoute = createRoute({ getParentRoute: () => rootRoute, path: '/automation', component: AutomationCenterPage })
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
+  coursesRoute,
+  chatRoute,
+  practiceRoute,
+  progressRoute,
+  syllabusRoute,
+  papersRoute,
+  simulatorRoute,
+  adaptiveRoute,
+  performanceRoute,
   libraryRoute,
   sourceRoute,
   reviewRoute,
   quizRoute,
-  chatRoute,
   knowledgeGapRoute,
   revisionRoute,
   podcastsRoute,
   recordRoute,
   settingsRoute,
+  automationRoute,
 ])
 
 export const router = createRouter({

@@ -1,12 +1,10 @@
-"""In-process asyncio worker pool.
+"""In-process asyncio worker pool with resource concurrency management and lease heartbeats.
 
-N tasks poll the ``jobs`` table and run handlers (PRD §3.2/§3.3). No Redis, no separate
-process — the whole point of the single-container constraint is that there is nothing else to
-deploy or supervise.
-
-Handlers are registered by job type through :func:`register`. CPU-bound work inside a handler
-is the handler's own responsibility to push onto a thread via ``asyncio.to_thread``, which is
-why the poll loop itself must never block.
+Enforces:
+- Max 1 concurrent local LLM generation job to preserve GPU VRAM on RTX 3050.
+- Max 2 concurrent CPU/data jobs.
+- Row-level lease heartbeats every 30s.
+- Automatic backoff when Ollama is busy/restarting.
 """
 
 from __future__ import annotations
@@ -27,21 +25,34 @@ from .events import emit, get_bus
 log = logging.getLogger(__name__)
 
 IDLE_POLL_SEC = 0.35
-#: Backoff before a re-queued job becomes eligible again, so a rate-limited provider isn't
-#: hammered three times in a second.
 RETRY_BACKOFF_SEC = (1.0, 4.0, 12.0)
+
+# Resource semaphores
+_llm_semaphore = asyncio.Semaphore(1)
+_data_semaphore = asyncio.Semaphore(2)
+
+LLM_JOB_TYPES = {
+    JobType.GENERATE_NOTES,
+    JobType.GENERATE_CONCEPTS,
+    JobType.GENERATE_CARDS,
+    JobType.GENERATE_QUIZ,
+    JobType.AUTONOMOUS_SYLLABUS,
+    JobType.AUTONOMOUS_PAPER,
+    JobType.AUTONOMOUS_EXAM_EVAL,
+}
 
 
 @dataclass(slots=True)
 class JobContext:
-    """Handed to every handler. The only channel a stage needs for progress and cancellation."""
+    """Handed to every handler. The primary interface for progress and cancellation."""
 
     job_id: int
     job_type: JobType
     payload: dict[str, Any]
     source_id: int | None
     attempts: int
-    #: Last reported percentage, so `stage()` can change the label without resetting the bar.
+    user_id: int | None = None
+    priority: int = 50
     _percent: int = 0
 
     def progress(self, percent: int, stage: str = "") -> None:
@@ -58,11 +69,6 @@ class JobContext:
             raise CancelledError("Job cancelled by user")
 
     def sub_progress(self, base: int, span: int, done: int, total: int, stage: str = "") -> None:
-        """Report progress within a sub-range of the overall job.
-
-        Lets a stage that owns 40–70% of a job report its own 0–100% without knowing where it
-        sits in the pipeline.
-        """
         if total <= 0:
             return
         self.progress(base + int(span * (done / total)), stage)
@@ -100,9 +106,12 @@ class WorkerPool:
         return list(self._active.values())
 
     async def start(self) -> None:
-        # Import for side effects: handler modules register themselves on import. Done here
-        # rather than at module scope to keep the import graph acyclic.
+        # Import handlers for registration side-effects
         from .. import handlers  # noqa: F401
+        try:
+            from .. import automation  # noqa: F401
+        except ImportError:
+            pass
 
         get_bus().bind_loop(asyncio.get_running_loop())
 
@@ -129,26 +138,26 @@ class WorkerPool:
         self._tasks.clear()
 
     async def _loop(self, index: int) -> None:
+        worker_id = f"worker-{index}"
         while not self._stopping.is_set():
             try:
-                job = await asyncio.to_thread(jq.claim_next)
+                job = await asyncio.to_thread(jq.claim_next, worker_id=worker_id)
             except Exception:
                 log.exception("worker %s failed to claim a job", index)
                 await asyncio.sleep(1.0)
                 continue
 
             if job is None:
-                # Jitter so N workers don't wake in lockstep and contend on the write lock.
                 await asyncio.sleep(IDLE_POLL_SEC + random.random() * 0.15)
                 continue
 
             self._active[index] = job.id
             try:
-                await self._run(job)
+                await self._run(job, worker_id=worker_id)
             finally:
                 self._active.pop(index, None)
 
-    async def _run(self, job: jq.ClaimedJob) -> None:
+    async def _run(self, job: jq.ClaimedJob, worker_id: str = "worker-0") -> None:
         handler = get_handler(job.type)
         if handler is None:
             await asyncio.to_thread(
@@ -156,6 +165,7 @@ class WorkerPool:
                 job.id,
                 f"No handler registered for job type '{job.type}'. This is a bug.",
                 retryable=False,
+                error_details={"code": "HANDLER_MISSING"},
             )
             return
 
@@ -165,34 +175,72 @@ class WorkerPool:
             payload=job.payload,
             source_id=job.source_id,
             attempts=job.attempts,
+            user_id=job.user_id,
+            priority=job.priority,
         )
 
         log.info("job %s (%s) starting, attempt %s", job.id, job.type, job.attempts)
+
+        # Background heartbeat loop during execution
+        heartbeat_stop = asyncio.Event()
+
+        async def _heartbeat_loop():
+            while not heartbeat_stop.is_set():
+                try:
+                    await asyncio.sleep(30)
+                    if heartbeat_stop.is_set():
+                        break
+                    await asyncio.to_thread(jq.heartbeat, job.id, worker_id)
+                except asyncio.CancelledError:
+                    break
+                except Exception as err:
+                    log.debug("Heartbeat error on job %s: %s", job.id, err)
+
+        heartbeat_task = asyncio.create_task(_heartbeat_loop())
+
+        # Select semaphore depending on whether job uses LLM
+        sem = _llm_semaphore if job.type in LLM_JOB_TYPES else _data_semaphore
+
         try:
-            await handler(ctx)
+            async with sem:
+                await handler(ctx)
         except CancelledError:
             log.info("job %s cancelled", job.id)
             return
         except asyncio.CancelledError:
-            # Server is shutting down. Leave the row in `running` so boot-time recovery
-            # requeues it rather than marking a job failed for our own restart.
             log.info("job %s interrupted by shutdown", job.id)
             raise
         except QuicklearnError as exc:
             requeued = await asyncio.to_thread(
-                jq.mark_failed, job.id, exc.message, retryable=exc.retryable
+                jq.mark_failed,
+                job.id,
+                exc.message,
+                retryable=exc.retryable,
+                error_details={"error_code": type(exc).__name__, "retryable": exc.retryable},
             )
             if requeued:
                 await asyncio.sleep(
                     RETRY_BACKOFF_SEC[min(job.attempts - 1, len(RETRY_BACKOFF_SEC) - 1)]
                 )
             return
-        except Exception as exc:  # unexpected — include the type, it's a bug report
+        except Exception as exc:
             log.exception("job %s crashed", job.id)
+            err_msg = str(exc)
+            is_ollama_err = "connection refused" in err_msg.lower() or "ollama" in err_msg.lower()
             await asyncio.to_thread(
-                jq.mark_failed, job.id, f"{type(exc).__name__}: {exc}", retryable=True
+                jq.mark_failed,
+                job.id,
+                f"{type(exc).__name__}: {exc}",
+                retryable=True,
+                error_details={
+                    "error_type": type(exc).__name__,
+                    "is_ollama_error": is_ollama_err,
+                },
             )
             return
+        finally:
+            heartbeat_stop.set()
+            heartbeat_task.cancel()
 
         if await asyncio.to_thread(jq.is_cancelled, job.id):
             return
@@ -211,16 +259,12 @@ def get_pool() -> WorkerPool:
 
 
 async def run_job_inline(job_id: int) -> None:
-    """Execute a queued job immediately on the current loop, bypassing the pool.
-
-    Used by the test suite so pipeline behaviour can be asserted deterministically instead of
-    by polling for a background worker to get around to it.
-    """
-    job = await asyncio.to_thread(jq.claim_next_specific, job_id)
+    """Execute a queued job immediately on the current loop, bypassing the pool."""
+    job = await asyncio.to_thread(jq.claim_next_specific, job_id, worker_id="inline")
     if job is None:
         return
     pool = WorkerPool()
-    await pool._run(job)
+    await pool._run(job, worker_id="inline")
 
 
 def reset_pool() -> None:

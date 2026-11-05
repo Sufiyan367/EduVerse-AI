@@ -18,7 +18,7 @@ import { cn } from '../../lib/utils'
 
 const BUTTON_VARIANTS = {
   primary:
-    'bg-[var(--accent)] text-white hover:brightness-110 active:brightness-95 shadow-sm',
+    'bg-[var(--accent)] text-[#071714] hover:brightness-110 active:brightness-95 shadow-sm',
   secondary:
     'bg-[var(--bg-raised)] border border-[var(--border)] hover:bg-[var(--bg-sunken)]',
   ghost: 'hover:bg-[var(--bg-sunken)]',
@@ -430,5 +430,28 @@ export function Field({
       {children}
       {hint && <p className="text-xs text-[var(--text-muted)]">{hint}</p>}
     </div>
+  )
+}
+
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  className,
+}: {
+  open: boolean
+  onClose: () => void
+  title?: string
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className={className}>
+        {title && <DialogTitle className="mb-3">{title}</DialogTitle>}
+        {children}
+      </DialogContent>
+    </Dialog>
   )
 }

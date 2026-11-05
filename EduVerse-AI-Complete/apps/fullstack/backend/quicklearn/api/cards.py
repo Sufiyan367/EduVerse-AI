@@ -29,6 +29,9 @@ def check_card_access(card: Card, user: User | None, *, write: bool = False) -> 
             raise ForbiddenError(f"You do not have access to card {card.id}.")
         if owner_id != user.id:
             raise ForbiddenError(f"You do not have access to card {card.id}.")
+    else:
+        if user is None or user.id != 1:
+            raise ForbiddenError(f"You do not have access to card {card.id}.")
 
 
 class ReviewRequest(BaseModel):
@@ -82,6 +85,31 @@ def get_stats() -> dict[str, Any]:
     return review.review_stats()
 
 
+@router.post("/reset-due")
+def reset_due_schedule(
+    source_id: int | None = None,
+    user: User | None = Depends(get_optional_user),
+) -> dict[str, Any]:
+    from ..db.enums import CardState
+    from ..db.types import utcnow
+    now = utcnow()
+    with session_scope() as session:
+        stmt = select(Card).join(Source, Source.id == Card.source_id)
+        if user is not None:
+            if user.id == 1:
+                stmt = stmt.where((Source.user_id == user.id) | (Source.user_id.is_(None)))
+            else:
+                stmt = stmt.where(Source.user_id == user.id)
+        if source_id is not None:
+            stmt = stmt.where(Card.source_id == source_id)
+        cards = list(session.execute(stmt).scalars())
+        for c in cards:
+            c.due = now
+            c.state = CardState.NEW
+            c.step = 0
+    return {"reset_count": len(cards)}
+
+
 @router.get("")
 def list_cards(
     source_id: int | None = None,
@@ -92,9 +120,12 @@ def list_cards(
     with session_scope() as session:
         stmt = select(Card).join(Source, Source.id == Card.source_id)
         if user is not None:
-            stmt = stmt.where((Source.user_id == user.id) | (Source.user_id.is_(None)))
+            if user.id == 1:
+                stmt = stmt.where((Source.user_id == user.id) | (Source.user_id.is_(None)))
+            else:
+                stmt = stmt.where(Source.user_id == user.id)
         else:
-            stmt = stmt.where(Source.user_id.is_(None))
+            return {"cards": []}
         if source_id is not None:
             stmt = stmt.where(Card.source_id == source_id)
         rows = list(session.execute(stmt.order_by(Card.id).limit(limit).offset(offset)).scalars())
@@ -110,7 +141,7 @@ def submit_review(
         if card is None:
             raise NotFoundError(f"Card {card_id} not found.")
         check_card_access(card, user, write=True)
-    return review.apply_rating(card_id, payload.rating, payload.duration_ms)
+    return review.apply_rating(card_id, payload.rating, payload.duration_ms, user_id=user.id if user else None)
 
 
 @router.post("/{card_id}/undo")

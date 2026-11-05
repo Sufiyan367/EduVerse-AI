@@ -109,7 +109,6 @@ class CardOut(BaseModel):
     concept_id: int | None = None
     segment_ids: list[int] = Field(default_factory=list)
 
-
 class CardList(BaseModel):
     cards: list[CardOut] = Field(default_factory=list)
 
@@ -123,6 +122,7 @@ class QuizItemOut(BaseModel):
     difficulty: int = Field(default=3, ge=1, le=5)
     concept_id: int | None = None
     segment_ids: list[int] = Field(default_factory=list)
+    evidence: str = Field(default="", description="Verbatim quote from source document supporting the answer")
 
 
 class QuizItemList(BaseModel):

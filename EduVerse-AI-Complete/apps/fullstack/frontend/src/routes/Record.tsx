@@ -129,7 +129,7 @@ export function RecordPage() {
       const session = await api.startRecording(title.trim())
       tokenRef.current = session.upload_token
       sourceIdRef.current = session.source_id
-      setWarning(session.warning)
+      setWarning(session.warning ?? null)
 
       // Live waveform via the Web Audio API.
       const audioContext = new AudioContext()

@@ -40,6 +40,11 @@ def check_source_access(source: Source, user: User | None, *, write: bool = Fals
             raise ForbiddenError(f"You do not have access to source {source.id}.")
         if source.user_id != user.id:
             raise ForbiddenError(f"You do not have access to source {source.id}.")
+    else:
+        # Shared / curriculum source without private user_id:
+        # Readable by any authenticated user; write operations restricted to admin/primary user (id=1)
+        if write and (user is None or user.id != 1):
+            raise ForbiddenError(f"You do not have permission to modify shared source {source.id}.")
 
 
 CHUNK_READ = 1024 * 1024
@@ -79,6 +84,11 @@ class UpdateSourceRequest(BaseModel):
     title: str | None = None
     folder_id: int | None = None
     tags: list[str] | None = None
+
+
+class ExplainRequest(BaseModel):
+    topic: str = Field(min_length=1)
+    depth: Literal["principle", "analogy", "worked_example", "compare"] = "principle" 
 
 
 # --------------------------------------------------------------------------- upload
@@ -140,12 +150,14 @@ async def upload_init(
     user: User | None = Depends(get_optional_user),
 ) -> dict[str, Any]:
     """Open a resumable upload."""
+    if user is None:
+        raise ForbiddenError("Authentication required to upload study materials.")
     source_id, token, path = await run_db(
         acquire.begin_upload,
         filename=filename,
         total_bytes=total_bytes,
         folder_id=folder_id,
-        user_id=user.id if user else None,
+        user_id=user.id,
     )
     return {"source_id": source_id, "upload_token": token, "path": path.name}
 
@@ -176,6 +188,8 @@ async def upload_complete(token: Annotated[str, Body(embed=True)]) -> dict[str, 
 
 @router.post("/url")
 async def add_url(payload: UrlRequest, user: User | None = Depends(get_optional_user)) -> dict[str, Any]:
+    if user is None:
+        raise ForbiddenError("Authentication required to add study materials.")
     url = payload.url.strip()
     parsed = urlparse(url if "://" in url else f"https://{url}")
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
@@ -189,7 +203,7 @@ async def add_url(payload: UrlRequest, user: User | None = Depends(get_optional_
         kind=SourceKind.YOUTUBE if youtube else SourceKind.WEB,
         origin=SourceOrigin.URL,
         folder_id=payload.folder_id,
-        user_id=user.id if user else None,
+        user_id=user.id,
         metadata={"url": url},
     )
     job_id = await run_db(enqueue_ingest, source_id)
@@ -198,12 +212,14 @@ async def add_url(payload: UrlRequest, user: User | None = Depends(get_optional_
 
 @router.post("/text")
 async def add_text(payload: TextRequest, user: User | None = Depends(get_optional_user)) -> dict[str, Any]:
+    if user is None:
+        raise ForbiddenError("Authentication required to add study materials.")
     source_id = await run_db(
         acquire.create_text_source,
         title=payload.title.strip() or "Pasted text",
         content=payload.content,
         folder_id=payload.folder_id,
-        user_id=user.id if user else None,
+        user_id=user.id,
     )
     job_id = await run_db(enqueue_ingest, source_id)
     return {"source_id": source_id, "job_id": job_id}
@@ -233,11 +249,18 @@ async def record_start(payload: RecordStartRequest) -> dict[str, Any]:
 
 
 @router.post("/record/chunk")
-async def record_chunk(request: Request, token: Annotated[str, Query()]) -> dict[str, Any]:
+async def record_chunk(
+    request: Request,
+    token: Annotated[str | None, Query()] = None,
+    x_upload_token: Annotated[str | None, Header(alias="X-Upload-Token")] = None,
+) -> dict[str, Any]:
+    upload_token = x_upload_token or token
+    if not upload_token:
+        raise ValidationError("Missing recording upload token.")
     data = await request.body()
     if not data:
         return {"received_bytes": 0}
-    received = await run_db(acquire.append_chunk, token, data)
+    received = await run_db(acquire.append_chunk, upload_token, data)
     return {"received_bytes": received}
 
 
@@ -299,17 +322,22 @@ def list_sources(
     offset: int = 0,
     user: User | None = Depends(get_optional_user),
 ) -> dict[str, Any]:
+    if user is None:
+        return {"sources": [], "total": 0}
+
     with session_scope() as session:
         stmt = select(Source)
-        if user is not None:
-            if user.id == 1:
-                stmt = stmt.where(or_(Source.user_id == user.id, Source.user_id.is_(None)))
-            else:
-                stmt = stmt.where(Source.user_id == user.id)
+        if user.id == 1:
+            stmt = stmt.where(or_(Source.user_id == user.id, Source.user_id.is_(None)))
+        else:
+            stmt = stmt.where(Source.user_id == user.id)
         if folder_id is not None:
             stmt = stmt.where(Source.folder_id == folder_id)
         if status:
-            stmt = stmt.where(Source.status == SourceStatus(status))
+            if status == "ready":
+                stmt = stmt.where(Source.status.in_([SourceStatus.READY, SourceStatus.PARTIALLY_PROCESSED]))
+            else:
+                stmt = stmt.where(Source.status == SourceStatus(status))
         if q:
             stmt = stmt.where(Source.title.ilike(f"%{q}%"))
         if tag:
@@ -523,6 +551,428 @@ def get_audio(source_id: int, user: User | None = Depends(get_optional_user)) ->
     if not candidate or not Path(candidate).exists():
         raise NotFoundError("No audio available for this source.")
     return FileResponse(Path(candidate), headers={"Accept-Ranges": "bytes"})
+
+
+@router.get("/{source_id}/pages/{page_no}/thumbnail")
+def get_page_thumbnail(
+    source_id: int, page_no: int, dpi: int = 72, user: User | None = Depends(get_optional_user)
+) -> dict[str, Any]:
+    """Generate on-demand page thumbnail for citation preview (adapted from Cinnamon/kotaemon)."""
+    with session_scope() as session:
+        source = session.get(Source, source_id)
+        if source is None:
+            raise NotFoundError(f"Source {source_id} not found.")
+        check_source_access(source, user)
+        if not source.media_path or not Path(source.media_path).exists():
+            raise NotFoundError("The media file is missing from disk.")
+        path = Path(source.media_path)
+
+    if path.suffix.lower() != ".pdf":
+        raise NotFoundError("Thumbnails are only available for PDF documents.")
+
+    import base64
+    from io import BytesIO
+    import fitz
+    from PIL import Image
+
+    try:
+        doc = fitz.open(path)
+        idx = page_no - 1
+        if idx < 0 or idx >= len(doc):
+            doc.close()
+            raise NotFoundError(f"Page {page_no} out of bounds (1..{len(doc)}).")
+
+        page = doc.load_page(idx)
+        pm = page.get_pixmap(dpi=dpi)
+        img = Image.frombytes("RGB", [pm.width, pm.height], pm.samples)
+        img_bytes = BytesIO()
+        img.save(img_bytes, format="PNG")
+        doc.close()
+        b64 = base64.b64encode(img_bytes.getvalue()).decode("utf-8")
+        return {
+            "source_id": source_id,
+            "page_no": page_no,
+            "thumbnail": f"data:image/png;base64,{b64}",
+        }
+    except Exception as exc:
+        raise NotFoundError(f"Could not render page thumbnail: {exc}") from exc
+
+
+# --------------------------------------------------------------------------- workspace & learning
+
+
+@router.get("/{source_id}/workspace")
+def get_source_workspace(source_id: int, user: User | None = Depends(get_optional_user)) -> dict[str, Any]:
+    """Retrieve unified document understanding and learning workspace state for a source."""
+    with session_scope() as session:
+        source = session.get(Source, source_id)
+        if source is None:
+            raise NotFoundError(f"Source {source_id} not found.")
+        check_source_access(source, user)
+
+        # 1. Processing and Extraction State
+        meta = source.meta or {}
+        unreadable_pages = meta.get("unreadable_pages", [])
+        seg_count = int(
+            session.execute(select(func.count()).select_from(Segment).where(Segment.source_id == source_id)).scalar_one()
+        )
+        is_unreadable = (
+            source.status == SourceStatus.FAILED
+            or (source.status in (SourceStatus.READY, SourceStatus.PARTIALLY_PROCESSED) and seg_count == 0)
+            or (source.page_count and len(unreadable_pages) >= source.page_count)
+        )
+
+        processing = {
+            "status": source.status.value,
+            "error": source.error,
+            "page_count": source.page_count,
+            "segments_count": seg_count,
+            "unreadable_pages": unreadable_pages,
+            "is_unreadable": is_unreadable,
+            "has_media": bool(source.media_path),
+            "size_bytes": source.size_bytes,
+        }
+
+        # 2. Document Outline & Structure
+        note = session.execute(select(Note).where(Note.source_id == source_id).order_by(Note.id)).scalars().first()
+        outline: list[dict[str, Any]] = []
+        if note and note.outline and len(note.outline) > 1:
+            for item in note.outline:
+                t = item.get("text") or item.get("title", "")
+                if t and len(t) < 80 and not any(k in t for k in ("def ", "class ", "import ", "print(", "{")):
+                    outline.append({
+                        "title": t,
+                        "level": item.get("level", 1),
+                        "index": len(outline),
+                        "page_no": item.get("page_no"),
+                    })
+        import re
+        has_academic_structure = any(re.search(r"(?:practical|chapter|section|module|unit|experiment)\s+\d+", x["title"], re.I) for x in outline)
+        if len(outline) <= 3 or not has_academic_structure:
+            outline.clear()
+            # Smart outline extraction: extract real headings (e.g. # Practical X, Chapter X, Section X) from segments
+            import re
+            segs = list(session.execute(select(Segment).where(Segment.source_id == source_id).order_by(Segment.index)).scalars())
+            seen_titles = set()
+            for seg in segs:
+                lines = [l.strip() for l in seg.text.split("\n") if l.strip()]
+                for line in lines:
+                    # Ignore lines with code tokens
+                    if any(bad in line for bad in ['=', 'def ', 'class ', 'import ', 'print(', 'while ', 'return ']):
+                        continue
+                    level = 1
+                    title_candidate = None
+                    if re.match(r"^#+\s*Practical\s+\d+", line, re.IGNORECASE):
+                        title_candidate = re.sub(r"^#+\s*", "", line).strip()
+                        level = 1
+                    elif re.match(r"^#+\s*(?:Chapter|Section|Module|Unit|Experiment)\s+\d+", line, re.IGNORECASE):
+                        title_candidate = re.sub(r"^#+\s*", "", line).strip()
+                        level = 1
+                    elif re.match(r"^(?:CHAPTER|MODULE|SECTION|PRACTICAL|EXPERIMENT)\s+\d+", line, re.IGNORECASE):
+                        title_candidate = line.strip()
+                        level = 1
+                    elif line.startswith("## ") and len(line) < 55:
+                        title_candidate = re.sub(r"^#+\s*", "", line).strip()
+                        level = 2
+                    elif line.startswith("# ") and len(line) < 65:
+                        title_candidate = re.sub(r"^#+\s*", "", line).strip()
+                        level = 1
+                    elif len(line) < 45 and line.isupper() and re.match(r"^[A-Z\s\d–\-_:]+$", line) and len(line) > 4:
+                        if not line.startswith(('ON', 'PAGE', 'NOTE', 'SUBMITTED')):
+                            title_candidate = line.title().strip()
+                            level = 2
+
+                    if title_candidate and len(title_candidate) > 3:
+                        norm_key = re.sub(r"[\s\-_:]+", "", title_candidate.lower())
+                        if norm_key not in seen_titles:
+                            seen_titles.add(norm_key)
+                            outline.append({
+                                "title": title_candidate,
+                                "level": level,
+                                "index": len(outline),
+                                "page_no": seg.page_no,
+                                "segment_id": seg.id,
+                            })
+
+            # If no explicit headings found, group by page number
+            if not outline:
+                pages_seen = set()
+                for seg in segs:
+                    p_no = seg.page_no or 1
+                    if p_no not in pages_seen:
+                        pages_seen.add(p_no)
+                        snippet = seg.text.strip().split(".")[0].split("\n")[0][:60]
+                        outline.append({
+                            "title": f"Page {p_no}: {snippet}...",
+                            "level": 1,
+                            "index": len(outline),
+                            "page_no": p_no,
+                            "segment_id": seg.id,
+                        })
+
+        # 3. Concepts & Topics
+        concepts = list(
+            session.execute(
+                select(Concept).where(Concept.source_id == source_id).order_by(Concept.importance.desc(), Concept.id)
+            ).scalars()
+        )
+        concept_list = [concept_dict(c) for c in concepts[:30]]
+
+        # 4. Real, Persisted Learning Progress (Strict User Data Isolation)
+        from sqlalchemy import distinct
+        from ..db.models import Card, Review, QuizItem, QuizAttempt, QuizSession, ActivityLog, PracticeAttempt
+        
+        cards_total = int(session.execute(select(func.count()).select_from(Card).where(Card.source_id == source_id)).scalar_one())
+        card_ids = list(session.execute(select(Card.id).where(Card.source_id == source_id)).scalars())
+        
+        # Count distinct reviewed cards for unique-card coverage, isolated to current user if authenticated
+        cards_reviewed = 0
+        if card_ids:
+            stmt = select(func.count(distinct(Review.card_id))).select_from(Review).where(Review.card_id.in_(card_ids))
+            if user:
+                stmt = stmt.where(Review.user_id == user.id)
+            cards_reviewed = int(session.execute(stmt).scalar_one())
+
+        quiz_items_total = int(
+            session.execute(select(func.count()).select_from(QuizItem).where(QuizItem.source_id == source_id, QuizItem.ephemeral.is_(False))).scalar_one()
+        )
+        quiz_item_ids = list(session.execute(select(QuizItem.id).where(QuizItem.source_id == source_id)).scalars())
+        
+        # User-isolated quiz attempts on this document
+        quiz_attempts_count = 0
+        quiz_correct_count = 0
+        if quiz_item_ids:
+            stmt = (
+                select(QuizAttempt)
+                .join(QuizSession, QuizAttempt.session_id == QuizSession.id)
+                .where(QuizAttempt.quiz_item_id.in_(quiz_item_ids))
+            )
+            if user:
+                stmt = stmt.where(QuizSession.user_id == user.id)
+            attempts = list(session.execute(stmt).scalars())
+            quiz_attempts_count = len(attempts)
+            quiz_correct_count = sum(1 for a in attempts if a.is_correct)
+
+        quiz_accuracy_pct = round((quiz_correct_count / quiz_attempts_count) * 100, 1) if quiz_attempts_count > 0 else None
+        
+        # Track actual distinct passages studied by the user
+        passages_read = 0
+        seg_ids = list(session.execute(select(Segment.id).where(Segment.source_id == source_id)).scalars())
+        if seg_ids and user:
+            stmt = (
+                select(func.count(distinct(ActivityLog.entity_id)))
+                .select_from(ActivityLog)
+                .where(
+                    ActivityLog.user_id == user.id,
+                    ActivityLog.action == "read_passage",
+                    ActivityLog.entity_type == "segment",
+                    ActivityLog.entity_id.in_(seg_ids)
+                )
+            )
+            passages_read = int(session.execute(stmt).scalar_one())
+
+        # Practice challenges completed
+        practice_completed = 0
+        if user:
+            stmt = (
+                select(func.count(distinct(PracticeAttempt.challenge_id)))
+                .select_from(PracticeAttempt)
+                .where(
+                    PracticeAttempt.source_id == source_id,
+                    PracticeAttempt.user_id == user.id,
+                    PracticeAttempt.is_passing.is_(True)
+                )
+            )
+            practice_completed = int(session.execute(stmt).scalar_one())
+
+        # Single Consistent Transparent Mastery Formula:
+        # Measures genuine academic engagement across available modalities:
+        # 1. Card Coverage (distinct cards reviewed / total cards)
+        # 2. Quiz Accuracy (correct answers / attempts)
+        # 3. Passage Reading Coverage (distinct passages read / total segments)
+        # 4. Practice Challenges (passing challenges / max(1, challenges_total))
+        components = []
+        if cards_total > 0:
+            components.append(min(1.0, cards_reviewed / cards_total))
+        if quiz_attempts_count > 0:
+            components.append(quiz_correct_count / quiz_attempts_count)
+        if seg_count > 0 and user:
+            components.append(min(1.0, passages_read / seg_count))
+
+        if not components or (cards_reviewed == 0 and quiz_attempts_count == 0 and passages_read == 0 and practice_completed == 0):
+            mastery_score = 0.0
+        else:
+            mastery_score = round((sum(components) / len(components)) * 100, 1)
+
+        progress = {
+            "cards_total": cards_total,
+            "cards_reviewed": cards_reviewed,
+            "quiz_items_total": quiz_items_total,
+            "quiz_attempts": quiz_attempts_count,
+            "quiz_correct": quiz_correct_count,
+            "quiz_accuracy_pct": quiz_accuracy_pct,
+            "passages_read": passages_read,
+            "total_segments": seg_count,
+            "practice_completed": practice_completed,
+            "mastery_score": mastery_score,
+        }
+
+        return {
+            "source": source_dict(source),
+            "processing": processing,
+            "outline": outline,
+            "concepts": concept_list,
+            "progress": progress,
+            "note": note_dict(note) if note else None,
+        }
+
+
+@router.post("/{source_id}/explain")
+async def explain_topic(
+    source_id: int,
+    payload: ExplainRequest,
+    user: User | None = Depends(get_optional_user),
+) -> dict[str, Any]:
+    """Provide a structured, document-grounded topic explanation with genuine LLM generation and verified citations."""
+    from ..study.document_intelligence import generate_grounded_explanation
+
+    def check_access() -> Source:
+        with session_scope() as session:
+            s = session.get(Source, source_id)
+            if s is None:
+                raise NotFoundError(f"Source {source_id} not found.")
+            check_source_access(s, user)
+            return s
+
+    source = await run_db(check_access)
+    return await generate_grounded_explanation(
+        source=source,
+        topic=payload.topic,
+        depth=payload.depth,
+        user=user,
+    )
+
+
+@router.post("/{source_id}/passages/{segment_id}/read")
+def record_passage_read(
+    source_id: int,
+    segment_id: int,
+    user: User | None = Depends(get_optional_user),
+) -> dict[str, Any]:
+    """Record that the student read a specific segment in this source document for verifiable progress."""
+    if not user:
+        return {"recorded": False, "reason": "unauthenticated"}
+    with session_scope() as session:
+        source = session.get(Source, source_id)
+        if not source:
+            raise NotFoundError(f"Source {source_id} not found.")
+        check_source_access(source, user)
+        seg = session.get(Segment, segment_id)
+        if not seg or seg.source_id != source_id:
+            raise NotFoundError(f"Segment {segment_id} not found in source {source_id}.")
+
+        from ..db.models import ActivityLog
+        log_entry = ActivityLog(
+            user_id=user.id,
+            action="read_passage",
+            entity_type="segment",
+            entity_id=segment_id,
+            title=f"Studied passage in {source.title}",
+            details={"source_id": source_id, "page_no": seg.page_no},
+        )
+        session.add(log_entry)
+        session.commit()
+    return {"recorded": True, "source_id": source_id, "segment_id": segment_id}
+
+
+class PracticeEvaluateRequest(BaseModel):
+    challenge_id: str
+    question: str
+    student_answer: str
+    concept: str = ""
+
+
+@router.get("/{source_id}/practice/challenges")
+def get_practice_challenges(
+    source_id: int,
+    user: User | None = Depends(get_optional_user),
+) -> dict[str, Any]:
+    """Retrieve substantive interactive practice challenges generated from document passages."""
+    from ..study.document_intelligence import generate_practice_challenges
+
+    with session_scope() as session:
+        source = session.get(Source, source_id)
+        if not source:
+            raise NotFoundError(f"Source {source_id} not found.")
+        check_source_access(source, user)
+
+        segments = list(session.execute(select(Segment).where(Segment.source_id == source_id).order_by(Segment.index).limit(15)).scalars())
+        concepts = list(session.execute(select(Concept).where(Concept.source_id == source_id).limit(10)).scalars())
+
+        challenges = generate_practice_challenges(source, segments, concepts)
+        return {"challenges": challenges}
+
+
+@router.post("/{source_id}/practice/evaluate")
+async def evaluate_practice(
+    source_id: int,
+    payload: PracticeEvaluateRequest,
+    user: User | None = Depends(get_optional_user),
+) -> dict[str, Any]:
+    """Evaluate student submission on a practice challenge with rubric grading and persistence."""
+    from ..study.document_intelligence import evaluate_practice_attempt
+
+    with session_scope() as session:
+        source = session.get(Source, source_id)
+        if not source:
+            raise NotFoundError(f"Source {source_id} not found.")
+        check_source_access(source, user)
+
+    result = await evaluate_practice_attempt(
+        challenge_id=payload.challenge_id,
+        question=payload.question,
+        student_answer=payload.student_answer,
+        concept=payload.concept,
+        source=source,
+        user=user,
+    )
+    return result.model_dump()
+
+
+@router.get("/{source_id}/practice/history")
+def get_practice_history(
+    source_id: int,
+    user: User | None = Depends(get_optional_user),
+) -> dict[str, Any]:
+    """Retrieve user's previous practice attempts for this document."""
+    if not user:
+        return {"attempts": []}
+    from ..db.models import PracticeAttempt
+    with session_scope() as session:
+        attempts = list(
+            session.execute(
+                select(PracticeAttempt)
+                .where(PracticeAttempt.source_id == source_id, PracticeAttempt.user_id == user.id)
+                .order_by(PracticeAttempt.attempted_at.desc())
+            ).scalars()
+        )
+        return {
+            "attempts": [
+                {
+                    "id": a.id,
+                    "challenge_id": a.challenge_id,
+                    "question": a.question,
+                    "student_answer": a.student_answer,
+                    "score": a.score,
+                    "is_passing": a.is_passing,
+                    "feedback": a.feedback,
+                    "model_solution": a.model_solution,
+                    "attempted_at": a.attempted_at.isoformat() if a.attempted_at else None,
+                }
+                for a in attempts
+            ]
+        }
+
 
 
 # --------------------------------------------------------------------------- regenerate

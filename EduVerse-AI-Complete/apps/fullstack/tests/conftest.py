@@ -8,6 +8,7 @@ through before the user has an API key.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import tempfile
@@ -34,6 +35,8 @@ def data_dir() -> Iterator[Path]:
 
 @pytest.fixture
 def config(data_dir: Path) -> Iterator[Config]:
+    previous_db_url = os.environ.get("QUICKLEARN_DATABASE_URL")
+    os.environ["QUICKLEARN_DATABASE_URL"] = f"sqlite:///{(data_dir / 'quicklearn.db').as_posix()}"
     cfg = Config(data_dir=data_dir, worker_concurrency=2)
     set_config(cfg)
     settings_module.reset_settings()
@@ -41,6 +44,10 @@ def config(data_dir: Path) -> Iterator[Config]:
     try:
         yield cfg
     finally:
+        if previous_db_url is None:
+            os.environ.pop("QUICKLEARN_DATABASE_URL", None)
+        else:
+            os.environ["QUICKLEARN_DATABASE_URL"] = previous_db_url
         session_module.dispose_engine()
         settings_module.reset_settings()
 
