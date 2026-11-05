@@ -221,15 +221,15 @@ $process = Start-Process `
 # 6. Poll for Readiness
 Write-Host "[WAIT] Waiting for application startup..." -NoNewline -ForegroundColor Gray
 $ready = $false
-$timeoutSec = 25
+$timeoutSec = 60
 $startTime = Get-Date
 
 while (((Get-Date) - $startTime).TotalSeconds -lt $timeoutSec) {
     Start-Sleep -Milliseconds 600
     Write-Host "." -NoNewline -ForegroundColor Gray
     try {
-        $res = Invoke-RestMethod -Uri "http://$($HostAddress):$($Port)/api/v1/settings" -TimeoutSec 1 -ErrorAction Stop
-        if ($res.settings) {
+        $res = Invoke-RestMethod -Uri "http://$($HostAddress):$($Port)/api/v1/health" -TimeoutSec 1 -ErrorAction Stop
+        if ($res.status -eq "ok" -or $res.version) {
             $ready = $true
             break
         }
